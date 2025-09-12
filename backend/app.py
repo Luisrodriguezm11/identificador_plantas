@@ -9,8 +9,8 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from config import Config
-from roboflow import Roboflow # <-- 1. Importa Roboflow
-import os # Necesario para guardar temporalmente la imagen
+from roboflow import Roboflow # Importa Roboflow
+import os
 import requests
 
 app = Flask(__name__)
@@ -22,7 +22,7 @@ def get_db_connection():
     conn = psycopg2.connect(app.config['DATABASE_URI'])
     return conn
 
-# --- Rutas de Autenticación ---
+# --- Rutas de Autenticación (sin cambios) ---
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -35,7 +35,6 @@ def register():
     if not all([nombre_completo, email, password]):
         return jsonify({"error": "Faltan datos requeridos"}), 400
 
-    # Cifrar la contraseña
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     try:
@@ -65,7 +64,6 @@ def login():
 
     try:
         conn = get_db_connection()
-        # Usar DictCursor para obtener resultados como diccionarios
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
@@ -75,12 +73,10 @@ def login():
         if not user:
             return jsonify({"error": "Credenciales inválidas"}), 401
 
-        # Verificar la contraseña cifrada
         if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-            # Generar el token JWT
             token = jwt.encode({
                 'user_id': user['id_usuario'],
-                'exp': datetime.utcnow() + timedelta(hours=24) # El token expira en 24 horas
+                'exp': datetime.utcnow() + timedelta(hours=24)
             }, app.config['SECRET_KEY'], algorithm="HS256")
 
             return jsonify({"token": token}), 200
@@ -89,15 +85,12 @@ def login():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-# Pega este bloque completo en tu archivo app.py
 
-# --- Decorador para requerir un token JWT ---
+# --- Decorador (sin cambios) ---
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        # Busca el token en los encabezados de la petición
         if 'x-access-token' in request.headers:
             token = request.headers['x-access-token']
         
@@ -105,16 +98,15 @@ def token_required(f):
             return jsonify({'message': 'Falta el token de autenticación'}), 401
         
         try:
-            # Decodifica el token para obtener los datos del usuario
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
             current_user_id = data['user_id']
         except:
             return jsonify({'message': 'El token es inválido o ha expirado'}), 401
         
-        # Pasa el ID del usuario a la función de la ruta
         return f(current_user_id, *args, **kwargs)
     return decorated    
     
+# --- Ruta /analyze CORREGIDA ---
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
@@ -124,33 +116,72 @@ def analyze_image(current_user_id):
     if not image_url:
         return jsonify({"error": "No se proporcionó la URL de la imagen"}), 400
 
+    temp_image_path = "temp_image.jpg"
     try:
-        # --- Descarga la imagen desde la URL de Firebase ---
+        # 1. Descarga la imagen desde la URL de Firebase
         response = requests.get(image_url, stream=True)
-        response.raise_for_status() # Lanza un error si la descarga falla
+        response.raise_for_status()
 
-        temp_image_path = "temp_image.jpg"
         with open(temp_image_path, 'wb') as f:
             f.write(response.content)
 
-        # --- Realiza la predicción con Roboflow (como antes) ---
-        # ... tu código de Roboflow usando temp_image_path ...
+        # 2. Realiza la predicción con Roboflow
+        rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
+        # Extrae el workspace y el project_id del string del modelo
+        project_id, version_id = app.config['ROBOFLOW_MODEL_ID'].split('/')
+        project = rf.workspace().project(project_id)
+        model = project.version(version_id).model
+        
+        prediction = model.predict(temp_image_path, confidence=40, overlap=30).json()
 
-        # --- Guarda en la DB (como antes, pero con la URL de Firebase) ---
-        # ... tu código para guardar en la tabla 'analisis' ...
-        # Recuerda usar 'image_url' en lugar de la URL de S3
+        # 3. Formatea el resultado
+        class_detected = "No se detectó ninguna plaga"
+        confidence = 0.0
+        # Toma la predicción con la confianza más alta
+        if prediction.get('predictions'):
+            top_pred = max(prediction['predictions'], key=lambda p: p['confidence'])
+            class_detected = top_pred['class']
+            confidence = top_pred['confidence']
 
+        # Aquí podrías tener una lógica más compleja para las recomendaciones
+        recommendations = {
+            "cercospora": "Aplicar fungicidas a base de cobre y mejorar la ventilación.",
+            "phoma": "Podar las ramas afectadas y aplicar un tratamiento fungicida específico.",
+            "roya": "Usar variedades resistentes y aplicar fungicidas sistémicos. Controlar la sombra.",
+            "sano": "La hoja parece estar sana. Continúa con las buenas prácticas de cultivo.",
+            "minador": "Utilizar trampas pegajosas y control biológico con avispas parasitoides."
+        }
+        
+        analysis_result = {
+            "prediction": class_detected,
+            "confidence": confidence,
+            "recommendation": recommendations.get(class_detected.lower(), "No hay una recomendación específica.")
+        }
+
+        # 4. Guarda el análisis en la base de datos
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO analisis (id_usuario, url_imagen, resultado_prediccion, confianza, fecha_analisis)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (current_user_id, image_url, analysis_result['prediction'], analysis_result['confidence'], datetime.utcnow())
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # 5. Borra la imagen temporal y devuelve el resultado
+        os.remove(temp_image_path)
         return jsonify(analysis_result), 200
 
-
     except Exception as e:
-        # Si algo falla (ej. la imagen temporal), bórrala si existe
-        if 'temp_image_path' in locals() and os.path.exists(temp_image_path):
+        if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
+        # Devolvemos un error más específico en formato JSON
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
 
-
 if __name__ == '__main__':
-    # Escucha en todas las interfaces de red, útil para probar desde el emulador
     app.run(host='0.0.0.0', port=5001, debug=True)

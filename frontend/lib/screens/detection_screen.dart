@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/detection_service.dart'; // <-- Importa el nuevo servicio
+import '../services/detection_service.dart';
+import '../services/storage_service.dart'; // <-- 1. Importa el servicio de storage
+import 'package:http/http.dart' as http;
 
 class DetectionScreen extends StatefulWidget {
   const DetectionScreen({super.key});
@@ -18,6 +20,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
   XFile? _imageFile;
   final ImagePicker _picker = ImagePicker();
   final DetectionService _detectionService = DetectionService();
+  final StorageService _storageService = StorageService(); // <-- 2. Crea una instancia del servicio
 
   // Variables para manejar el estado del análisis
   bool _isLoading = false;
@@ -35,6 +38,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
+  // --- 3. Función de análisis corregida ---
   Future<void> _analyzeImage() async {
     if (_imageFile == null) return;
 
@@ -45,14 +49,25 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
 
     try {
-      final response = await _detectionService.analyzeImage(_imageFile!);
-      if (response.statusCode == 200) {
-        setState(() {
-          _analysisResult = json.decode(response.body);
-        });
+      // Primero, sube la imagen a Firebase Storage
+      final String? imageUrl = await _storageService.uploadImage(_imageFile!);
+
+      if (imageUrl != null) {
+        // Si la subida fue exitosa, llama al backend con la URL
+        final http.Response response = await _detectionService.analyzeImageWithUrl(imageUrl);
+
+        if (response.statusCode == 200) {
+          setState(() {
+            _analysisResult = json.decode(response.body);
+          });
+        } else {
+          setState(() {
+            _errorMessage = "Error del servidor: ${response.body}";
+          });
+        }
       } else {
         setState(() {
-          _errorMessage = "Error del servidor: ${response.body}";
+          _errorMessage = "No se pudo subir la imagen. Inténtalo de nuevo.";
         });
       }
     } catch (e) {
@@ -65,6 +80,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -125,11 +141,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
                         children: [
                           const Text("Resultados del Análisis:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
-                          Text("Diagnóstico: ${_analysisResult!['prediction']}", style: const TextStyle(fontSize: 16)),
-                          Text("Confianza: ${(_analysisResult!['confidence'] * 100).toStringAsFixed(1)}%", style: const TextStyle(fontSize: 16)),
+                          // Asegúrate de que las claves coinciden con la respuesta de tu backend
+                          Text("Diagnóstico: ${_analysisResult!['prediction'] ?? 'No disponible'}", style: const TextStyle(fontSize: 16)),
+                          Text("Confianza: ${((_analysisResult!['confidence'] ?? 0) * 100).toStringAsFixed(1)}%", style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 10),
                           const Text("Recomendación:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          Text(_analysisResult!['recommendation']),
+                          Text(_analysisResult!['recommendation'] ?? 'No disponible'),
                         ],
                       ),
                     ),

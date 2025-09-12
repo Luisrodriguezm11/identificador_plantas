@@ -1,33 +1,39 @@
 // frontend/lib/services/detection_service.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart'; // Necesario para obtener el token de autenticación
+import 'auth_service.dart';
 
 class DetectionService {
-  // La URL de tu backend no cambia
-  final String _baseUrl = "http://127.0.0.1:5001";
+  // REEMPLAZA ESTA IP CON LA TUYA
+  final String _baseUrl = "http://192.168.0.31:5001"; // <-- CAMBIA ESTO
   final AuthService _authService = AuthService();
 
-  /// Envía la URL de una imagen (ya subida a Firebase) al backend para su análisis.
   Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
-    // 1. Obtiene el token del usuario para autenticar la petición
-    final String? token = await _authService.readToken();
+    // Este bloque try-catch mejorado previene el error 'type Null is not a subtype'
+    try {
+      final String? token = await _authService.readToken();
 
-    // 2. Realiza la petición POST, enviando la URL en formato JSON
-    final response = await http.post(
-      Uri.parse('$_baseUrl/analyze'),
-      headers: <String, String>{
-        // El backend ahora espera JSON, no un archivo
-        'Content-Type': 'application/json; charset=UTF-8',
-        // Adjunta el token para las rutas protegidas
-        'x-access-token': token ?? '',
-      },
-      body: jsonEncode(<String, String>{
-        'image_url': imageUrl,
-      }),
-    );
+      final response = await http.post(
+        Uri.parse('$_baseUrl/analyze'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+        body: jsonEncode(<String, String>{
+          'image_url': imageUrl,
+        }),
+      ).timeout(const Duration(seconds: 30)); // Aumenta el timeout por si el análisis tarda
 
-    return response;
+      return response;
+
+    } on TimeoutException catch (_) {
+        throw Exception('La conexión tardó demasiado. Asegúrate que el servidor backend esté corriendo en: $_baseUrl');
+    } on http.ClientException catch (e) {
+        throw Exception('Error de red: No se pudo conectar al servidor. Detalle: ${e.message}');
+    } catch (e) {
+        throw Exception('Ocurrió un error inesperado al contactar el servicio de detección: $e');
+    }
   }
 }

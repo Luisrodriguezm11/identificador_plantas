@@ -41,7 +41,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDc4h57qjpCE07ncKOd223SX9JWwQLf5UM',
+    apiKey: 'AIzaSyBqvvleEvgdxA-Yv73w9qdBdeQMpkEF7wY',
     appId: '1:977892731360:web:adda0ba53ab10142d32385',
     messagingSenderId: '977892731360',
     projectId: 'identificador-plagas-v2',
@@ -50,7 +50,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCzVilayynKBzyAEv6dI2PlUa31I2JZ6jI',
+    apiKey: 'AIzaSyAcLL44UkmHksvy6ISnTXzn6BCvLq_iQjg',
     appId: '1:977892731360:android:767bda0569c9e3d2d32385',
     messagingSenderId: '977892731360',
     projectId: 'identificador-plagas-v2',
@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAsgoTA7CA8Zj0_xv527UezQOm3p34OgGc',
+    apiKey: 'AIzaSyAov7kgRi8DdG50Hgfn_YKETiivoChDAcA',
     appId: '1:977892731360:ios:c9485c5b13853351d32385',
     messagingSenderId: '977892731360',
     projectId: 'identificador-plagas-v2',
@@ -67,7 +67,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAsgoTA7CA8Zj0_xv527UezQOm3p34OgGc',
+    apiKey: 'AIzaSyAov7kgRi8DdG50Hgfn_YKETiivoChDAcA',
     appId: '1:977892731360:ios:c9485c5b13853351d32385',
     messagingSenderId: '977892731360',
     projectId: 'identificador-plagas-v2',
@@ -76,11 +76,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDc4h57qjpCE07ncKOd223SX9JWwQLf5UM',
+    apiKey: 'AIzaSyBqvvleEvgdxA-Yv73w9qdBdeQMpkEF7wY',
     appId: '1:977892731360:web:a8509425055be941d32385',
     messagingSenderId: '977892731360',
     projectId: 'identificador-plagas-v2',
     authDomain: 'identificador-plagas-v2.firebaseapp.com',
     storageBucket: 'identificador-plagas-v2.firebasestorage.app',
   );
+
 }
