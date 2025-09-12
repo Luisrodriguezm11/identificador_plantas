@@ -1,51 +1,33 @@
 // frontend/lib/services/detection_service.dart
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
+import 'auth_service.dart'; // Necesario para obtener el token de autenticación
 
 class DetectionService {
+  // La URL de tu backend no cambia
   final String _baseUrl = "http://127.0.0.1:5001";
+  final AuthService _authService = AuthService();
 
-  // This is the main method the app will call
-  Future<http.Response> analyzeImage(XFile imageFile) async {
-    // Check if the app is running on the web
-    if (kIsWeb) {
-      return _analyzeImageWeb(imageFile);
-    } else {
-      return _analyzeImageMobile(imageFile);
-    }
-  }
+  /// Envía la URL de una imagen (ya subida a Firebase) al backend para su análisis.
+  Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
+    // 1. Obtiene el token del usuario para autenticar la petición
+    final String? token = await _authService.readToken();
 
-  // Method for Mobile (Android/iOS)
-  Future<http.Response> _analyzeImageMobile(XFile imageFile) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/analyze'));
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'image',
-        imageFile.path,
-      ),
+    // 2. Realiza la petición POST, enviando la URL en formato JSON
+    final response = await http.post(
+      Uri.parse('$_baseUrl/analyze'),
+      headers: <String, String>{
+        // El backend ahora espera JSON, no un archivo
+        'Content-Type': 'application/json; charset=UTF-8',
+        // Adjunta el token para las rutas protegidas
+        'x-access-token': token ?? '',
+      },
+      body: jsonEncode(<String, String>{
+        'image_url': imageUrl,
+      }),
     );
-    var streamedResponse = await request.send();
-    return await http.Response.fromStream(streamedResponse);
-  }
 
-  // Method for Web
-  Future<http.Response> _analyzeImageWeb(XFile imageFile) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/analyze'));
-
-    // Read the file as bytes
-    final fileBytes = await imageFile.readAsBytes();
-
-    // Create a MultipartFile from the bytes
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'image', // The field name
-        fileBytes,
-        filename: imageFile.name, // Pass the original filename
-      ),
-    );
-    var streamedResponse = await request.send();
-    return await http.Response.fromStream(streamedResponse);
+    return response;
   }
 }

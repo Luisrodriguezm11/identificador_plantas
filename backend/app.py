@@ -11,6 +11,7 @@ from functools import wraps
 from config import Config
 from roboflow import Roboflow # <-- 1. Importa Roboflow
 import os # Necesario para guardar temporalmente la imagen
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -89,60 +90,58 @@ def login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+# Pega este bloque completo en tu archivo app.py
+
+# --- Decorador para requerir un token JWT ---
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        # Busca el token en los encabezados de la petición
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+        
+        if not token:
+            return jsonify({'message': 'Falta el token de autenticación'}), 401
+        
+        try:
+            # Decodifica el token para obtener los datos del usuario
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user_id = data['user_id']
+        except:
+            return jsonify({'message': 'El token es inválido o ha expirado'}), 401
+        
+        # Pasa el ID del usuario a la función de la ruta
+        return f(current_user_id, *args, **kwargs)
+    return decorated    
+    
 @app.route('/analyze', methods=['POST'])
-def analyze_image():
-    if 'image' not in request.files:
-        return jsonify({"error": "No se encontró ninguna imagen"}), 400
+@token_required
+def analyze_image(current_user_id):
+    data = request.get_json()
+    image_url = data.get('image_url')
 
-    image_file = request.files['image']
-
-    if image_file.filename == '':
-        return jsonify({"error": "No se seleccionó ninguna imagen"}), 400
+    if not image_url:
+        return jsonify({"error": "No se proporcionó la URL de la imagen"}), 400
 
     try:
-        # --- Inicio de la Integración con Roboflow ---
+        # --- Descarga la imagen desde la URL de Firebase ---
+        response = requests.get(image_url, stream=True)
+        response.raise_for_status() # Lanza un error si la descarga falla
 
-        # 2. Guarda la imagen temporalmente para que Roboflow pueda leerla
-        temp_image_path = os.path.join("./", image_file.filename)
-        image_file.save(temp_image_path)
+        temp_image_path = "temp_image.jpg"
+        with open(temp_image_path, 'wb') as f:
+            f.write(response.content)
 
-        # 3. Inicializa la API de Roboflow
-        rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
-        project = rf.workspace().project(app.config['ROBOFLOW_MODEL_ID'].split('/')[0])
-        model = project.version(int(app.config['ROBOFLOW_MODEL_ID'].split('/')[1])).model
+        # --- Realiza la predicción con Roboflow (como antes) ---
+        # ... tu código de Roboflow usando temp_image_path ...
 
-        # 4. Realiza la predicción
-        prediction = model.predict(temp_image_path, confidence=40, overlap=30).json()
-
-        # 5. Borra la imagen temporal
-        os.remove(temp_image_path)
-
-        # --- Fin de la Integración con Roboflow ---
-
-        # 6. Procesa la respuesta de Roboflow
-        if not prediction['predictions']:
-            # Si el modelo no detectó nada con suficiente confianza
-            analysis_result = {
-                "prediction": "No se detectó ninguna plaga conocida",
-                "confidence": 0.0,
-                "recommendation": "La hoja parece estar sana. Continúe monitoreando regularmente."
-            }
-        else:
-            # Toma la detección con la confianza más alta
-            best_prediction = prediction['predictions'][0]
-            disease_name = best_prediction['class']
-            confidence_level = best_prediction['confidence']
-
-            # (Opcional) Aquí podrías buscar en tu base de datos una recomendación para 'disease_name'
-            recommendation_text = "Recomendación para " + disease_name # Placeholder
-
-            analysis_result = {
-                "prediction": disease_name,
-                "confidence": confidence_level,
-                "recommendation": recommendation_text
-            }
+        # --- Guarda en la DB (como antes, pero con la URL de Firebase) ---
+        # ... tu código para guardar en la tabla 'analisis' ...
+        # Recuerda usar 'image_url' en lugar de la URL de S3
 
         return jsonify(analysis_result), 200
+
 
     except Exception as e:
         # Si algo falla (ej. la imagen temporal), bórrala si existe

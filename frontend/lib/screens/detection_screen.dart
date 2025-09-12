@@ -41,6 +41,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _analysisResult = null;
     });
 
     try {

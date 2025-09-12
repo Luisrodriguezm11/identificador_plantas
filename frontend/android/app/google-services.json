@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "977892731360",
+    "project_id": "identificador-plagas-v2",
+    "storage_bucket": "identificador-plagas-v2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:977892731360:android:767bda0569c9e3d2d32385",
+        "android_client_info": {
+          "package_name": "com.example.frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzVilayynKBzyAEv6dI2PlUa31I2JZ6jI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
