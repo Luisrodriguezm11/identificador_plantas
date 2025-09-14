@@ -85,4 +85,36 @@ class DetectionService {
       throw Exception('No se pudo completar la operación: $e');
     }
   }
+
+  Future<List<dynamic>> getTrashedItems() async {
+    final String? token = await _authService.readToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/history/trash'),
+      headers: {'x-access-token': token ?? ''},
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al cargar la papelera');
+    }
+  }
+
+  Future<bool> restoreHistoryItem(int analysisId) async {
+    final String? token = await _authService.readToken();
+    final response = await http.put(
+      Uri.parse('$_baseUrl/history/$analysisId/restore'),
+      headers: {'x-access-token': token ?? ''},
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> permanentlyDeleteItem(int analysisId) async {
+    final String? token = await _authService.readToken();
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/history/$analysisId/permanent'),
+      headers: {'x-access-token': token ?? ''},
+    );
+    return response.statusCode == 200;
+  }
 }
+

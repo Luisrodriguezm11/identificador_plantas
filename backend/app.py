@@ -12,6 +12,20 @@ from config import Config
 from roboflow import Roboflow # Importa Roboflow
 import os
 import requests
+from urllib.parse import unquote, urlparse
+import firebase_admin
+from firebase_admin import credentials, storage
+
+# --- INICIALIZACIÓN DE FIREBASE ADMIN SDK ---
+# Asegúrate de que el path al archivo .json sea correcto
+try:
+    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred, {
+        'storageBucket': 'identificador-plagas-v2.firebasestorage.app'
+    })
+except Exception as e:
+    print(f"Error inicializando Firebase Admin: {e}")
+# --- FIN DE LA INICIALIZACIÓN ---
 
 app = Flask(__name__)
 CORS(app)
@@ -198,7 +212,7 @@ def get_history(current_user_id):
         
         # Seleccionamos todos los análisis que coincidan con el id del usuario
         cur.execute(
-            "SELECT * FROM analisis WHERE id_usuario = %s ORDER BY fecha_analisis DESC", 
+            "SELECT * FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NULL ORDER BY fecha_analisis DESC", 
             (current_user_id,)
         )
         
@@ -248,7 +262,7 @@ def delete_history_item(current_user_id, analysis_id):
 
         # Ahora, borramos el registro de la base de datos
         cur.execute(
-            "DELETE FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
+            "UPDATE analisis SET fecha_eliminado = NOW() AT TIME ZONE 'UTC' WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
         )
         conn.commit()
@@ -263,6 +277,111 @@ def delete_history_item(current_user_id, analysis_id):
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al borrar el análisis: {str(e)}"}), 500
+
+# --- RUTA PARA VER LOS ELEMENTOS EN LA PAPELERA ---
+@app.route('/history/trash', methods=['GET'])
+@token_required
+def get_trashed_history(current_user_id):
+    """Devuelve todos los análisis que han sido 'borrados' por el usuario."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Seleccionamos solo los análisis donde fecha_eliminado NO es NULL
+        cur.execute(
+            "SELECT * FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL ORDER BY fecha_eliminado DESC", 
+            (current_user_id,)
+        )
+        
+        history = cur.fetchall()
+        # ... (el resto del código para formatear la respuesta es igual que en get_history)
+        results = [dict(row) for row in history]
+        for r in results:
+            if r.get('fecha_analisis'):
+                r['fecha_analisis'] = r['fecha_analisis'].isoformat()
+            if r.get('fecha_eliminado'):
+                r['fecha_eliminado'] = r['fecha_eliminado'].isoformat()
+
+        cur.close()
+        conn.close()
+        return jsonify(results), 200
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al obtener la papelera: {str(e)}"}), 500
+
+
+# --- RUTA PARA RESTAURAR UN ANÁLISIS DESDE LA PAPELERA ---
+@app.route('/history/<int:analysis_id>/restore', methods=['PUT'])
+@token_required
+def restore_history_item(current_user_id, analysis_id):
+    """Restaura un análisis marcando su fecha_eliminado como NULL."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE analisis SET fecha_eliminado = NULL WHERE id_analisis = %s AND id_usuario = %s",
+            (analysis_id, current_user_id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": "Análisis restaurado exitosamente"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al restaurar: {str(e)}"}), 500
+
+
+# --- RUTA PARA BORRAR PERMANENTEMENTE UN ANÁLISIS (VERSIÓN MEJORADA) ---
+@app.route('/history/<int:analysis_id>/permanent', methods=['DELETE'])
+@token_required
+def permanently_delete_item(current_user_id, analysis_id):
+    """
+    Borra un registro permanentemente de la DB y su archivo de Firebase Storage.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # 1. Obtenemos la URL de la imagen ANTES de borrar el registro
+        cur.execute(
+            "SELECT url_imagen FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
+            (analysis_id, current_user_id)
+        )
+        item_to_delete = cur.fetchone()
+
+        if not item_to_delete:
+            return jsonify({"error": "Análisis no encontrado"}), 404
+        
+        image_url = item_to_delete['url_imagen']
+
+        # 2. Borramos el registro de la base de datos
+        cur.execute(
+            "DELETE FROM analisis WHERE id_analisis = %s", (analysis_id,)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # 3. Borramos la imagen de Firebase Storage
+        if image_url:
+            try:
+                # Extraemos el nombre del archivo desde la URL
+                # La ruta del archivo está después de '/o/' y antes de '?alt=media'
+                path_start = image_url.find("/o/") + 3
+                path_end = image_url.find("?alt=media")
+                file_path = unquote(image_url[path_start:path_end])
+                
+                bucket = storage.bucket()
+                blob = bucket.blob(file_path)
+                blob.delete()
+                print(f"Imagen {file_path} borrada de Firebase Storage.")
+            except Exception as e:
+                print(f"No se pudo borrar la imagen de Firebase Storage: {e}")
+
+        return jsonify({"message": "Análisis borrado permanentemente de la base de datos y del almacenamiento"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error en el borrado permanente: {str(e)}"}), 500
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

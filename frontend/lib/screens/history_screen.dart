@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/detection_service.dart';
+import 'trash_screen.dart'; // <-- 1. IMPORTA LA NUEVA PANTALLA
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -12,7 +13,6 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final DetectionService _detectionService = DetectionService();
-  // Ahora la lista del historial es una variable de estado, no un Future
   List<dynamic>? _historyList;
   bool _isLoading = true;
   String? _errorMessage;
@@ -23,7 +23,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _fetchHistory();
   }
 
-  // Función para cargar o recargar el historial
   Future<void> _fetchHistory() async {
     setState(() {
       _isLoading = true;
@@ -43,40 +42,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
-  // --- NUEVA FUNCIÓN PARA MANEJAR EL BORRADO ---
   Future<void> _deleteItem(int analysisId, int index) async {
-    // Mostrar diálogo de confirmación
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar Borrado'),
-        content: const Text('¿Estás seguro de que quieres borrar este análisis? Esta acción no se puede deshacer.'),
+        // Cambiamos el texto para reflejar que va a la papelera
+        content: const Text('¿Enviar este análisis a la papelera?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // No confirmar
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Sí confirmar
-            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Enviar', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
-    // Si el usuario no confirma, no hacer nada
     if (confirmed != true) return;
 
     try {
       final success = await _detectionService.deleteHistoryItem(analysisId);
       if (success) {
-        // Si el borrado fue exitoso, actualiza la UI al instante
         setState(() {
           _historyList!.removeAt(index);
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Análisis borrado con éxito'), backgroundColor: Colors.green),
+            const SnackBar(content: Text('Análisis enviado a la papelera'), backgroundColor: Colors.green),
           );
         }
       }
@@ -95,8 +91,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text("Historial de Análisis"),
         backgroundColor: Colors.green[700],
+        // --- 2. AÑADE ESTA SECCIÓN DE 'actions' ---
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Ver Papelera',
+            onPressed: () async {
+              // Navega a la papelera y espera a que el usuario regrese
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const TrashScreen()),
+              );
+              // Cuando regresa, actualiza el historial por si se restauró algo
+              _fetchHistory();
+            },
+          ),
+        ],
+        // --- FIN DE LA SECCIÓN ---
       ),
-      // Usamos un RefreshIndicator para poder recargar el historial deslizando hacia abajo
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
@@ -120,7 +131,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               padding: const EdgeInsets.all(12.0),
                               child: Row(
                                 children: [
-                                  // Imagen en miniatura
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8.0),
                                     child: Image.network(
@@ -128,19 +138,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       width: 80,
                                       height: 80,
                                       fit: BoxFit.cover,
-                                      // Muestra un loader mientras carga la imagen
                                       loadingBuilder: (context, child, progress) {
                                         return progress == null ? child : const Center(child: CircularProgressIndicator());
                                       },
-                                      // Muestra un ícono de error si la imagen no carga
                                       errorBuilder: (context, error, stackTrace) {
                                         return const Icon(Icons.error, size: 40);
                                       },
                                     ),
                                   ),
                                   const SizedBox(width: 15),
-                                  // --- CAMBIO AQUÍ ---
-                                  // Envolvemos la columna en un Expanded
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,8 +161,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       ],
                                     ),
                                   ),
-                                  // --- FIN DEL CAMBIO ---
-                                  // Botón de borrado
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                                     onPressed: () => _deleteItem(analysis['id_analisis'], index),
