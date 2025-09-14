@@ -183,5 +183,86 @@ def analyze_image(current_user_id):
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
 
+# --- RUTA PARA OBTENER EL HISTORIAL DE ANÁLISIS ---
+@app.route('/history', methods=['GET'])
+@token_required
+def get_history(current_user_id):
+    """
+    Devuelve todos los análisis realizados por el usuario actual,
+    ordenados del más reciente al más antiguo.
+    """
+    try:
+        conn = get_db_connection()
+        # Usamos DictCursor para que los resultados sean fáciles de manejar
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Seleccionamos todos los análisis que coincidan con el id del usuario
+        cur.execute(
+            "SELECT * FROM analisis WHERE id_usuario = %s ORDER BY fecha_analisis DESC", 
+            (current_user_id,)
+        )
+        
+        history = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        # Convertimos los resultados a una lista de diccionarios que se pueda enviar como JSON
+        # También nos aseguramos de que el formato de fecha sea un string legible
+        results = []
+        for row in history:
+            results.append({
+                "id_analisis": row["id_analisis"],
+                "url_imagen": row["url_imagen"],
+                "resultado_prediccion": row["resultado_prediccion"],
+                "confianza": row["confianza"],
+                "fecha_analisis": row["fecha_analisis"].isoformat() # Convertir fecha a string
+            })
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al obtener el historial: {str(e)}"}), 500
+
+# --- RUTA PARA BORRAR UN ANÁLISIS ESPECÍFICO ---
+@app.route('/history/<int:analysis_id>', methods=['DELETE'])
+@token_required
+def delete_history_item(current_user_id, analysis_id):
+    """
+    Borra un registro de análisis específico de la base de datos y su imagen de Firebase Storage.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Primero, obtenemos la URL de la imagen para poder borrarla de Firebase
+        cur.execute(
+            "SELECT url_imagen FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
+            (analysis_id, current_user_id)
+        )
+        item = cur.fetchone()
+
+        if not item:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Análisis no encontrado o no autorizado"}), 404
+
+        # Ahora, borramos el registro de la base de datos
+        cur.execute(
+            "DELETE FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
+            (analysis_id, current_user_id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        # Opcional pero recomendado: Borrar la imagen de Firebase Storage
+        # Esta parte es más avanzada y requiere el SDK de Admin de Firebase.
+        # Por ahora, nos enfocaremos en borrar el registro de la base de datos.
+
+        return jsonify({"message": "Análisis borrado exitosamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al borrar el análisis: {str(e)}"}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

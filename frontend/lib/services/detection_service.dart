@@ -6,12 +6,11 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class DetectionService {
-  // REEMPLAZA ESTA IP CON LA TUYA
-  final String _baseUrl = "http://192.168.0.31:5001"; // <-- CAMBIA ESTO
+  final String _baseUrl = "http://192.168.0.32:5001"; // Asegúrate que esta IP sea la correcta
   final AuthService _authService = AuthService();
 
+  // --- MÉTODO PARA ANALIZAR IMAGEN (CORREGIDO Y COMPLETO) ---
   Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
-    // Este bloque try-catch mejorado previene el error 'type Null is not a subtype'
     try {
       final String? token = await _authService.readToken();
 
@@ -34,6 +33,56 @@ class DetectionService {
         throw Exception('Error de red: No se pudo conectar al servidor. Detalle: ${e.message}');
     } catch (e) {
         throw Exception('Ocurrió un error inesperado al contactar el servicio de detección: $e');
+    }
+  }
+
+  // --- MÉTODO PARA OBTENER EL HISTORIAL ---
+  Future<List<dynamic>> getHistory() async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.get(
+        Uri.parse('$_baseUrl/history'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Error al cargar el historial: ${response.body}');
+      }
+    } on TimeoutException catch (_) {
+      throw Exception('La conexión tardó demasiado.');
+    } catch (e) {
+      throw Exception('Error de conexión: $e');
+    }
+  }
+
+  Future<bool> deleteHistoryItem(int analysisId) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.delete(
+        // La URL ahora incluye el ID del análisis
+        Uri.parse('$_baseUrl/history/$analysisId'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        // Si el servidor responde con 200 OK, el borrado fue exitoso
+        return true;
+      } else {
+        // Si no, lanzamos un error con el mensaje del servidor
+        final body = json.decode(response.body);
+        throw Exception('Error al borrar: ${body['error']}');
+      }
+    } catch (e) {
+      // Re-lanzamos el error para que la pantalla lo pueda mostrar
+      throw Exception('No se pudo completar la operación: $e');
     }
   }
 }
