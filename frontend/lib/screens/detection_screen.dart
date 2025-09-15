@@ -2,12 +2,12 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/detection_service.dart';
-import '../services/storage_service.dart'; // <-- 1. Importa el servicio de storage
-import 'package:http/http.dart' as http;
+import '../services/storage_service.dart';
 
 class DetectionScreen extends StatefulWidget {
   const DetectionScreen({super.key});
@@ -20,9 +20,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
   XFile? _imageFile;
   final ImagePicker _picker = ImagePicker();
   final DetectionService _detectionService = DetectionService();
-  final StorageService _storageService = StorageService(); // <-- 2. Crea una instancia del servicio
+  final StorageService _storageService = StorageService();
 
-  // Variables para manejar el estado del análisis
   bool _isLoading = false;
   Map<String, dynamic>? _analysisResult;
   String? _errorMessage;
@@ -32,13 +31,22 @@ class _DetectionScreenState extends State<DetectionScreen> {
     if (pickedFile != null) {
       setState(() {
         _imageFile = pickedFile;
-        _analysisResult = null; // Limpia el resultado anterior al elegir una nueva imagen
+        _analysisResult = null;
         _errorMessage = null;
       });
     }
   }
 
-  // --- 3. Función de análisis corregida ---
+  // --- NUEVA FUNCIÓN PARA QUITAR LA IMAGEN SELECCIONADA ---
+  void _clearImage() {
+    setState(() {
+      _imageFile = null;
+      _analysisResult = null;
+      _errorMessage = null;
+    });
+  }
+  // --- FIN DE LA NUEVA FUNCIÓN ---
+
   Future<void> _analyzeImage() async {
     if (_imageFile == null) return;
 
@@ -49,13 +57,9 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
 
     try {
-      // Primero, sube la imagen a Firebase Storage
       final String? imageUrl = await _storageService.uploadImage(_imageFile!);
-
       if (imageUrl != null) {
-        // Si la subida fue exitosa, llama al backend con la URL
         final http.Response response = await _detectionService.analyzeImageWithUrl(imageUrl);
-
         if (response.statusCode == 200) {
           setState(() {
             _analysisResult = json.decode(response.body);
@@ -81,7 +85,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -96,16 +99,39 @@ class _DetectionScreenState extends State<DetectionScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Widget para mostrar la imagen seleccionada
+                // --- CAMBIO EN EL WIDGET DE IMAGEN ---
+                // Ahora usamos un Stack para poner un botón sobre la imagen
                 _imageFile != null
-                    ? kIsWeb
-                        ? Image.network(_imageFile!.path, width: 300, height: 300, fit: BoxFit.cover)
-                        : Image.file(File(_imageFile!.path), width: 300, height: 300, fit: BoxFit.cover)
-                    : Container(
+                    ? Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          // La imagen
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12.0),
+                            child: kIsWeb
+                                ? Image.network(_imageFile!.path, width: 300, height: 300, fit: BoxFit.cover)
+                                : Image.file(File(_imageFile!.path), width: 300, height: 300, fit: BoxFit.cover),
+                          ),
+                          // El botón para borrar la selección
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black54,
+                              child: IconButton(
+                                icon: const Icon(Icons.close, color: Colors.white),
+                                onPressed: _clearImage,
+                                tooltip: 'Quitar imagen',
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Container( // El placeholder cuando no hay imagen
                         width: 300, height: 300,
                         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(12)),
                         child: const Icon(Icons.image, size: 100, color: Colors.grey),
                       ),
+                // --- FIN DEL CAMBIO ---
                 const SizedBox(height: 20),
 
                 // Botones de acción
@@ -115,16 +141,16 @@ class _DetectionScreenState extends State<DetectionScreen> {
                   onPressed: _pickImageFromGallery,
                 ),
                 const SizedBox(height: 10),
-                if (_imageFile != null) // Solo muestra el botón si hay una imagen
+                if (_imageFile != null)
                   ElevatedButton.icon(
                     icon: const Icon(Icons.analytics),
                     label: const Text("Analizar Imagen"),
-                    onPressed: _isLoading ? null : _analyzeImage, // Deshabilita si está cargando
+                    onPressed: _isLoading ? null : _analyzeImage,
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   ),
                 const SizedBox(height: 30),
 
-                // Muestra el resultado o el estado de carga
+                // ... (El resto del código para mostrar resultados no cambia) ...
                 if (_isLoading)
                   const CircularProgressIndicator(),
 
@@ -141,7 +167,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                         children: [
                           const Text("Resultados del Análisis:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
-                          // Asegúrate de que las claves coinciden con la respuesta de tu backend
                           Text("Diagnóstico: ${_analysisResult!['prediction'] ?? 'No disponible'}", style: const TextStyle(fontSize: 16)),
                           Text("Confianza: ${((_analysisResult!['confidence'] ?? 0) * 100).toStringAsFixed(1)}%", style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 10),
