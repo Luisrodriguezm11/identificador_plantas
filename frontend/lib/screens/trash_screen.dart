@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
 import 'package:frontend/screens/dashboard_screen.dart';
+import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
@@ -62,6 +63,9 @@ class _TrashScreenState extends State<TrashScreen> {
       case 2:
         break;
       case 3:
+         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded))); // <-- AÑADIR
+        break;
+      case 4:
         _logout(context);
         break;
     }

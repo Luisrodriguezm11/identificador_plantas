@@ -138,4 +138,33 @@ class DetectionService {
     );
     return response.statusCode == 200;
   }
+
+  Future<Map<String, dynamic>> calculateDose(int treatmentId, int plantCount) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.post(
+        Uri.parse('$_baseUrl/calculate_dose'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+        body: jsonEncode(<String, int>{
+          'treatment_id': treatmentId,
+          'plant_count': plantCount,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al calcular la dosis: ${body['error']}');
+      }
+    } on TimeoutException catch (_) {
+      throw Exception('La conexión para calcular la dosis tardó demasiado.');
+    } catch (e) {
+      throw Exception('Error de conexión al calcular la dosis: $e');
+    }
+}
+
 }

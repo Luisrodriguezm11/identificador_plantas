@@ -77,8 +77,9 @@ class SideNavigationRail extends StatelessWidget {
               _buildNavItem(Icons.dashboard_outlined, "Dashboard", 0, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.history_outlined, "Historial", 1, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.delete_sweep_outlined, "Papelera", 2, selectedIndex, isExpanded, onItemSelected),
+              _buildNavItem(Icons.calculate_outlined, "Calcular Dosis", 3, selectedIndex, isExpanded, onItemSelected), // <-- NUEVO ITEM
               const Spacer(),
-              _buildNavItem(Icons.logout, "Cerrar Sesión", 3, selectedIndex, isExpanded, onItemSelected),
+              _buildNavItem(Icons.logout, "Cerrar Sesión", 4, selectedIndex, isExpanded, onItemSelected),
               const SizedBox(height: 16),
               IconButton(
                 icon: Icon(isExpanded ? Icons.arrow_back_ios_new : Icons.arrow_forward_ios, color: Colors.white, size: 18),

@@ -370,7 +370,6 @@ def calculate_dose(current_user_id):
         return jsonify({"error": "Faltan datos requeridos (ID de tratamiento y número de plantas)"}), 400
 
     try:
-        # Asegurarnos de que el número de plantas es un entero válido
         plant_count = int(plant_count)
         if plant_count <= 0:
             return jsonify({"error": "El número de plantas debe ser mayor que cero"}), 400
@@ -378,7 +377,6 @@ def calculate_dose(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # Obtenemos las dosis por planta desde la base de datos
         cur.execute(
             "SELECT dosis_por_planta_ml, agua_por_planta_ml FROM tratamientos WHERE id_tratamiento = %s",
             (treatment_id,)
@@ -389,14 +387,21 @@ def calculate_dose(current_user_id):
 
         if not treatment_data:
             return jsonify({"error": "Tratamiento no encontrado"}), 404
+        
+        # --- VALIDACIÓN AÑADIDA ---
+        dosis_producto = treatment_data.get('dosis_por_planta_ml')
+        dosis_agua = treatment_data.get('agua_por_planta_ml')
 
-        # Realizamos el cálculo
-        total_producto_ml = treatment_data['dosis_por_planta_ml'] * plant_count
-        total_agua_ml = treatment_data['agua_por_planta_ml'] * plant_count
+        if dosis_producto is None or dosis_agua is None:
+            return jsonify({"error": "Los datos de dosis para este tratamiento están incompletos en la base de datos."}), 400
+        # --- FIN DE LA VALIDACIÓN ---
+
+        total_producto_ml = dosis_producto * plant_count
+        total_agua_ml = dosis_agua * plant_count
 
         response = {
             "total_producto_ml": total_producto_ml,
-            "total_agua_litros": total_agua_ml / 1000, # Convertimos el agua a litros para mayor comodidad
+            "total_agua_litros": total_agua_ml / 1000,
             "mensaje": f"Para tratar {plant_count} plantas, necesitas {total_producto_ml:.2f} ml de producto y {total_agua_ml / 1000:.2f} litros de agua."
         }
         
@@ -406,7 +411,6 @@ def calculate_dose(current_user_id):
         return jsonify({"error": "El número de plantas debe ser un número entero"}), 400
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
-# --- FIN DE LA NUEVA RUTA ---
 
 
 if __name__ == '__main__':

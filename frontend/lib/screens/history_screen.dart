@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
 import 'package:frontend/screens/dashboard_screen.dart';
+import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/widgets/side_navigation_rail.dart';
@@ -70,6 +71,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         );
         break;
       case 3:
+         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded))); // <-- AÑADIR
+        break;
+      case 4:
         _logout(context);
         break;
     }
