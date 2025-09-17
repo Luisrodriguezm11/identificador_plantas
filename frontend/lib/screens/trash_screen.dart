@@ -1,6 +1,7 @@
 // frontend/lib/screens/trash_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
@@ -10,7 +11,9 @@ import '../services/detection_service.dart';
 import 'dart:ui';
 
 class TrashScreen extends StatefulWidget {
-  const TrashScreen({super.key});
+  final bool isNavExpanded;
+
+  const TrashScreen({super.key, this.isNavExpanded = true});
 
   @override
   State<TrashScreen> createState() => _TrashScreenState();
@@ -21,11 +24,12 @@ class _TrashScreenState extends State<TrashScreen> {
   final AuthService _authService = AuthService();
   List<dynamic>? _trashedList;
   bool _isLoading = true;
-  bool _isNavExpanded = true;
+  late bool _isNavExpanded;
 
   @override
   void initState() {
     super.initState();
+    _isNavExpanded = widget.isNavExpanded;
     _fetchTrashedItems();
   }
 
@@ -50,10 +54,10 @@ class _TrashScreenState extends State<TrashScreen> {
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 1:
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 2:
         break;
@@ -73,13 +77,13 @@ class _TrashScreenState extends State<TrashScreen> {
   }
 
   Future<void> _restoreItem(int analysisId, int index) async {
-    final success = await _detectionService.restoreHistoryItem(analysisId);
-    if (success) {
-      setState(() => _trashedList!.removeAt(index));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Análisis restaurado'), backgroundColor: Colors.green));
+      final success = await _detectionService.restoreHistoryItem(analysisId);
+      if (success) {
+        setState(() => _trashedList!.removeAt(index));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Análisis restaurado'), backgroundColor: Colors.green));
+        }
       }
-    }
   }
 
   Future<void> _permanentlyDeleteItem(int analysisId, int index) async {
@@ -108,6 +112,7 @@ class _TrashScreenState extends State<TrashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -123,6 +128,7 @@ class _TrashScreenState extends State<TrashScreen> {
             children: [
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
+                selectedIndex: 2,
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;

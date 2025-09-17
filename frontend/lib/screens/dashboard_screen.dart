@@ -1,6 +1,7 @@
 // frontend/lib/screens/dashboard_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'package:frontend/widgets/side_navigation_rail.dart';
@@ -11,7 +12,9 @@ import 'history_screen.dart';
 import 'dart:ui'; // Para el efecto de blur
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final bool isNavExpanded;
+
+  const DashboardScreen({super.key, this.isNavExpanded = true});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -20,13 +23,14 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final AuthService _authService = AuthService();
   final DetectionService _detectionService = DetectionService();
-  bool _isNavExpanded = true;
+  late bool _isNavExpanded;
   bool _isLoading = true;
   List<dynamic> _recentAnalyses = [];
 
   @override
   void initState() {
     super.initState();
+    _isNavExpanded = widget.isNavExpanded;
     _fetchRecentAnalyses();
   }
 
@@ -62,10 +66,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 0:
         break;
       case 1:
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 2:
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const TrashScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 3:
         _logout(context);
@@ -84,6 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -99,6 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
+                selectedIndex: 0,
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;
@@ -189,7 +195,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET DE TARJETA CORREGIDO ---
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
@@ -204,15 +209,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             borderRadius: BorderRadius.circular(24.0),
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          // *** El Padding es la clave para que el borde sea visible ***
           child: Padding(
-            padding: const EdgeInsets.all(8.0), // Espacio para el borde
+            padding: const EdgeInsets.all(8.0),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.0), // Redondeo para el contenido interior
+              borderRadius: BorderRadius.circular(16.0),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Imagen de fondo
                   Image.network(
                     analysis['url_imagen'],
                     fit: BoxFit.cover,
@@ -223,7 +226,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  // Gradiente para legibilidad
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -234,7 +236,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  // Contenido de texto y botón
                   Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(

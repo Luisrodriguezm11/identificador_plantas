@@ -1,6 +1,7 @@
 // frontend/lib/screens/history_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
@@ -10,7 +11,9 @@ import 'trash_screen.dart';
 import 'dart:ui'; // Necesario para el BackdropFilter
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final bool isNavExpanded;
+
+  const HistoryScreen({super.key, this.isNavExpanded = true});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -22,11 +25,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<dynamic>? _historyList;
   bool _isLoading = true;
   String? _errorMessage;
-  bool _isNavExpanded = true;
+  late bool _isNavExpanded;
 
   @override
   void initState() {
     super.initState();
+    _isNavExpanded = widget.isNavExpanded;
     _fetchHistory();
   }
 
@@ -50,23 +54,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _onNavItemTapped(int index) {
-    // Gestiona la navegación desde el menú lateral
     switch (index) {
-      case 0: // Dashboard
+      case 0:
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
         );
         break;
-      case 1: // Historial (ya está aquí)
+      case 1:
         break;
-      case 2: // Papelera
-        Navigator.push(
+      case 2:
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const TrashScreen()),
+          NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)),
         );
         break;
-      case 3: // Cerrar sesión
+      case 3:
         _logout(context);
         break;
     }
@@ -126,6 +129,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -141,6 +145,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             children: [
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
+                selectedIndex: 1,
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;

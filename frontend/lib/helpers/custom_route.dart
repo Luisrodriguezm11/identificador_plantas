@@ -1,4 +1,23 @@
+// frontend/lib/helpers/custom_route.dart
 import 'package:flutter/material.dart';
+
+// --- AÑADE ESTA NUEVA CLASE ---
+class NoTransitionRoute<T> extends PageRouteBuilder<T> {
+  final Widget page;
+  NoTransitionRoute({required this.page})
+      : super(
+          pageBuilder: (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+          ) =>
+              page,
+          // Duración cero para una transición instantánea
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        );
+}
+// --- FIN DE LA NUEVA CLASE ---
 
 class SlideRightRoute extends PageRouteBuilder {
   final Widget page;
