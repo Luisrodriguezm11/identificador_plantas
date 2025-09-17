@@ -9,15 +9,13 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from config import Config
-from roboflow import Roboflow # Importa Roboflow
+from roboflow import Roboflow
 import os
 import requests
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote
 import firebase_admin
 from firebase_admin import credentials, storage
 
-# --- INICIALIZACIÓN DE FIREBASE ADMIN SDK ---
-# Asegúrate de que el path al archivo .json sea correcto
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred, {
@@ -25,19 +23,16 @@ try:
     })
 except Exception as e:
     print(f"Error inicializando Firebase Admin: {e}")
-# --- FIN DE LA INICIALIZACIÓN ---
 
 app = Flask(__name__)
 CORS(app)
 app.config.from_object(Config)
 
 def get_db_connection():
-    """Establece conexión con la base de datos."""
     conn = psycopg2.connect(app.config['DATABASE_URI'])
     return conn
 
 # --- Rutas de Autenticación (sin cambios) ---
-
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -100,7 +95,6 @@ def login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- Decorador (sin cambios) ---
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -120,7 +114,6 @@ def token_required(f):
         return f(current_user_id, *args, **kwargs)
     return decorated    
     
-# --- Ruta /analyze CORREGIDA ---
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
@@ -132,47 +125,32 @@ def analyze_image(current_user_id):
 
     temp_image_path = "temp_image.jpg"
     try:
-        # 1. Descarga la imagen desde la URL de Firebase
         response = requests.get(image_url, stream=True)
         response.raise_for_status()
 
         with open(temp_image_path, 'wb') as f:
             f.write(response.content)
 
-        # 2. Realiza la predicción con Roboflow
         rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
-        # Extrae el workspace y el project_id del string del modelo
         project_id, version_id = app.config['ROBOFLOW_MODEL_ID'].split('/')
         project = rf.workspace().project(project_id)
         model = project.version(version_id).model
         
         prediction = model.predict(temp_image_path, confidence=40, overlap=30).json()
 
-        # 3. Formatea el resultado
         class_detected = "No se detectó ninguna plaga"
         confidence = 0.0
-        # Toma la predicción con la confianza más alta
         if prediction.get('predictions'):
             top_pred = max(prediction['predictions'], key=lambda p: p['confidence'])
             class_detected = top_pred['class']
             confidence = top_pred['confidence']
-
-        # Aquí podrías tener una lógica más compleja para las recomendaciones
-        recommendations = {
-            "cercospora": "Aplicar fungicidas a base de cobre y mejorar la ventilación.",
-            "phoma": "Podar las ramas afectadas y aplicar un tratamiento fungicida específico.",
-            "roya": "Usar variedades resistentes y aplicar fungicidas sistémicos. Controlar la sombra.",
-            "sano": "La hoja parece estar sana. Continúa con las buenas prácticas de cultivo.",
-            "minador": "Utilizar trampas pegajosas y control biológico con avispas parasitoides."
-        }
         
+        # --- CAMBIO: Ya no se incluye la recomendación aquí ---
         analysis_result = {
             "prediction": class_detected,
             "confidence": confidence,
-            "recommendation": recommendations.get(class_detected.lower(), "No hay una recomendación específica.")
         }
 
-        # 4. Guarda el análisis en la base de datos
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
@@ -186,31 +164,57 @@ def analyze_image(current_user_id):
         cur.close()
         conn.close()
 
-        # 5. Borra la imagen temporal y devuelve el resultado
         os.remove(temp_image_path)
         return jsonify(analysis_result), 200
 
     except Exception as e:
         if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
-        # Devolvemos un error más específico en formato JSON
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
+# --- RUTA ACTUALIZADA: Para obtener detalles de una enfermedad ---
+@app.route('/disease/<string:roboflow_name>', methods=['GET'])
+@token_required
+def get_disease_details(current_user_id, roboflow_name):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-# --- RUTA PARA OBTENER EL HISTORIAL DE ANÁLISIS ---
+        # --- CAMBIO AQUÍ: Buscamos por la columna 'roboflow_class' ---
+        cur.execute("SELECT * FROM enfermedades WHERE roboflow_class = %s", (roboflow_name,))
+        disease = cur.fetchone()
+
+        if not disease:
+            return jsonify({"error": "Enfermedad no encontrada"}), 404
+
+        # Buscar los tratamientos asociados
+        cur.execute(
+            "SELECT tipo_tratamiento, descripcion_tratamiento FROM tratamientos WHERE id_enfermedad = %s",
+            (disease['id_enfermedad'],)
+        )
+        treatments = cur.fetchall()
+
+        cur.close()
+        conn.close()
+        
+        # Formatear la respuesta
+        response = {
+            "info": dict(disease),
+            "recommendations": [dict(t) for t in treatments]
+        }
+        
+        return jsonify(response), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al obtener los detalles: {str(e)}"}), 500
+
 @app.route('/history', methods=['GET'])
 @token_required
 def get_history(current_user_id):
-    """
-    Devuelve todos los análisis realizados por el usuario actual,
-    ordenados del más reciente al más antiguo.
-    """
     try:
         conn = get_db_connection()
-        # Usamos DictCursor para que los resultados sean fáciles de manejar
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Seleccionamos todos los análisis que coincidan con el id del usuario
         cur.execute(
             "SELECT * FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NULL ORDER BY fecha_analisis DESC", 
             (current_user_id,)
@@ -220,8 +224,6 @@ def get_history(current_user_id):
         cur.close()
         conn.close()
         
-        # Convertimos los resultados a una lista de diccionarios que se pueda enviar como JSON
-        # También nos aseguramos de que el formato de fecha sea un string legible
         results = []
         for row in history:
             results.append({
@@ -229,7 +231,7 @@ def get_history(current_user_id):
                 "url_imagen": row["url_imagen"],
                 "resultado_prediccion": row["resultado_prediccion"],
                 "confianza": row["confianza"],
-                "fecha_analisis": row["fecha_analisis"].isoformat() # Convertir fecha a string
+                "fecha_analisis": row["fecha_analisis"].isoformat()
             })
 
         return jsonify(results), 200
@@ -237,18 +239,14 @@ def get_history(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al obtener el historial: {str(e)}"}), 500
 
-# --- RUTA PARA BORRAR UN ANÁLISIS ESPECÍFICO ---
+# ... (El resto de las rutas de historial no cambian) ...
 @app.route('/history/<int:analysis_id>', methods=['DELETE'])
 @token_required
 def delete_history_item(current_user_id, analysis_id):
-    """
-    Borra un registro de análisis específico de la base de datos y su imagen de Firebase Storage.
-    """
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # Primero, obtenemos la URL de la imagen para poder borrarla de Firebase
         cur.execute(
             "SELECT url_imagen FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
@@ -260,7 +258,6 @@ def delete_history_item(current_user_id, analysis_id):
             conn.close()
             return jsonify({"error": "Análisis no encontrado o no autorizado"}), 404
 
-        # Ahora, borramos el registro de la base de datos
         cur.execute(
             "UPDATE analisis SET fecha_eliminado = NOW() AT TIME ZONE 'UTC' WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
@@ -268,33 +265,25 @@ def delete_history_item(current_user_id, analysis_id):
         conn.commit()
         cur.close()
         conn.close()
-        
-        # Opcional pero recomendado: Borrar la imagen de Firebase Storage
-        # Esta parte es más avanzada y requiere el SDK de Admin de Firebase.
-        # Por ahora, nos enfocaremos en borrar el registro de la base de datos.
 
         return jsonify({"message": "Análisis borrado exitosamente"}), 200
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al borrar el análisis: {str(e)}"}), 500
 
-# --- RUTA PARA VER LOS ELEMENTOS EN LA PAPELERA ---
 @app.route('/history/trash', methods=['GET'])
 @token_required
 def get_trashed_history(current_user_id):
-    """Devuelve todos los análisis que han sido 'borrados' por el usuario."""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Seleccionamos solo los análisis donde fecha_eliminado NO es NULL
         cur.execute(
             "SELECT * FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL ORDER BY fecha_eliminado DESC", 
             (current_user_id,)
         )
         
         history = cur.fetchall()
-        # ... (el resto del código para formatear la respuesta es igual que en get_history)
         results = [dict(row) for row in history]
         for r in results:
             if r.get('fecha_analisis'):
@@ -308,12 +297,9 @@ def get_trashed_history(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al obtener la papelera: {str(e)}"}), 500
 
-
-# --- RUTA PARA RESTAURAR UN ANÁLISIS DESDE LA PAPELERA ---
 @app.route('/history/<int:analysis_id>/restore', methods=['PUT'])
 @token_required
 def restore_history_item(current_user_id, analysis_id):
-    """Restaura un análisis marcando su fecha_eliminado como NULL."""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -328,19 +314,13 @@ def restore_history_item(current_user_id, analysis_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al restaurar: {str(e)}"}), 500
 
-
-# --- RUTA PARA BORRAR PERMANENTEMENTE UN ANÁLISIS (VERSIÓN MEJORADA) ---
 @app.route('/history/<int:analysis_id>/permanent', methods=['DELETE'])
 @token_required
 def permanently_delete_item(current_user_id, analysis_id):
-    """
-    Borra un registro permanentemente de la DB y su archivo de Firebase Storage.
-    """
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # 1. Obtenemos la URL de la imagen ANTES de borrar el registro
         cur.execute(
             "SELECT url_imagen FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
@@ -352,7 +332,6 @@ def permanently_delete_item(current_user_id, analysis_id):
         
         image_url = item_to_delete['url_imagen']
 
-        # 2. Borramos el registro de la base de datos
         cur.execute(
             "DELETE FROM analisis WHERE id_analisis = %s", (analysis_id,)
         )
@@ -360,11 +339,8 @@ def permanently_delete_item(current_user_id, analysis_id):
         cur.close()
         conn.close()
 
-        # 3. Borramos la imagen de Firebase Storage
         if image_url:
             try:
-                # Extraemos el nombre del archivo desde la URL
-                # La ruta del archivo está después de '/o/' y antes de '?alt=media'
                 path_start = image_url.find("/o/") + 3
                 path_end = image_url.find("?alt=media")
                 file_path = unquote(image_url[path_start:path_end])
@@ -376,11 +352,61 @@ def permanently_delete_item(current_user_id, analysis_id):
             except Exception as e:
                 print(f"No se pudo borrar la imagen de Firebase Storage: {e}")
 
-        return jsonify({"message": "Análisis borrado permanentemente de la base de datos y del almacenamiento"}), 200
+        return jsonify({"message": "Análisis borrado permanentemente"}), 200
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error en el borrado permanente: {str(e)}"}), 500
+    
 
+# --- NUEVA RUTA: Para calcular la dosis ---
+@app.route('/calculate_dose', methods=['POST'])
+@token_required
+def calculate_dose(current_user_id):
+    data = request.get_json()
+    treatment_id = data.get('treatment_id')
+    plant_count = data.get('plant_count')
+
+    if not treatment_id or not plant_count:
+        return jsonify({"error": "Faltan datos requeridos (ID de tratamiento y número de plantas)"}), 400
+
+    try:
+        # Asegurarnos de que el número de plantas es un entero válido
+        plant_count = int(plant_count)
+        if plant_count <= 0:
+            return jsonify({"error": "El número de plantas debe ser mayor que cero"}), 400
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Obtenemos las dosis por planta desde la base de datos
+        cur.execute(
+            "SELECT dosis_por_planta_ml, agua_por_planta_ml FROM tratamientos WHERE id_tratamiento = %s",
+            (treatment_id,)
+        )
+        treatment_data = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not treatment_data:
+            return jsonify({"error": "Tratamiento no encontrado"}), 404
+
+        # Realizamos el cálculo
+        total_producto_ml = treatment_data['dosis_por_planta_ml'] * plant_count
+        total_agua_ml = treatment_data['agua_por_planta_ml'] * plant_count
+
+        response = {
+            "total_producto_ml": total_producto_ml,
+            "total_agua_litros": total_agua_ml / 1000, # Convertimos el agua a litros para mayor comodidad
+            "mensaje": f"Para tratar {plant_count} plantas, necesitas {total_producto_ml:.2f} ml de producto y {total_agua_ml / 1000:.2f} litros de agua."
+        }
+        
+        return jsonify(response), 200
+
+    except ValueError:
+        return jsonify({"error": "El número de plantas debe ser un número entero"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
+# --- FIN DE LA NUEVA RUTA ---
 
 
 if __name__ == '__main__':

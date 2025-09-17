@@ -9,11 +9,9 @@ class DetectionService {
   final String _baseUrl = "http://192.168.0.22:5001"; // Asegúrate que esta IP sea la correcta
   final AuthService _authService = AuthService();
 
-  // --- MÉTODO PARA ANALIZAR IMAGEN (CORREGIDO Y COMPLETO) ---
   Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
     try {
       final String? token = await _authService.readToken();
-
       final response = await http.post(
         Uri.parse('$_baseUrl/analyze'),
         headers: <String, String>{
@@ -23,20 +21,48 @@ class DetectionService {
         body: jsonEncode(<String, String>{
           'image_url': imageUrl,
         }),
-      ).timeout(const Duration(seconds: 30)); // Aumenta el timeout por si el análisis tarda
-
+      ).timeout(const Duration(seconds: 30));
       return response;
-
     } on TimeoutException catch (_) {
-        throw Exception('La conexión tardó demasiado. Asegúrate que el servidor backend esté corriendo en: $_baseUrl');
+      throw Exception('La conexión tardó demasiado. Asegúrate que el servidor backend esté corriendo en: $_baseUrl');
     } on http.ClientException catch (e) {
-        throw Exception('Error de red: No se pudo conectar al servidor. Detalle: ${e.message}');
+      throw Exception('Error de red: No se pudo conectar al servidor. Detalle: ${e.message}');
     } catch (e) {
-        throw Exception('Ocurrió un error inesperado al contactar el servicio de detección: $e');
+      throw Exception('Ocurrió un error inesperado al contactar el servicio de detección: $e');
     }
   }
 
-  // --- MÉTODO PARA OBTENER EL HISTORIAL ---
+  // --- NUEVA FUNCIÓN ---
+  Future<Map<String, dynamic>> getDiseaseDetails(String diseaseName) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.get(
+        Uri.parse('$_baseUrl/disease/$diseaseName'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else if (response.statusCode == 404) {
+        // Si la enfermedad no se encuentra, devolvemos un mapa con valores por defecto.
+        return {
+          'info': {'descripcion': 'No se encontró información detallada para esta condición.'},
+          'recommendations': [{'descripcion_tratamiento': 'No hay recomendaciones disponibles.'}]
+        };
+      } else {
+        throw Exception('Error al cargar los detalles: ${response.body}');
+      }
+    } on TimeoutException catch (_) {
+      throw Exception('La conexión para obtener detalles tardó demasiado.');
+    } catch (e) {
+      throw Exception('Error de conexión al obtener detalles: $e');
+    }
+  }
+  // --- FIN DE LA NUEVA FUNCIÓN ---
+
   Future<List<dynamic>> getHistory() async {
     try {
       final String? token = await _authService.readToken();
@@ -64,7 +90,6 @@ class DetectionService {
     try {
       final String? token = await _authService.readToken();
       final response = await http.delete(
-        // La URL ahora incluye el ID del análisis
         Uri.parse('$_baseUrl/history/$analysisId'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
@@ -73,15 +98,12 @@ class DetectionService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        // Si el servidor responde con 200 OK, el borrado fue exitoso
         return true;
       } else {
-        // Si no, lanzamos un error con el mensaje del servidor
         final body = json.decode(response.body);
         throw Exception('Error al borrar: ${body['error']}');
       }
     } catch (e) {
-      // Re-lanzamos el error para que la pantalla lo pueda mostrar
       throw Exception('No se pudo completar la operación: $e');
     }
   }
@@ -117,4 +139,3 @@ class DetectionService {
     return response.statusCode == 200;
   }
 }
-

@@ -39,6 +39,7 @@ dependencies:
   firebase_core: ^4.1.0
   firebase_storage: ^13.0.1
   uuid: ^4.5.1
+  palette_generator: ^0.3.3+3 # Añade esta línea
 
 dev_dependencies:
   flutter_test:

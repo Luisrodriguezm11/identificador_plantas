@@ -9,7 +9,9 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'detection_screen.dart';
 import 'history_screen.dart';
-import 'dart:ui'; // Para el efecto de blur
+import 'dart:ui';
+// --- NUEVO: Importa la pantalla de detalles ---
+import 'analysis_detail_screen.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   final bool isNavExpanded;
@@ -119,11 +121,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 0),
+                        const SizedBox(height: 40),
                         const Text(
                           "Detección de plagas y enfermedades 🌱",
                           style: TextStyle(
-                              fontSize: 45,
+                              fontSize: 32,
                               fontWeight: FontWeight.bold,
                               color: Colors.white),
                         ),
@@ -133,11 +135,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           style: TextStyle(fontSize: 16, color: Colors.white70),
                         ),
                         const SizedBox(height: 48),
-
-                        // --- NUEVA ESTRUCTURA CON SPACER ---
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            const Spacer(flex: 2),
                             const Expanded(
                               flex: 3,
                               child: Column(
@@ -162,12 +163,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               flex: 4,
                               child: _buildFileUploadCard(),
                             ),
-                             // 👇 ESTE ES EL CAMBIO PRINCIPAL 👇
-                            const Spacer(flex: 2), // Espacio flexible que empuja todo a la izquierda
-                            // 👆 Puedes ajustar el flex del Spacer para controlar cuánto se empuja 👆
                           ],
                         ),
-
                         const SizedBox(height: 48),
                         const Text(
                           "Mis Archivos Recientes",
@@ -345,7 +342,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     border: Border.all(color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
-                                    onPressed: () {},
+                                    onPressed: () {
+                                      // --- CAMBIO AQUÍ: Abre la pantalla como un diálogo ---
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext dialogContext) {
+                                          return Dialog(
+                                            backgroundColor: Colors.transparent, // Fondo del diálogo transparente
+                                            child: AnalysisDetailScreen(analysis: analysis), // Nuestra pantalla de detalles
+                                          );
+                                        },
+                                      );
+                                      // --- FIN DEL CAMBIO ---
+                                    },
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
