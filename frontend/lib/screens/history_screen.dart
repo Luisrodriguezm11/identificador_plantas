@@ -1,8 +1,13 @@
 // frontend/lib/screens/history_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/dashboard_screen.dart';
+import 'package:frontend/screens/login_screen.dart';
+import 'package:frontend/services/auth_service.dart';
+import 'package:frontend/widgets/side_navigation_rail.dart';
 import '../services/detection_service.dart';
-import 'trash_screen.dart'; // <-- 1. IMPORTA LA NUEVA PANTALLA
+import 'trash_screen.dart';
+import 'dart:ui'; // Necesario para el BackdropFilter
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -13,9 +18,11 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final DetectionService _detectionService = DetectionService();
+  final AuthService _authService = AuthService();
   List<dynamic>? _historyList;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isNavExpanded = true;
 
   @override
   void initState() {
@@ -42,12 +49,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  void _onNavItemTapped(int index) {
+    // Gestiona la navegación desde el menú lateral
+    switch (index) {
+      case 0: // Dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+        break;
+      case 1: // Historial (ya está aquí)
+        break;
+      case 2: // Papelera
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const TrashScreen()),
+        );
+        break;
+      case 3: // Cerrar sesión
+        _logout(context);
+        break;
+    }
+  }
+
+  void _logout(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    await _authService.deleteToken();
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
+
   Future<void> _deleteItem(int analysisId, int index) async {
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar Borrado'),
-        // Cambiamos el texto para reflejar que va a la papelera
         content: const Text('¿Enviar este análisis a la papelera?'),
         actions: [
           TextButton(
@@ -88,90 +127,175 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Historial de Análisis"),
-        backgroundColor: Colors.green[700],
-        // --- 2. AÑADE ESTA SECCIÓN DE 'actions' ---
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined),
-            tooltip: 'Ver Papelera',
-            onPressed: () async {
-              // Navega a la papelera y espera a que el usuario regrese
-              await Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const TrashScreen()),
-              );
-              // Cuando regresa, actualiza el historial por si se restauró algo
-              _fetchHistory();
-            },
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage("assets/background.jpg"),
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-        ],
-        // --- FIN DE LA SECCIÓN ---
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(child: Text('Error: $_errorMessage'))
-              : _historyList!.isEmpty
-                  ? const Center(child: Text('No hay análisis en tu historial.'))
-                  : RefreshIndicator(
-                      onRefresh: _fetchHistory,
-                      child: ListView.builder(
-                        itemCount: _historyList!.length,
-                        itemBuilder: (context, index) {
-                          final analysis = _historyList![index];
-                          final confidence = (analysis['confianza'] * 100).toStringAsFixed(1);
-                          final fecha = DateTime.parse(analysis['fecha_analisis']);
-                          final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
-
-                          return Card(
-                            margin: const EdgeInsets.all(10.0),
-                            elevation: 4,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    child: Image.network(
-                                      analysis['url_imagen'],
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder: (context, child, progress) {
-                                        return progress == null ? child : const Center(child: CircularProgressIndicator());
-                                      },
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return const Icon(Icons.error, size: 40);
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          analysis['resultado_prediccion'],
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              SideNavigationRail(
+                isExpanded: _isNavExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isNavExpanded = !_isNavExpanded;
+                  });
+                },
+                onItemSelected: _onNavItemTapped,
+                onLogout: () => _logout(context),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Historial de Análisis",
+                        style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                            : _errorMessage != null
+                                ? Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.white)))
+                                : _historyList!.isEmpty
+                                    ? const Center(child: Text('No hay análisis en tu historial.', style: TextStyle(color: Colors.white)))
+                                    : RefreshIndicator(
+                                        onRefresh: _fetchHistory,
+                                        child: GridView.builder(
+                                          padding: const EdgeInsets.only(bottom: 24),
+                                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                            maxCrossAxisExtent: 250,
+                                            childAspectRatio: 2 / 2.8,
+                                            crossAxisSpacing: 20,
+                                            mainAxisSpacing: 20,
+                                          ),
+                                          itemCount: _historyList!.length,
+                                          itemBuilder: (context, index) {
+                                            final analysis = _historyList![index];
+                                            return _buildHistoryCard(analysis, index);
+                                          },
                                         ),
-                                        const SizedBox(height: 5),
-                                        Text("Confianza: $confidence%"),
-                                        Text("Fecha: $fechaFormateada"),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                    onPressed: () => _deleteItem(analysis['id_analisis'], index),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                                      ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
+    final fecha = DateTime.parse(analysis['fecha_analisis']);
+    final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.0),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    analysis['url_imagen'],
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
                       ),
                     ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          analysis['resultado_prediccion'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              fechaFormateada,
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(30.0),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(30.0),
+                                    border: Border.all(color: Colors.red.withOpacity(0.4)),
+                                  ),
+                                  child: IconButton(
+                                    onPressed: () => _deleteItem(analysis['id_analisis'], index),
+                                    icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                                    tooltip: 'Enviar a la papelera',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

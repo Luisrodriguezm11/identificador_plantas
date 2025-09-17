@@ -131,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   padding: const EdgeInsets.only(bottom: 24),
                                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                                     maxCrossAxisExtent: 250,
-                                    childAspectRatio: 2 / 2.5,
+                                    childAspectRatio: 2 / 2.8,
                                     crossAxisSpacing: 20,
                                     mainAxisSpacing: 20,
                                   ),
@@ -179,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Icon(Icons.add_a_photo_outlined, color: Colors.white, size: 50),
                   SizedBox(height: 16),
-                  Text("Analizar Nueva Hoja", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text("Analizar Nueva Hoja", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -189,78 +189,107 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET DE TARJETA DE ANÁLISIS ACTUALIZADO ---
+  // --- WIDGET DE TARJETA CORREGIDO ---
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(24),
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(24.0),
             border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. IMAGEN MÁS GRANDE (USANDO EXPANDED)
-              Expanded(
-                flex: 3,
-                child: Image.network(
-                  analysis['url_imagen'],
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
-                  ),
-                ),
-              ),
-              // 2. ÁREA DE TEXTO CON NUEVA ESTRUCTURA
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Spacer(), // Empuja todo hacia abajo
-                      Text(
-                        analysis['resultado_prediccion'],
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+          // *** El Padding es la clave para que el borde sea visible ***
+          child: Padding(
+            padding: const EdgeInsets.all(8.0), // Espacio para el borde
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.0), // Redondeo para el contenido interior
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Imagen de fondo
+                  Image.network(
+                    analysis['url_imagen'],
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[800],
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // 3. FECHA MÁS GRANDE
-                          Text(
-                            fechaFormateada,
-                            style: const TextStyle(fontSize: 13, color: Colors.white70),
-                          ),
-                          // 4. BOTÓN DE MÁS INFORMACIÓN
-                          IconButton(
-                            iconSize: 20,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () {
-                              // Lógica para el botón "Más Información"
-                            },
-                            icon: const Icon(Icons.info_outline, color: Colors.white70),
-                          ),
-                        ],
-                      )
-                    ],
+                    ),
                   ),
-                ),
+                  // Gradiente para legibilidad
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                  // Contenido de texto y botón
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          analysis['resultado_prediccion'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              fechaFormateada,
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(30.0),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(30.0),
+                                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                                  ),
+                                  child: TextButton(
+                                    onPressed: () {},
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    ),
+                                    child: const Text('Más info'),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
