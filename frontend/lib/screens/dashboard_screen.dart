@@ -1,7 +1,7 @@
 // frontend/lib/screens/dashboard_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
+import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'package:frontend/widgets/side_navigation_rail.dart';
@@ -88,7 +88,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -115,44 +114,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Dashboard",
-                        style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                            : RefreshIndicator(
-                                onRefresh: _fetchRecentAnalyses,
-                                child: GridView.builder(
-                                  padding: const EdgeInsets.only(bottom: 24),
-                                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 250,
-                                    childAspectRatio: 2 / 2.8,
-                                    crossAxisSpacing: 20,
-                                    mainAxisSpacing: 20,
+                  padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 0),
+                        const Text(
+                          "Detección de plagas y enfermedades 🌱",
+                          style: TextStyle(
+                              fontSize: 45,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "Una herramienta inteligente para el detectar plagas y enfermedades en el cultivo del café.",
+                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        ),
+                        const SizedBox(height: 48),
+
+                        // --- NUEVA ESTRUCTURA CON SPACER ---
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Cargar y Analizar Medios",
+                                    style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white),
                                   ),
-                                  itemCount: _recentAnalyses.length + 1,
-                                  itemBuilder: (context, index) {
-                                    if (index == 0) {
-                                      return _buildAddNewCard();
-                                    }
-                                    final analysis = _recentAnalyses[index - 1];
-                                    return _buildAnalysisCard(analysis);
-                                  },
-                                ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    "Sube una imagen o video para el conteo.",
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                ],
                               ),
-                      ),
-                    ],
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: _buildFileUploadCard(),
+                            ),
+                             // 👇 ESTE ES EL CAMBIO PRINCIPAL 👇
+                            const Spacer(flex: 2), // Espacio flexible que empuja todo a la izquierda
+                            // 👆 Puedes ajustar el flex del Spacer para controlar cuánto se empuja 👆
+                          ],
+                        ),
+
+                        const SizedBox(height: 48),
+                        const Text(
+                          "Mis Archivos Recientes",
+                          style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _recentAnalyses.isEmpty
+                                ? const Text(
+                                    "Aún no has analizado ningún archivo recientemente.",
+                                    style: TextStyle(color: Colors.white70),
+                                  )
+                                : GridView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 250,
+                                      childAspectRatio: 2 / 2.8,
+                                      crossAxisSpacing: 20,
+                                      mainAxisSpacing: 20,
+                                    ),
+                                    itemCount: _recentAnalyses.length,
+                                    itemBuilder: (context, index) {
+                                      final analysis = _recentAnalyses[index];
+                                      return _buildAnalysisCard(analysis);
+                                    },
+                                  ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -163,31 +213,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAddNewCard() {
+  Widget _buildFileUploadCard() {
     return GestureDetector(
       onTap: () async {
-        await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
         _fetchRecentAnalyses();
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(24),
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_a_photo_outlined, color: Colors.white, size: 50),
-                  SizedBox(height: 16),
-                  Text("Analizar Nueva Hoja", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ],
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_upload_outlined,
+                    color: Colors.white, size: 40),
+                const SizedBox(height: 16),
+                const Text(
+                  "Drag and drop file here",
+                  style: TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Limit 200MB per file • JPG, PNG, JPEG",
+                  style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const DetectionScreen()));
+                    _fetchRecentAnalyses();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                  ),
+                  child: const Text("Browse files"),
+                ),
+              ],
             ),
           ),
         ),

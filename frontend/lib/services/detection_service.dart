@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class DetectionService {
-  final String _baseUrl = "http://192.168.13.2:5001"; // Asegúrate que esta IP sea la correcta
+  final String _baseUrl = "http://192.168.0.22:5001"; // Asegúrate que esta IP sea la correcta
   final AuthService _authService = AuthService();
 
   // --- MÉTODO PARA ANALIZAR IMAGEN (CORREGIDO Y COMPLETO) ---
