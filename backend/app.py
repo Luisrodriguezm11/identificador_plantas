@@ -15,6 +15,7 @@ import requests
 from urllib.parse import unquote
 import firebase_admin
 from firebase_admin import credentials, storage
+from PIL import Image # <-- 1. IMPORTAR LA LIBRERÍA
 
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
@@ -35,6 +36,7 @@ def get_db_connection():
 # --- Rutas de Autenticación (sin cambios) ---
 @app.route('/register', methods=['POST'])
 def register():
+    # ... (código sin cambios)
     data = request.get_json()
     nombre_completo = data.get('nombre_completo')
     email = data.get('email')
@@ -64,6 +66,7 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
+    # ... (código sin cambios)
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -95,7 +98,9 @@ def login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 def token_required(f):
+    # ... (código sin cambios)
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -114,42 +119,69 @@ def token_required(f):
         return f(current_user_id, *args, **kwargs)
     return decorated    
     
-@app.route('/analyze', methods=['POST'])
-@token_required
-def analyze_image(current_user_id):
-    data = request.get_json()
-    image_url = data.get('image_url')
-
-    if not image_url:
-        return jsonify({"error": "No se proporcionó la URL de la imagen"}), 400
-
+def _run_prediction(image_url):
     temp_image_path = "temp_image.jpg"
     try:
         response = requests.get(image_url, stream=True)
         response.raise_for_status()
-
         with open(temp_image_path, 'wb') as f:
             f.write(response.content)
+
+        # --- 2. CÓDIGO NUEVO PARA REDIMENSIONAR LA IMAGEN ---
+        max_size = (1024, 1024)  # Tamaño máximo (ancho, alto) en píxeles
+        with Image.open(temp_image_path) as img:
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            # Guardar la imagen redimensionada, sobrescribiendo la original
+            img.save(temp_image_path, "JPEG", quality=90)
+        # --- FIN DEL CÓDIGO NUEVO ---
 
         rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
         project_id, version_id = app.config['ROBOFLOW_MODEL_ID'].split('/')
         project = rf.workspace().project(project_id)
         model = project.version(version_id).model
         
-        prediction = model.predict(temp_image_path, confidence=40, overlap=30).json()
+        prediction_result = model.predict(temp_image_path, confidence=40, overlap=30).json()
 
         class_detected = "No se detectó ninguna plaga"
         confidence = 0.0
-        if prediction.get('predictions'):
-            top_pred = max(prediction['predictions'], key=lambda p: p['confidence'])
+        if prediction_result.get('predictions'):
+            top_pred = max(prediction_result['predictions'], key=lambda p: p['confidence'])
             class_detected = top_pred['class']
             confidence = top_pred['confidence']
         
-        # --- CAMBIO: Ya no se incluye la recomendación aquí ---
-        analysis_result = {
-            "prediction": class_detected,
-            "confidence": confidence,
-        }
+        return {"prediction": class_detected, "confidence": confidence}
+
+    finally:
+        if os.path.exists(temp_image_path):
+            os.remove(temp_image_path)
+
+@app.route('/analyze', methods=['POST'])
+@token_required
+def analyze_image(current_user_id):
+    # ... (código sin cambios)
+    data = request.get_json()
+    image_url_front = data.get('image_url_front')
+    image_url_back = data.get('image_url_back') # Puede ser None
+
+    if not image_url_front:
+        return jsonify({"error": "La URL de la imagen del frente es requerida"}), 400
+
+    try:
+        result_front = _run_prediction(image_url_front)
+        final_result = result_front
+
+        if image_url_back:
+            result_back = _run_prediction(image_url_back)
+            
+            is_front_disease = result_front['prediction'] != 'No se detectó ninguna plaga'
+            is_back_disease = result_back['prediction'] != 'No se detectó ninguna plaga'
+
+            if is_back_disease:
+                final_result = result_back
+            elif is_front_disease and not is_back_disease:
+                final_result = result_front
+            else:
+                final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -158,21 +190,19 @@ def analyze_image(current_user_id):
             INSERT INTO analisis (id_usuario, url_imagen, resultado_prediccion, confianza, fecha_analisis)
             VALUES (%s, %s, %s, %s, %s)
             """,
-            (current_user_id, image_url, analysis_result['prediction'], analysis_result['confidence'], datetime.utcnow())
+            (current_user_id, image_url_front, final_result['prediction'], final_result['confidence'], datetime.utcnow())
         )
         conn.commit()
         cur.close()
         conn.close()
 
-        os.remove(temp_image_path)
-        return jsonify(analysis_result), 200
+        return jsonify(final_result), 200
 
     except Exception as e:
-        if os.path.exists(temp_image_path):
-            os.remove(temp_image_path)
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
-# --- RUTA ACTUALIZADA: Para obtener detalles de una enfermedad ---
+# (El resto de tus rutas no necesitan cambios)
+# ...
 @app.route('/disease/<string:roboflow_name>', methods=['GET'])
 @token_required
 def get_disease_details(current_user_id, roboflow_name):
@@ -180,14 +210,12 @@ def get_disease_details(current_user_id, roboflow_name):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # --- CAMBIO AQUÍ: Buscamos por la columna 'roboflow_class' ---
         cur.execute("SELECT * FROM enfermedades WHERE roboflow_class = %s", (roboflow_name,))
         disease = cur.fetchone()
 
         if not disease:
             return jsonify({"error": "Enfermedad no encontrada"}), 404
 
-        # Buscar los tratamientos asociados
         cur.execute(
             "SELECT tipo_tratamiento, descripcion_tratamiento FROM tratamientos WHERE id_enfermedad = %s",
             (disease['id_enfermedad'],)
@@ -197,7 +225,6 @@ def get_disease_details(current_user_id, roboflow_name):
         cur.close()
         conn.close()
         
-        # Formatear la respuesta
         response = {
             "info": dict(disease),
             "recommendations": [dict(t) for t in treatments]
@@ -239,7 +266,6 @@ def get_history(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al obtener el historial: {str(e)}"}), 500
 
-# ... (El resto de las rutas de historial no cambian) ...
 @app.route('/history/<int:analysis_id>', methods=['DELETE'])
 @token_required
 def delete_history_item(current_user_id, analysis_id):
@@ -357,8 +383,51 @@ def permanently_delete_item(current_user_id, analysis_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error en el borrado permanente: {str(e)}"}), 500
     
+@app.route('/history/trash/empty', methods=['DELETE'])
+@token_required
+def empty_trash(current_user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-# --- NUEVA RUTA: Para calcular la dosis ---
+        cur.execute(
+            "SELECT url_imagen FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            (current_user_id,)
+        )
+        items_to_delete = cur.fetchall()
+
+        if items_to_delete:
+            print(f"Vaciando papelera para el usuario {current_user_id}. {len(items_to_delete)} items encontrados.")
+            bucket = storage.bucket()
+            for item in items_to_delete:
+                image_url = item['url_imagen']
+                if image_url:
+                    try:
+                        path_start = image_url.find("/o/") + 3
+                        path_end = image_url.find("?alt=media")
+                        if path_start > 2 and path_end != -1:
+                            file_path = unquote(image_url[path_start:path_end])
+                            blob = bucket.blob(file_path)
+                            if blob.exists():
+                                blob.delete()
+                    except Exception as e:
+                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
+        
+        cur.execute(
+            "DELETE FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            (current_user_id,)
+        )
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({"message": "La papelera ha sido vaciada exitosamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al vaciar la papelera: {str(e)}"}), 500
+    
+
 @app.route('/calculate_dose', methods=['POST'])
 @token_required
 def calculate_dose(current_user_id):
@@ -388,13 +457,11 @@ def calculate_dose(current_user_id):
         if not treatment_data:
             return jsonify({"error": "Tratamiento no encontrado"}), 404
         
-        # --- VALIDACIÓN AÑADIDA ---
         dosis_producto = treatment_data.get('dosis_por_planta_ml')
         dosis_agua = treatment_data.get('agua_por_planta_ml')
 
         if dosis_producto is None or dosis_agua is None:
             return jsonify({"error": "Los datos de dosis para este tratamiento están incompletos en la base de datos."}), 400
-        # --- FIN DE LA VALIDACIÓN ---
 
         total_producto_ml = dosis_producto * plant_count
         total_agua_ml = dosis_agua * plant_count
@@ -411,55 +478,6 @@ def calculate_dose(current_user_id):
         return jsonify({"error": "El número de plantas debe ser un número entero"}), 400
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
-
-@app.route('/history/trash/empty', methods=['DELETE'])
-@token_required
-def empty_trash(current_user_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-        # 1. Encontrar todos los items en la papelera del usuario para obtener sus URLs de imagen
-        cur.execute(
-            "SELECT url_imagen FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
-            (current_user_id,)
-        )
-        items_to_delete = cur.fetchall()
-
-        # 2. Borrar las imágenes de Firebase Storage
-        if items_to_delete:
-            print(f"Vaciando papelera para el usuario {current_user_id}. {len(items_to_delete)} items encontrados.")
-            bucket = storage.bucket()
-            for item in items_to_delete:
-                image_url = item['url_imagen']
-                if image_url:
-                    try:
-                        # Extraer el path del archivo desde la URL de Firebase
-                        path_start = image_url.find("/o/") + 3
-                        path_end = image_url.find("?alt=media")
-                        if path_start > 2 and path_end != -1:
-                            file_path = unquote(image_url[path_start:path_end])
-                            blob = bucket.blob(file_path)
-                            if blob.exists():
-                                blob.delete()
-                    except Exception as e:
-                        # Si falla el borrado de una imagen, solo se registra y el proceso continúa
-                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
-        
-        # 3. Borrar todos los registros marcados como eliminados para ese usuario en la BD
-        cur.execute(
-            "DELETE FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
-            (current_user_id,)
-        )
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-        return jsonify({"message": "La papelera ha sido vaciada exitosamente"}), 200
-
-    except Exception as e:
-        return jsonify({"error": f"Ocurrió un error al vaciar la papelera: {str(e)}"}), 500
 
 
 if __name__ == '__main__':
