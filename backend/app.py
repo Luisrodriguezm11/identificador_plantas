@@ -16,6 +16,7 @@ from urllib.parse import unquote
 import firebase_admin
 from firebase_admin import credentials, storage
 from PIL import Image # <-- 1. IMPORTAR LA LIBRERÍA
+import time
 
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
@@ -26,7 +27,8 @@ except Exception as e:
     print(f"Error inicializando Firebase Admin: {e}")
 
 app = Flask(__name__)
-CORS(app)
+# Configuración de CORS para permitir todas las solicitudes de cualquier origen.
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config.from_object(Config)
 
 def get_db_connection():
@@ -122,25 +124,25 @@ def token_required(f):
 def _run_prediction(image_url):
     temp_image_path = "temp_image.jpg"
     try:
+        # --- MEDIMOS EL TIEMPO DE DESCARGA ---
+        start_download = time.time()
         response = requests.get(image_url, stream=True)
         response.raise_for_status()
         with open(temp_image_path, 'wb') as f:
             f.write(response.content)
+        end_download = time.time()
+        print(f"✅ Tiempo de descarga de imagen: {end_download - start_download:.2f} segundos")
 
-        # --- 2. CÓDIGO NUEVO PARA REDIMENSIONAR LA IMAGEN ---
-        max_size = (1024, 1024)  # Tamaño máximo (ancho, alto) en píxeles
-        with Image.open(temp_image_path) as img:
-            img.thumbnail(max_size, Image.Resampling.LANCZOS)
-            # Guardar la imagen redimensionada, sobrescribiendo la original
-            img.save(temp_image_path, "JPEG", quality=90)
-        # --- FIN DEL CÓDIGO NUEVO ---
-
+        # --- MEDIMOS EL TIEMPO DE PREDICCIÓN DE ROBOFLOW ---
+        start_prediction = time.time()
         rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
         project_id, version_id = app.config['ROBOFLOW_MODEL_ID'].split('/')
         project = rf.workspace().project(project_id)
         model = project.version(version_id).model
         
         prediction_result = model.predict(temp_image_path, confidence=40, overlap=30).json()
+        end_prediction = time.time()
+        print(f"🤖 Tiempo de predicción de Roboflow: {end_prediction - start_prediction:.2f} segundos")
 
         class_detected = "No se detectó ninguna plaga"
         confidence = 0.0
@@ -158,19 +160,22 @@ def _run_prediction(image_url):
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
-    # ... (código sin cambios)
+    total_start_time = time.time() # <--- Medimos el tiempo total de la solicitud
     data = request.get_json()
     image_url_front = data.get('image_url_front')
-    image_url_back = data.get('image_url_back') # Puede ser None
+    image_url_back = data.get('image_url_back')
 
     if not image_url_front:
         return jsonify({"error": "La URL de la imagen del frente es requerida"}), 400
 
     try:
+        print("\n--- Iniciando análisis para el usuario:", current_user_id)
+        
         result_front = _run_prediction(image_url_front)
         final_result = result_front
 
         if image_url_back:
+            print("--- Procesando imagen del reverso ---")
             result_back = _run_prediction(image_url_back)
             
             is_front_disease = result_front['prediction'] != 'No se detectó ninguna plaga'
@@ -183,6 +188,8 @@ def analyze_image(current_user_id):
             else:
                 final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
+        # --- MEDIMOS EL TIEMPO DE INSERCIÓN EN LA BASE DE DATOS ---
+        start_db = time.time()
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
@@ -195,14 +202,18 @@ def analyze_image(current_user_id):
         conn.commit()
         cur.close()
         conn.close()
+        end_db = time.time()
+        print(f"💾 Tiempo de inserción en DB: {end_db - start_db:.2f} segundos")
+
+        total_end_time = time.time()
+        print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
 
         return jsonify(final_result), 200
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
-# (El resto de tus rutas no necesitan cambios)
-# ...
+# ... (El resto de tus rutas: /disease, /history, etc., no cambian)
 @app.route('/disease/<string:roboflow_name>', methods=['GET'])
 @token_required
 def get_disease_details(current_user_id, roboflow_name):

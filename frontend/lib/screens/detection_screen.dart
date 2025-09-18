@@ -34,7 +34,6 @@ class DetectionScreen extends StatefulWidget {
 }
 
 class _DetectionScreenState extends State<DetectionScreen> {
-  // --- AHORA DOS VARIABLES PARA IMÁGENES ---
   XFile? _imageFileFront;
   XFile? _imageFileBack;
 
@@ -45,6 +44,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
   late bool _isNavExpanded;
 
   bool _isLoading = false;
+  String _loadingMessage = ''; // Mensaje de carga dinámico
   String? _errorMessage;
 
   @override
@@ -55,8 +55,37 @@ class _DetectionScreenState extends State<DetectionScreen> {
       _imageFileFront = widget.initialImageFile;
     }
   }
+  
+  void _onNavItemTapped(int index) {
+    // La navegación no cambia, solo los índices
+    switch (index) {
+      case 0:
+         Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
+        break;
+      case 1:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
+        break;
+      case 2:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)));
+        break;
+      case 3:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+        break;
+      case 4:
+        _logout(context);
+        break;
+    }
+  }
 
-  // --- FUNCIÓN MODIFICADA PARA SELECCIONAR IMAGEN ---
+  void _logout(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    await _authService.deleteToken();
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
   Future<void> _pickImage(bool isFront) async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -71,7 +100,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
-  // --- FUNCIÓN MODIFICADA PARA LIMPIAR ---
   void _clearImage(bool isFront) {
     setState(() {
       if (isFront) {
@@ -83,42 +111,49 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
   }
 
-  // --- FUNCIÓN DE ANÁLISIS MODIFICADA ---
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
 
+    // 1. Mostrar el overlay de carga INMEDIATAMENTE.
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _loadingMessage = 'Iniciando proceso...';
     });
 
-    try {
-      // Subir imagen frontal
-      final String? imageUrlFront = await _storageService.uploadImage(_imageFileFront!);
-      if (imageUrlFront == null) {
-        throw Exception("No se pudo subir la imagen del frente.");
-      }
+    // 2. Darle a Flutter una fracción de segundo para que dibuje el overlay antes de empezar el trabajo pesado.
+    await Future.delayed(const Duration(milliseconds: 50));
 
-      // Subir imagen del reverso (si existe)
-      String? imageUrlBack;
-      if (_imageFileBack != null) {
-        imageUrlBack = await _storageService.uploadImage(_imageFileBack!);
-        if (imageUrlBack == null) {
-          throw Exception("No se pudo subir la imagen del reverso.");
-        }
-      }
+try {
+  setState(() => _loadingMessage = 'Subiendo imágenes...');
+  
+  final List<Future<String?>> uploadTasks = [];
+  // --- CAMBIO AQUÍ ---
+  uploadTasks.add(_storageService.uploadOriginalImage(_imageFileFront!));
+  if (_imageFileBack != null) {
+    // --- Y CAMBIO AQUÍ ---
+    uploadTasks.add(_storageService.uploadOriginalImage(_imageFileBack!));
+  }
+
+      final List<String?> imageUrls = await Future.wait(uploadTasks);
+      final String? imageUrlFront = imageUrls[0];
+      final String? imageUrlBack = imageUrls.length > 1 ? imageUrls[1] : null;
+
+      if (imageUrlFront == null) throw Exception("No se pudo subir la imagen del frente.");
+      if (_imageFileBack != null && imageUrlBack == null) throw Exception("No se pudo subir la imagen del reverso.");
       
-      // Llamar al servicio con una o dos URLs
+      setState(() => _loadingMessage = 'Analizando con la IA...\nEsto puede tardar un momento.');
+      
       final http.Response response = await _detectionService.analyzeImages(
         imageUrlFront: imageUrlFront,
         imageUrlBack: imageUrlBack,
       );
 
-      setState(() { _isLoading = false; });
+      if (!mounted) return;
+      setState(() => _isLoading = false);
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-
         await showDialog(
           context: context,
           builder: (BuildContext dialogContext) {
@@ -126,7 +161,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
               backgroundColor: Colors.transparent,
               child: AnalysisDetailScreen(analysis: {
                 ...result,
-                'url_imagen': imageUrlFront, // Usar la del frente como principal
+                'url_imagen': imageUrlFront,
                 'resultado_prediccion': result['prediction'],
                 'confianza': result['confidence'],
               }),
@@ -140,29 +175,18 @@ class _DetectionScreenState extends State<DetectionScreen> {
             (Route<dynamic> route) => false,
           );
         }
-
       } else {
-        setState(() {
-          _errorMessage = "Error del servidor: ${response.body}";
-        });
+        final body = json.decode(response.body);
+        throw Exception("Error del servidor: ${body['error'] ?? response.reasonPhrase}");
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = "Error: ${e.toString()}";
-      });
-    } finally {
       if (mounted) {
-         setState(() { _isLoading = false; });
+        setState(() {
+          _errorMessage = e.toString(); // Mostramos el error real
+          _isLoading = false;
+        });
       }
     }
-  }
-
-  void _onNavItemTapped(int index) {
-    // ... (sin cambios)
-  }
-
-  void _logout(BuildContext context) {
-    // ... (sin cambios)
   }
 
   @override
@@ -196,7 +220,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                         child: Container(
-                           padding: const EdgeInsets.all(32.0),
+                          padding: const EdgeInsets.all(32.0),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(24.0),
@@ -227,8 +251,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 20),
-                                  
-                                  // --- NUEVA INTERFAZ DE CARGA DUAL ---
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,12 +266,10 @@ class _DetectionScreenState extends State<DetectionScreen> {
                                     textAlign: TextAlign.center,
                                     style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
                                   ),
-                                  
                                   const SizedBox(height: 20),
-                                  
                                   if (_imageFileFront != null)
                                     ElevatedButton.icon(
-                                      icon: _isLoading ? Container(width: 24, height: 24, padding: const EdgeInsets.all(2.0), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3,)) : const Icon(Icons.analytics_outlined),
+                                      icon: const Icon(Icons.analytics_outlined),
                                       label: const Text("Analizar Imagen(es)"),
                                       onPressed: _isLoading ? null : _analyzeImages,
                                       style: ElevatedButton.styleFrom(
@@ -272,13 +292,40 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 ),
               ),
             ],
-          )
+          ),
+          // --- WIDGET DE OVERLAY DE CARGA ---
+          if (_isLoading)
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  color: Colors.black.withOpacity(0.5),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(color: Colors.white),
+                        const SizedBox(height: 20),
+                        Text(
+                          _loadingMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // --- NUEVO WIDGET PARA CADA ESPACIO DE IMAGEN ---
   Widget _buildImageSlot({required bool isFront}) {
     final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
     final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
@@ -318,12 +365,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
                   width: 200,
                   height: 200,
                   decoration: BoxDecoration(border: Border.all(color: Colors.white54), borderRadius: BorderRadius.circular(12)),
-                  child: Column(
+                  child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_a_photo_outlined, size: 50, color: Colors.white70),
-                      const SizedBox(height: 8),
-                      const Text("Seleccionar imagen", style: TextStyle(color: Colors.white70))
+                      SizedBox(height: 8),
+                      Text("Seleccionar imagen", style: TextStyle(color: Colors.white70))
                     ],
                   ),
                 ),
