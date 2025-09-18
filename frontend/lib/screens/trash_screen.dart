@@ -1,7 +1,7 @@
 // frontend/lib/screens/trash_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
+import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
@@ -52,6 +52,17 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  String _formatPredictionName(String originalName) {
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
+      return 'Hoja Sana';
+    }
+    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    if (formattedName.isEmpty) {
+      return 'Desconocido';
+    }
+    return formattedName[0].toUpperCase() + formattedName.substring(1);
+  }
+
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
@@ -63,7 +74,7 @@ class _TrashScreenState extends State<TrashScreen> {
       case 2:
         break;
       case 3:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded))); // <-- AÑADIR
+         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 4:
         _logout(context);
@@ -82,13 +93,45 @@ class _TrashScreenState extends State<TrashScreen> {
 
   Future<void> _restoreItem(int analysisId, int index) async {
       final success = await _detectionService.restoreHistoryItem(analysisId);
-      if (success) {
-        setState(() => _trashedList!.removeAt(index));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Análisis restaurado'), backgroundColor: Colors.green));
-        }
+      if (success && mounted) {
+        final restoredItem = _trashedList!.removeAt(index);
+        setState(() {});
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: AlertDialog(
+              backgroundColor: Colors.grey[900]?.withOpacity(0.85),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.2))),
+              title: const Text('Análisis Restaurado', style: TextStyle(color: Colors.white)),
+              content: const Text('El análisis ha sido movido de vuelta a tu historial.', style: TextStyle(color: Colors.white70)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pushReplacement(
+                      NoTransitionRoute(page: HistoryScreen(
+                        isNavExpanded: _isNavExpanded,
+                        highlightedAnalysisId: restoredItem['id_analisis'],
+                      ))
+                    );
+                  },
+                  child: const Text('Ver en Historial'),
+                ),
+              ],
+            ),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo restaurar el análisis'), backgroundColor: Colors.red));
       }
-  }
+    }
 
   Future<void> _permanentlyDeleteItem(int analysisId, int index) async {
     final confirmed = await showDialog<bool>(
@@ -114,9 +157,53 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  // --- NUEVA FUNCIÓN PARA VACIAR LA PAPELERA ---
+  Future<void> _emptyTrash() async {
+    if (_trashedList == null || _trashedList!.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Vaciar Papelera'),
+        content: const Text('Todos los análisis en la papelera se eliminarán permanentemente. Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Vaciar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final success = await _detectionService.emptyTrash();
+        if (success && mounted) {
+          setState(() {
+            _trashedList!.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('La papelera ha sido vaciada'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -147,13 +234,51 @@ class _TrashScreenState extends State<TrashScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                           Text(
+                            "Papelera",
+                            style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
+                          ),
+                          Row(
+                            children: [
+                              // --- NUEVO BOTÓN "VACIAR PAPELERA" ---
+                              if (_trashedList != null && _trashedList!.isNotEmpty)
+                                TextButton.icon(
+                                  icon: const Icon(Icons.delete_sweep_outlined, size: 16, color: Colors.orangeAccent),
+                                  label: const Text("Vaciar Papelera", style: TextStyle(color: Colors.orangeAccent)),
+                                  onPressed: _emptyTrash,
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(0.1),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                                  ),
+                                ),
+                              const SizedBox(width: 16),
+                              TextButton.icon(
+                                icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
+                                label: const Text("Volver al Dashboard", style: TextStyle(color: Colors.white70)),
+                                onPressed: () => Navigator.of(context).pushReplacement(
+                                  NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
+                                ),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.white.withOpacity(0.1),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        "Papelera",
-                        style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
+                        "Los archivos en la papelera se eliminarán permanentemente después de 30 días.",
+                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontStyle: FontStyle.italic),
                       ),
                       const SizedBox(height: 24),
                       Expanded(
@@ -232,7 +357,7 @@ class _TrashScreenState extends State<TrashScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item['resultado_prediccion'],
+                          _formatPredictionName(item['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -250,11 +375,13 @@ class _TrashScreenState extends State<TrashScreen> {
                               icon: Icons.restore_from_trash,
                               color: Colors.blue,
                               onPressed: () => _restoreItem(item['id_analisis'], index),
+                              tooltip: 'Restaurar'
                             ),
                             _buildActionButton(
                               icon: Icons.delete_forever,
                               color: Colors.red,
                               onPressed: () => _permanentlyDeleteItem(item['id_analisis'], index),
+                              tooltip: 'Eliminar permanentemente'
                             ),
                           ],
                         ),
@@ -270,7 +397,7 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed}) {
+  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(
@@ -284,6 +411,7 @@ class _TrashScreenState extends State<TrashScreen> {
           child: IconButton(
             onPressed: onPressed,
             icon: Icon(icon, color: Colors.white, size: 18),
+            tooltip: tooltip,
           ),
         ),
       ),

@@ -412,6 +412,55 @@ def calculate_dose(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
 
+@app.route('/history/trash/empty', methods=['DELETE'])
+@token_required
+def empty_trash(current_user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # 1. Encontrar todos los items en la papelera del usuario para obtener sus URLs de imagen
+        cur.execute(
+            "SELECT url_imagen FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            (current_user_id,)
+        )
+        items_to_delete = cur.fetchall()
+
+        # 2. Borrar las imágenes de Firebase Storage
+        if items_to_delete:
+            print(f"Vaciando papelera para el usuario {current_user_id}. {len(items_to_delete)} items encontrados.")
+            bucket = storage.bucket()
+            for item in items_to_delete:
+                image_url = item['url_imagen']
+                if image_url:
+                    try:
+                        # Extraer el path del archivo desde la URL de Firebase
+                        path_start = image_url.find("/o/") + 3
+                        path_end = image_url.find("?alt=media")
+                        if path_start > 2 and path_end != -1:
+                            file_path = unquote(image_url[path_start:path_end])
+                            blob = bucket.blob(file_path)
+                            if blob.exists():
+                                blob.delete()
+                    except Exception as e:
+                        # Si falla el borrado de una imagen, solo se registra y el proceso continúa
+                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
+        
+        # 3. Borrar todos los registros marcados como eliminados para ese usuario en la BD
+        cur.execute(
+            "DELETE FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            (current_user_id,)
+        )
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return jsonify({"message": "La papelera ha sido vaciada exitosamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al vaciar la papelera: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

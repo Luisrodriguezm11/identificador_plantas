@@ -1,7 +1,8 @@
 // frontend/lib/screens/history_screen.dart
 
+import 'dart:async'; // Importar para el Timer
 import 'package:flutter/material.dart';
-import 'package:frontend/helpers/custom_route.dart'; // Importa la nueva ruta
+import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
@@ -9,30 +10,60 @@ import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/widgets/side_navigation_rail.dart';
 import '../services/detection_service.dart';
 import 'trash_screen.dart';
-import 'dart:ui'; // Necesario para el BackdropFilter
+import 'dart:ui';
 
 class HistoryScreen extends StatefulWidget {
   final bool isNavExpanded;
+  final int? highlightedAnalysisId; // <-- NUEVO: Para recibir el ID
 
-  const HistoryScreen({super.key, this.isNavExpanded = true});
+  const HistoryScreen({super.key, this.isNavExpanded = true, this.highlightedAnalysisId});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
+class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateMixin {
   final DetectionService _detectionService = DetectionService();
   final AuthService _authService = AuthService();
   List<dynamic>? _historyList;
   bool _isLoading = true;
   String? _errorMessage;
   late bool _isNavExpanded;
+  
+  // --- NUEVAS VARIABLES PARA LA ANIMACIÓN ---
+  int? _highlightedId;
+  AnimationController? _highlightController;
 
   @override
   void initState() {
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
+    _highlightedId = widget.highlightedAnalysisId;
     _fetchHistory();
+
+    if (_highlightedId != null) {
+      // Controlador para la animación de parpadeo
+      _highlightController = AnimationController(
+        duration: const Duration(milliseconds: 700),
+        vsync: this,
+      )..repeat(reverse: true);
+
+      // Detener la animación después de unos segundos
+      Timer(const Duration(seconds: 4), () {
+        if (mounted) {
+          _highlightController?.stop();
+          setState(() {
+            _highlightedId = null; // Quita el resaltado
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _highlightController?.dispose(); // Limpiar el controlador
+    super.dispose();
   }
 
   Future<void> _fetchHistory() async {
@@ -42,36 +73,45 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
     try {
       final history = await _detectionService.getHistory();
-      setState(() {
-        _historyList = history;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _historyList = history;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  String _formatPredictionName(String originalName) {
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
+      return 'Hoja Sana';
+    }
+    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    if (formattedName.isEmpty) {
+      return 'Desconocido'; 
+    }
+    return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-          context,
-          NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
-        );
+        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),);
         break;
       case 1:
         break;
       case 2:
-        Navigator.pushReplacement(
-          context,
-          NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)),
-        );
+        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)),);
         break;
       case 3:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded))); // <-- AÑADIR
+         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 4:
         _logout(context);
@@ -88,7 +128,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-
   Future<void> _deleteItem(int analysisId, int index) async {
     final bool? confirmed = await showDialog(
       context: context,
@@ -96,14 +135,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         title: const Text('Confirmar Borrado'),
         content: const Text('¿Enviar este análisis a la papelera?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Enviar', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar'),),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Enviar', style: TextStyle(color: Colors.red)),),
         ],
       ),
     );
@@ -117,23 +150,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _historyList!.removeAt(index);
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Análisis enviado a la papelera'), backgroundColor: Colors.green),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Análisis enviado a la papelera'), backgroundColor: Colors.green),);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // El resto del código de build no cambia...
     return Scaffold(
       body: Stack(
         children: [
@@ -164,13 +192,29 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "Historial de Análisis",
-                        style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Historial de Análisis",
+                            style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
+                          ),
+                          TextButton.icon(
+                            icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
+                            label: const Text("Volver al Dashboard", style: TextStyle(color: Colors.white70)),
+                            onPressed: () => Navigator.of(context).pushReplacement(
+                              NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
+                            ),
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.1),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
                       Expanded(
@@ -212,8 +256,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
+    final bool isHighlighted = analysis['id_analisis'] == _highlightedId;
 
-    return ClipRRect(
+    Widget cardContent = ClipRRect(
       borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
@@ -221,7 +266,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -257,7 +301,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          analysis['resultado_prediccion'],
+                          _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -306,5 +350,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ),
     );
+
+    if (isHighlighted && _highlightController != null) {
+      return AnimatedBuilder(
+        animation: _highlightController!,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24.0),
+              border: Border.all(
+                color: Colors.blueAccent.withOpacity(_highlightController!.value),
+                width: 3,
+              ),
+            ),
+            child: child,
+          );
+        },
+        child: cardContent,
+      );
+    }
+    
+    return cardContent;
   }
 }

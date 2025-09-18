@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class DetectionService {
-  final String _baseUrl = "http://192.168.0.22:5001"; // Asegúrate que esta IP sea la correcta
+  final String _baseUrl = "http://192.168.0.18:5001"; // Asegúrate que esta IP sea la correcta
   final AuthService _authService = AuthService();
 
   Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
@@ -167,4 +167,22 @@ class DetectionService {
     }
 }
 
+Future<bool> emptyTrash() async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/history/trash/empty'),
+        headers: {'x-access-token': token ?? ''},
+      ).timeout(const Duration(seconds: 30)); // Aumentado por si son muchos archivos
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al vaciar la papelera: ${body['error']}');
+      }
+    } catch (e) {
+      throw Exception('No se pudo completar la operación: $e');
+    }
+}
 }

@@ -11,8 +11,10 @@ import 'login_screen.dart';
 import 'detection_screen.dart';
 import 'history_screen.dart';
 import 'dart:ui';
-// --- NUEVO: Importa la pantalla de detalles ---
-import 'analysis_detail_screen.dart'; 
+import 'analysis_detail_screen.dart';
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:image_picker/image_picker.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   final bool isNavExpanded;
@@ -26,9 +28,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final AuthService _authService = AuthService();
   final DetectionService _detectionService = DetectionService();
+  final ImagePicker _picker = ImagePicker();
   late bool _isNavExpanded;
   bool _isLoading = true;
   List<dynamic> _recentAnalyses = [];
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -63,6 +67,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
   }
+  
+  // --- NUEVA FUNCIÓN PARA FORMATEAR NOMBRES ---
+  String _formatPredictionName(String originalName) {
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
+      return 'Hoja Sana';
+    }
+    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    if (formattedName.isEmpty) {
+      return 'Desconocido'; 
+    }
+    return formattedName[0].toUpperCase() + formattedName.substring(1);
+  }
 
   void _onNavItemTapped(int index) {
     switch (index) {
@@ -92,8 +108,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Future<void> _pickAndNavigateToDetection({XFile? imageFile}) async {
+    XFile? finalImageFile = imageFile;
+
+    if (finalImageFile == null) {
+      finalImageFile = await _picker.pickImage(source: ImageSource.gallery);
+    }
+
+    if (finalImageFile != null && mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DetectionScreen(
+            isNavExpanded: _isNavExpanded,
+            initialImageFile: finalImageFile,
+          ),
+        ),
+      );
+      _fetchRecentAnalyses();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final analysesToShow = _recentAnalyses.take(5).toList();
+    final bool showViewAllButton = _recentAnalyses.length > 5;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -157,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    "Sube una imagen o video para el conteo.",
+                                    "Arrastra y suelta un archivo o búscalo en tu equipo para analizarlo.",
                                     style: TextStyle(color: Colors.white70),
                                   ),
                                 ],
@@ -195,9 +234,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       crossAxisSpacing: 20,
                                       mainAxisSpacing: 20,
                                     ),
-                                    itemCount: _recentAnalyses.length,
+                                    itemCount: analysesToShow.length + (showViewAllButton ? 1 : 0),
                                     itemBuilder: (context, index) {
-                                      final analysis = _recentAnalyses[index];
+                                      if (showViewAllButton && index == analysesToShow.length) {
+                                        return _buildViewAllCard();
+                                      }
+                                      final analysis = analysesToShow[index];
                                       return _buildAnalysisCard(analysis);
                                     },
                                   ),
@@ -215,52 +257,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildFileUploadCard() {
+    return DropTarget(
+      onDragDone: (detail) {
+        if (detail.files.isNotEmpty) {
+          _pickAndNavigateToDetection(imageFile: detail.files.first);
+        }
+        setState(() { _isDragging = false; });
+      },
+      onDragEntered: (detail) => setState(() { _isDragging = true; }),
+      onDragExited: (detail) => setState(() { _isDragging = false; }),
+      child: GestureDetector(
+        onTap: () => _pickAndNavigateToDetection(),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              decoration: BoxDecoration(
+                color: _isDragging ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _isDragging ? Colors.blueAccent : Colors.white.withOpacity(0.2)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _isDragging ? Icons.download_for_offline_outlined : Icons.cloud_upload_outlined,
+                    color: Colors.white, size: 40
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Arrastra y suelta tu archivo aquí",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Límite 20MB por archivo • JPG, PNG, JPEG",
+                    style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _pickAndNavigateToDetection(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text("Buscar archivo"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewAllCard() {
     return GestureDetector(
-      onTap: () async {
-        await Navigator.of(context)
-            .push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
-        _fetchRecentAnalyses();
+      onTap: () {
+        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24.0),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24.0),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.cloud_upload_outlined,
-                    color: Colors.white, size: 40),
-                const SizedBox(height: 16),
-                const Text(
-                  "Drag and drop file here",
-                  style: TextStyle(color: Colors.white),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Limit 200MB per file • JPG, PNG, JPEG",
-                  style: TextStyle(color: Colors.white.withOpacity(0.5)),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () async {
-                    await Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => const DetectionScreen()));
-                    _fetchRecentAnalyses();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                  ),
-                  child: const Text("Browse files"),
-                ),
-              ],
+            child: const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.arrow_forward_ios, color: Colors.white, size: 40),
+                  SizedBox(height: 8),
+                  Text("Ver todo el historial", style: TextStyle(color: Colors.white), textAlign: TextAlign.center,),
+                ],
+              ),
             ),
           ),
         ),
@@ -316,7 +394,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          analysis['resultado_prediccion'],
+                          // --- NOMBRE FORMATEADO ---
+                          _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -347,17 +426,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   child: TextButton(
                                     onPressed: () {
-                                      // --- CAMBIO AQUÍ: Abre la pantalla como un diálogo ---
                                       showDialog(
                                         context: context,
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
-                                            backgroundColor: Colors.transparent, // Fondo del diálogo transparente
-                                            child: AnalysisDetailScreen(analysis: analysis), // Nuestra pantalla de detalles
+                                            backgroundColor: Colors.transparent,
+                                            child: AnalysisDetailScreen(analysis: analysis),
                                           );
                                         },
                                       );
-                                      // --- FIN DEL CAMBIO ---
                                     },
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.white,

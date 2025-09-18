@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- 1. Importa el paquete
 
 class AuthService {
-  final String _baseUrl = "http://192.168.0.22:5001";
+  final String _baseUrl = "http://192.168.0.18:5001";
   // 2. Crea una instancia del almacenamiento seguro
   final _storage = const FlutterSecureStorage();
 
