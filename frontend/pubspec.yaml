@@ -41,6 +41,7 @@ dependencies:
   uuid: ^4.5.1
   palette_generator: ^0.3.3+3 # Añade esta línea
   desktop_drop: ^0.4.4 # <-- AÑADE ESTA LÍNEA
+  image: ^4.2.0
 
 dev_dependencies:
   flutter_test:

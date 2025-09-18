@@ -9,19 +9,26 @@ class DetectionService {
   final String _baseUrl = "http://192.168.0.18:5001"; // Asegúrate que esta IP sea la correcta
   final AuthService _authService = AuthService();
 
-  Future<http.Response> analyzeImageWithUrl(String imageUrl) async {
+  Future<http.Response> analyzeImages({required String imageUrlFront, String? imageUrlBack}) async {
     try {
       final String? token = await _authService.readToken();
+      
+      final Map<String, String> body = {
+        'image_url_front': imageUrlFront,
+      };
+
+      if (imageUrlBack != null) {
+        body['image_url_back'] = imageUrlBack;
+      }
+
       final response = await http.post(
         Uri.parse('$_baseUrl/analyze'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
           'x-access-token': token ?? '',
         },
-        body: jsonEncode(<String, String>{
-          'image_url': imageUrl,
-        }),
-      ).timeout(const Duration(seconds: 30));
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 60)); // Tiempo aumentado por si son 2 imágenes
       return response;
     } on TimeoutException catch (_) {
       throw Exception('La conexión tardó demasiado. Asegúrate que el servidor backend esté corriendo en: $_baseUrl');
