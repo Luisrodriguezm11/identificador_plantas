@@ -68,7 +68,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
   
-  // --- NUEVA FUNCIÓN PARA FORMATEAR NOMBRES ---
   String _formatPredictionName(String originalName) {
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
@@ -346,6 +345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // --- 👇 FUNCIÓN MODIFICADA 👇 ---
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
@@ -394,7 +394,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          // --- NOMBRE FORMATEADO ---
                           _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
@@ -425,12 +424,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     border: Border.all(color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
+                                    // --- ACCIÓN DEL BOTÓN CORREGIDA ---
                                     onPressed: () {
                                       showDialog(
                                         context: context,
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
                                             backgroundColor: Colors.transparent,
+                                            // Se pasa el 'analysis' map completo, que
+                                            // ya contiene ambas URLs del backend.
                                             child: AnalysisDetailScreen(analysis: analysis),
                                           );
                                         },

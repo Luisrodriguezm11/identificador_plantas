@@ -16,6 +16,10 @@ class AnalysisDetailScreen extends StatefulWidget {
 
 class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   final DetectionService _detectionService = DetectionService();
+  
+  final PageController _pageController = PageController();
+  final List<String> _imageUrls = [];
+  int _currentPage = 0;
 
   Color _dominantColor = Colors.black.withOpacity(0.6);
   bool _isColorLoading = true;
@@ -27,14 +31,46 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _setupImages();
     _updateDominantColor();
     _fetchDiseaseDetails();
+    
+    _pageController.addListener(() {
+      final newPage = _pageController.page?.round();
+      if (newPage != null && newPage != _currentPage) {
+        setState(() {
+          _currentPage = newPage;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+  
+  void _setupImages() {
+    final frontImageUrl = widget.analysis['url_imagen'];
+    final backImageUrl = widget.analysis['url_imagen_reverso'];
+
+    if (frontImageUrl != null) {
+      _imageUrls.add(frontImageUrl);
+    }
+    if (backImageUrl != null) {
+      _imageUrls.add(backImageUrl);
+    }
   }
 
   Future<void> _updateDominantColor() async {
+    if (_imageUrls.isEmpty) {
+        setState(() => _isColorLoading = false);
+        return;
+    }
     final PaletteGenerator paletteGenerator =
         await PaletteGenerator.fromImageProvider(
-      NetworkImage(widget.analysis['url_imagen']),
+      NetworkImage(_imageUrls.first),
       size: const Size(200, 200),
     );
     if (mounted) {
@@ -48,7 +84,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
   Future<void> _fetchDiseaseDetails() async {
     try {
-      final String diseaseName = widget.analysis['resultado_prediccion'];
+      final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
       final details = await _detectionService.getDiseaseDetails(diseaseName);
 
       final recommendationsList = (details['recommendations'] as List)
@@ -74,11 +110,16 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String imageUrl = widget.analysis['url_imagen'];
-    final String prediction = widget.analysis['resultado_prediccion'];
-    final double confidence = widget.analysis['confianza'] ?? 0.0;
+    // --- 👇 ESTA ES LA LÍNEA CORREGIDA Y MÁS SEGURA 👇 ---
+    // Busca la confianza con ambas claves ('confidence' o 'confianza'),
+    // provee un valor por defecto de 0.0, y lo convierte a double de forma segura.
+    final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
+    final double confidence = (confidenceValue as num).toDouble();
+    
+    final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
 
     return Center(
+      // ... (El resto del código es idéntico al anterior y ya está correcto)
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.0),
         child: BackdropFilter(
@@ -93,23 +134,34 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             ),
             child: Row(
               children: [
+                // --- COLUMNA IZQUIERDA: CARRUSEL DE IMÁGENES ---
                 Expanded(
                   flex: 2,
                   child: Stack(
-                    fit: StackFit.expand,
+                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: NetworkImage(imageUrl),
-                            fit: BoxFit.cover,
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(24.0),
-                            bottomLeft: Radius.circular(24.0),
-                          ),
-                        ),
-                      ),
+                      if (_imageUrls.isNotEmpty)
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: _imageUrls.length,
+                          itemBuilder: (context, index) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: NetworkImage(_imageUrls[index]),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(24.0),
+                                  bottomLeft: Radius.circular(24.0),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        const Center(child: Text("Imagen no disponible", style: TextStyle(color: Colors.white))),
+
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -132,9 +184,57 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                           ),
                         ),
                       ),
+                      if (_imageUrls.length > 1)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+                              onPressed: () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
+                            ),
+                          ),
+                        ),
+                      if (_imageUrls.length > 1)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+                              onPressed: () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
+                            ),
+                          ),
+                        ),
+                      if (_imageUrls.length > 1)
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(_imageUrls.length, (index) {
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  height: 8.0,
+                                  width: _currentPage == index ? 24.0 : 8.0,
+                                  decoration: BoxDecoration(
+                                    color: _currentPage == index ? Colors.white : Colors.white54,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
+                
+                // --- COLUMNA DERECHA: INFORMACIÓN ---
                 Expanded(
                   flex: 3,
                   child: Stack(
@@ -192,9 +292,8 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                           ),
                         ),
                       ),
-                      // --- ESTE ES EL CAMBIO FINAL Y DEFINITIVO ---
                       Visibility(
-                        visible: _isColorLoading, // Solo es visible si estamos cargando
+                        visible: _isColorLoading,
                         child: AnimatedOpacity(
                           duration: const Duration(milliseconds: 300),
                           opacity: _isColorLoading ? 1.0 : 0.0,

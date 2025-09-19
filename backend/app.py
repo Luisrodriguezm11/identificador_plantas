@@ -163,7 +163,7 @@ def analyze_image(current_user_id):
     total_start_time = time.time() # <--- Medimos el tiempo total de la solicitud
     data = request.get_json()
     image_url_front = data.get('image_url_front')
-    image_url_back = data.get('image_url_back')
+    image_url_back = data.get('image_url_back') # <-- Se obtiene la URL del reverso (puede ser None)
 
     if not image_url_front:
         return jsonify({"error": "La URL de la imagen del frente es requerida"}), 400
@@ -192,12 +192,16 @@ def analyze_image(current_user_id):
         start_db = time.time()
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # --- 👇 MODIFICACIÓN AQUÍ 👇 ---
+        # Se añade la columna 'url_imagen_reverso' a la consulta INSERT
         cur.execute(
             """
-            INSERT INTO analisis (id_usuario, url_imagen, resultado_prediccion, confianza, fecha_analisis)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO analisis (id_usuario, url_imagen, url_imagen_reverso, resultado_prediccion, confianza, fecha_analisis)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (current_user_id, image_url_front, final_result['prediction'], final_result['confidence'], datetime.utcnow())
+            # Se añade 'image_url_back' a los valores
+            (current_user_id, image_url_front, image_url_back, final_result['prediction'], final_result['confidence'], datetime.utcnow())
         )
         conn.commit()
         cur.close()
@@ -208,7 +212,16 @@ def analyze_image(current_user_id):
         total_end_time = time.time()
         print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
 
-        return jsonify(final_result), 200
+        # --- 👇 MODIFICACIÓN EN LA RESPUESTA 👇 ---
+        # Se crea un nuevo diccionario para la respuesta que incluye ambas URLs
+        response_data = {
+            "prediction": final_result['prediction'],
+            "confidence": final_result['confidence'],
+            "url_imagen": image_url_front,
+            "url_imagen_reverso": image_url_back  # Puede ser None si no se subió
+        }
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
@@ -246,6 +259,7 @@ def get_disease_details(current_user_id, roboflow_name):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al obtener los detalles: {str(e)}"}), 500
 
+
 @app.route('/history', methods=['GET'])
 @token_required
 def get_history(current_user_id):
@@ -253,8 +267,14 @@ def get_history(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
+        # Seleccionamos todas las columnas necesarias, incluyendo la del reverso
         cur.execute(
-            "SELECT * FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NULL ORDER BY fecha_analisis DESC", 
+            """SELECT 
+               id_analisis, url_imagen, url_imagen_reverso, 
+               resultado_prediccion, confianza, fecha_analisis 
+               FROM analisis 
+               WHERE id_usuario = %s AND fecha_eliminado IS NULL 
+               ORDER BY fecha_analisis DESC""", 
             (current_user_id,)
         )
         
@@ -264,9 +284,12 @@ def get_history(current_user_id):
         
         results = []
         for row in history:
+            # --- 👇 CAMBIO PRINCIPAL AQUÍ 👇 ---
+            # Nos aseguramos de incluir TODAS las columnas en la respuesta JSON
             results.append({
                 "id_analisis": row["id_analisis"],
                 "url_imagen": row["url_imagen"],
+                "url_imagen_reverso": row["url_imagen_reverso"], # <-- ¡Esta era la que faltaba!
                 "resultado_prediccion": row["resultado_prediccion"],
                 "confianza": row["confianza"],
                 "fecha_analisis": row["fecha_analisis"].isoformat()
@@ -275,6 +298,7 @@ def get_history(current_user_id):
         return jsonify(results), 200
 
     except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al obtener el historial: {str(e)}"}), 500
         return jsonify({"error": f"Ocurrió un error al obtener el historial: {str(e)}"}), 500
 
 @app.route('/history/<int:analysis_id>', methods=['DELETE'])

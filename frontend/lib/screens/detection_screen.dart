@@ -154,17 +154,13 @@ try {
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
+        
         await showDialog(
           context: context,
           builder: (BuildContext dialogContext) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              child: AnalysisDetailScreen(analysis: {
-                ...result,
-                'url_imagen': imageUrlFront,
-                'resultado_prediccion': result['prediction'],
-                'confianza': result['confidence'],
-              }),
+              child: AnalysisDetailScreen(analysis: result),
             );
           },
         );

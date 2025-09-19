@@ -11,10 +11,12 @@ import 'package:frontend/widgets/side_navigation_rail.dart';
 import '../services/detection_service.dart';
 import 'trash_screen.dart';
 import 'dart:ui';
+// Asegúrate de importar la pantalla de detalles
+import 'analysis_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final bool isNavExpanded;
-  final int? highlightedAnalysisId; // <-- NUEVO: Para recibir el ID
+  final int? highlightedAnalysisId;
 
   const HistoryScreen({super.key, this.isNavExpanded = true, this.highlightedAnalysisId});
 
@@ -30,7 +32,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   String? _errorMessage;
   late bool _isNavExpanded;
   
-  // --- NUEVAS VARIABLES PARA LA ANIMACIÓN ---
   int? _highlightedId;
   AnimationController? _highlightController;
 
@@ -42,18 +43,16 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     _fetchHistory();
 
     if (_highlightedId != null) {
-      // Controlador para la animación de parpadeo
       _highlightController = AnimationController(
         duration: const Duration(milliseconds: 700),
         vsync: this,
       )..repeat(reverse: true);
 
-      // Detener la animación después de unos segundos
       Timer(const Duration(seconds: 4), () {
         if (mounted) {
           _highlightController?.stop();
           setState(() {
-            _highlightedId = null; // Quita el resaltado
+            _highlightedId = null;
           });
         }
       });
@@ -62,7 +61,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
   @override
   void dispose() {
-    _highlightController?.dispose(); // Limpiar el controlador
+    _highlightController?.dispose();
     super.dispose();
   }
 
@@ -253,6 +252,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     );
   }
 
+  // --- 👇 FUNCIÓN MODIFICADA 👇 ---
   Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
@@ -266,6 +266,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -320,23 +321,32 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                               fechaFormateada,
                               style: const TextStyle(color: Colors.white70, fontSize: 14),
                             ),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(30.0),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(30.0),
-                                    border: Border.all(color: Colors.red.withOpacity(0.4)),
-                                  ),
-                                  child: IconButton(
-                                    onPressed: () => _deleteItem(analysis['id_analisis'], index),
-                                    icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
-                                    tooltip: 'Enviar a la papelera',
-                                  ),
+                            Row(
+                              children: [
+                                _buildActionButton(
+                                  icon: Icons.info_outline,
+                                  color: Colors.blue,
+                                  tooltip: 'Más info',
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext dialogContext) {
+                                        return Dialog(
+                                          backgroundColor: Colors.transparent,
+                                          child: AnalysisDetailScreen(analysis: analysis),
+                                        );
+                                      },
+                                    );
+                                  },
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                _buildActionButton(
+                                  icon: Icons.delete_outline,
+                                  color: Colors.red,
+                                  tooltip: 'Enviar a la papelera',
+                                  onPressed: () => _deleteItem(analysis['id_analisis'], index),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -371,5 +381,30 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     }
     
     return cardContent;
+  }
+
+  // --- 👇 NUEVA FUNCIÓN AÑADIDA 👇 ---
+  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.3),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: onPressed,
+            icon: Icon(icon, color: Colors.white, size: 20),
+            tooltip: tooltip,
+          ),
+        ),
+      ),
+    );
   }
 }
