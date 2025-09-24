@@ -227,6 +227,8 @@ def analyze_image(current_user_id):
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
 # ... (El resto de tus rutas: /disease, /history, etc., no cambian)
+# En backend/app.py
+
 @app.route('/disease/<string:roboflow_name>', methods=['GET'])
 @token_required
 def get_disease_details(current_user_id, roboflow_name):
@@ -240,8 +242,9 @@ def get_disease_details(current_user_id, roboflow_name):
         if not disease:
             return jsonify({"error": "Enfermedad no encontrada"}), 404
 
+        # Se seleccionan todas las columnas de la tabla de tratamientos
         cur.execute(
-            "SELECT tipo_tratamiento, descripcion_tratamiento FROM tratamientos WHERE id_enfermedad = %s",
+            "SELECT * FROM tratamientos WHERE id_enfermedad = %s",
             (disease['id_enfermedad'],)
         )
         treatments = cur.fetchall()
@@ -258,7 +261,6 @@ def get_disease_details(current_user_id, roboflow_name):
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al obtener los detalles: {str(e)}"}), 500
-
 
 @app.route('/history', methods=['GET'])
 @token_required

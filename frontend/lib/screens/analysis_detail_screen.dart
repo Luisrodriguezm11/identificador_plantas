@@ -82,31 +82,51 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     }
   }
 
-  Future<void> _fetchDiseaseDetails() async {
-    try {
-      final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
-      final details = await _detectionService.getDiseaseDetails(diseaseName);
+// En frontend/lib/screens/analysis_detail_screen.dart
 
-      final recommendationsList = (details['recommendations'] as List)
-          .map((rec) => '• ${rec['tipo_tratamiento']}: ${rec['descripcion_tratamiento']}')
-          .join('\n\n');
+// En frontend/lib/screens/analysis_detail_screen.dart
 
-      if (mounted) {
-        setState(() {
-          _diseaseInfo = details['info']['descripcion'] ?? 'No hay descripción disponible.';
-          _recommendations = recommendationsList.isNotEmpty ? recommendationsList : 'No hay recomendaciones disponibles.';
-          _isDetailsLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isDetailsLoading = false;
-        });
-      }
+Future<void> _fetchDiseaseDetails() async {
+  try {
+    final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
+    final details = await _detectionService.getDiseaseDetails(diseaseName);
+
+    // --- ESTA ES LA LÓGICA MEJORADA ---
+    final recommendationsList = (details['recommendations'] as List).map((rec) {
+      // Usamos '??' para proveer un valor por defecto si el campo es nulo
+      final nombre = rec['nombre_comercial'] ?? 'Desconocido';
+      final activo = rec['ingrediente_activo'] ?? 'No especificado';
+      final tipo = rec['tipo_tratamiento'] ?? 'General';
+      
+      // Construimos las partes del texto solo si los datos existen
+      final frecuencia = rec['frecuencia_aplicacion'] != null 
+          ? '\n  • Frecuencia: ${rec['frecuencia_aplicacion']}' 
+          : '';
+      final notas = rec['notas_adicionales'] != null 
+          ? '\n  • Nota: ${rec['notas_adicionales']}' 
+          : '';
+
+      return '▶ ${nombre} (${tipo})\n  • Ingrediente Activo: ${activo}${frecuencia}${notas}';
+    }).join('\n\n'); // Separamos cada tratamiento con un doble salto de línea
+
+    if (mounted) {
+      setState(() {
+        _diseaseInfo = details['info']['descripcion'] ?? 'No hay descripción disponible.';
+        _recommendations = recommendationsList.isNotEmpty 
+            ? recommendationsList 
+            : 'No hay recomendaciones de tratamiento registradas.';
+        _isDetailsLoading = false;
+      });
+    }
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        _errorMessage = "Error al cargar detalles: ${e.toString()}";
+        _isDetailsLoading = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
