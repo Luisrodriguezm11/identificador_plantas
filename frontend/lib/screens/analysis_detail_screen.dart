@@ -106,7 +106,7 @@ Future<void> _fetchDiseaseDetails() async {
           ? '\n  • Nota: ${rec['notas_adicionales']}' 
           : '';
 
-      return '▶ ${nombre} (${tipo})\n  • Ingrediente Activo: ${activo}${frecuencia}${notas}';
+      return '▶ $nombre ($tipo)\n  • Ingrediente Activo: $activo$frecuencia$notas';
     }).join('\n\n'); // Separamos cada tratamiento con un doble salto de línea
 
     if (mounted) {

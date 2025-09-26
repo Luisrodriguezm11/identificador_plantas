@@ -1,10 +1,12 @@
 // frontend/lib/screens/detection_screen.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
@@ -44,8 +46,20 @@ class _DetectionScreenState extends State<DetectionScreen> {
   late bool _isNavExpanded;
 
   bool _isLoading = false;
-  String _loadingMessage = ''; // Mensaje de carga dinámico
+  String _loadingMessage = '';
   String? _errorMessage;
+
+  // Para el carrusel de recomendaciones
+  final PageController _pageController = PageController();
+  Timer? _carouselTimer;
+  int _currentPage = 0;
+
+  final List<Map<String, dynamic>> recommendations = [
+    {'icon': Icons.lightbulb_outline, 'text': 'Usa buena iluminación, preferiblemente luz natural.'},
+    {'icon': Icons.center_focus_strong_outlined, 'text': 'Asegúrate que la hoja esté bien enfocada y nítida.'},
+    {'icon': Icons.blur_off_outlined, 'text': 'Evita el desenfoque por movimiento, sujeta firme el dispositivo.'},
+    {'icon': Icons.texture_outlined, 'text': 'Utiliza fondos sencillos y planos para no confundir a la IA.'},
+  ];
 
   @override
   void initState() {
@@ -54,13 +68,37 @@ class _DetectionScreenState extends State<DetectionScreen> {
     if (widget.initialImageFile != null) {
       _imageFileFront = widget.initialImageFile;
     }
+    _startCarouselTimer();
   }
-  
+
+  void _startCarouselTimer() {
+    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_currentPage < recommendations.length - 1) {
+        _currentPage++;
+      } else {
+        _currentPage = 0;
+      }
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeIn,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _carouselTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _onNavItemTapped(int index) {
-    // La navegación no cambia, solo los índices
     switch (index) {
       case 0:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 1:
         Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
@@ -113,27 +151,22 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
-
-    // 1. Mostrar el overlay de carga INMEDIATAMENTE.
     setState(() {
       _isLoading = true;
       _errorMessage = null;
       _loadingMessage = 'Iniciando proceso...';
     });
 
-    // 2. Darle a Flutter una fracción de segundo para que dibuje el overlay antes de empezar el trabajo pesado.
     await Future.delayed(const Duration(milliseconds: 50));
 
-try {
-  setState(() => _loadingMessage = 'Subiendo imágenes...');
-  
-  final List<Future<String?>> uploadTasks = [];
-  // --- CAMBIO AQUÍ ---
-  uploadTasks.add(_storageService.uploadOriginalImage(_imageFileFront!));
-  if (_imageFileBack != null) {
-    // --- Y CAMBIO AQUÍ ---
-    uploadTasks.add(_storageService.uploadOriginalImage(_imageFileBack!));
-  }
+    try {
+      setState(() => _loadingMessage = 'Subiendo imágenes...');
+      
+      final List<Future<String?>> uploadTasks = [];
+      uploadTasks.add(_storageService.uploadOriginalImage(_imageFileFront!));
+      if (_imageFileBack != null) {
+        uploadTasks.add(_storageService.uploadOriginalImage(_imageFileBack!));
+      }
 
       final List<String?> imageUrls = await Future.wait(uploadTasks);
       final String? imageUrlFront = imageUrls[0];
@@ -178,7 +211,7 @@ try {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString(); // Mostramos el error real
+          _errorMessage = e.toString();
           _isLoading = false;
         });
       }
@@ -210,86 +243,31 @@ try {
               Expanded(
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24.0),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(32.0),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(24.0),
-                            border: Border.all(color: Colors.white.withOpacity(0.2)),
-                          ),
-                          child: SingleChildScrollView(
-                            child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white),
-                                        label: const Text("Volver", style: TextStyle(color: Colors.white)),
-                                        onPressed: () => Navigator.of(context).pushReplacement(
-                                          NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
-                                        ),
-                                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16)),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    "Analizar Nueva Imagen",
-                                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildImageSlot(isFront: true),
-                                      const SizedBox(width: 20),
-                                      _buildImageSlot(isFront: false),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    "Para un diagnóstico más preciso, sube una foto del reverso de la hoja.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  if (_imageFileFront != null)
-                                    ElevatedButton.icon(
-                                      icon: const Icon(Icons.analytics_outlined),
-                                      label: const Text("Analizar Imagen(es)"),
-                                      onPressed: _isLoading ? null : _analyzeImages,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blueAccent,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        textStyle: const TextStyle(fontSize: 16)
-                                      ),
-                                    ),
-                                  const SizedBox(height: 20),
-                                  if (_errorMessage != null)
-                                    Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
-                                ],
-                              ),
-                          ),
+                    padding: const EdgeInsets.all(32.0),
+child: ConstrainedBox( // <<< AÑADE ESTO
+        constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800), // <<< Y ESTO
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start, // Mantén esto
+          children: [
+            // Columna Izquierda: Recomendaciones
+            Expanded(
+              flex: 2,
+              child: _buildRecommendationsCarousel(),
+            ),
+            const SizedBox(width: 32),
+            // Columna Derecha: Carga de imágenes
+            Expanded(
+              flex: 3,
+              child: _buildUploadArea(),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
+              ),
             ],
           ),
-          // --- WIDGET DE OVERLAY DE CARGA ---
           if (_isLoading)
             Positioned.fill(
               child: BackdropFilter(
@@ -305,11 +283,7 @@ try {
                         Text(
                           _loadingMessage,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -322,56 +296,251 @@ try {
     );
   }
 
-  Widget _buildImageSlot({required bool isFront}) {
-    final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
-    final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
-
-    return Column(
-      children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        imageFile != null
-            ? Stack(
-                alignment: Alignment.topRight,
+Widget _buildRecommendationsCarousel() {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(24.0),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24.0), // Padding vertical
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(24.0),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                "Consejos para Fotos Óptimas",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: kIsWeb
-                        ? Image.network(imageFile.path, width: 200, height: 200, fit: BoxFit.cover)
-                        : Image.file(File(imageFile.path), width: 200, height: 200, fit: BoxFit.cover),
+                  // El Carrusel
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: recommendations.length,
+                    onPageChanged: (int page) {
+                       // Actualizamos la página actual para el timer
+                      setState(() {
+                        _currentPage = page;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final item = recommendations[index];
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(item['icon'], color: Colors.white, size: 60),
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                            child: Text(
+                              item['text'],
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.white70, fontSize: 18, height: 1.5),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Colors.black54,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.close, color: Colors.white, size: 14),
-                        onPressed: _isLoading ? null : () => _clearImage(isFront),
-                        tooltip: 'Quitar imagen',
-                      ),
+                  // Flecha Izquierda
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                      onPressed: () {
+                        _pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeIn,
+                        );
+                      },
+                    ),
+                  ),
+                  // Flecha Derecha
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                      onPressed: () {
+                        _pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeIn,
+                        );
+                      },
                     ),
                   ),
                 ],
-              )
-            : GestureDetector(
-                onTap: _isLoading ? null : () => _pickImage(isFront),
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(border: Border.all(color: Colors.white54), borderRadius: BorderRadius.circular(12)),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_a_photo_outlined, size: 50, color: Colors.white70),
-                      SizedBox(height: 8),
-                      Text("Seleccionar imagen", style: TextStyle(color: Colors.white70))
-                    ],
-                  ),
+              ),
+            ),
+            const SizedBox(height: 16),
+Row(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: List.generate(
+    recommendations.length,
+    (index) => Container(
+      width: 8.0,
+      height: 8.0,
+      margin: const EdgeInsets.symmetric(horizontal: 4.0),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _currentPage == index
+            ? Colors.white
+            : Colors.white.withOpacity(0.4),
+      ),
+    ),
+  ),
+),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                "¡Próximamente con animaciones!",
+                style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildUploadArea() {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(24.0),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+      child: Container(
+        padding: const EdgeInsets.all(32.0), // Aumentamos el padding aquí
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(24.0),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceAround, // Cambiamos a spaceAround
+          children: [
+            Column( // Este Column agrupa título y slots de imagen
+              children: [
+                const Text(
+                  "Subir Fotos de la Hoja",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 32), // Aumentamos el espacio
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildImageSlot(isFront: true),
+                    _buildImageSlot(isFront: false),
+                  ],
+                ),
+                const SizedBox(height: 24), // Aumentamos el espacio
+                 if (_errorMessage != null)
+                  Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 16), textAlign: TextAlign.center,),
+              ],
+            ),
+            // El botón de analizar ya estaba al final, esto lo mantendrá centrado
+            if (_imageFileFront != null)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.analytics_outlined, size: 20),
+                label: const Text("Analizar Imagen(es)"),
+                onPressed: _isLoading ? null : _analyzeImages,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
-      ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildImageSlot({required bool isFront}) {
+    final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
+    final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
+    bool isDragging = false;
+
+    return StatefulBuilder(
+      builder: (context, slotSetState) {
+        return DropTarget(
+          onDragDone: (detail) {
+            if (detail.files.isNotEmpty) {
+              slotSetState(() {
+                if(isFront) _imageFileFront = detail.files.first;
+                else _imageFileBack = detail.files.first;
+              });
+            }
+            slotSetState(() => isDragging = false);
+          },
+          onDragEntered: (detail) => slotSetState(() => isDragging = true),
+          onDragExited: (detail) => slotSetState(() => isDragging = false),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              imageFile != null
+                  ? Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12.0),
+                          child: kIsWeb
+                              ? Image.network(imageFile.path, width: 200, height: 200, fit: BoxFit.cover)
+                              : Image.file(File(imageFile.path), width: 200, height: 200, fit: BoxFit.cover),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Colors.black54,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.close, color: Colors.white, size: 14),
+                              onPressed: _isLoading ? null : () => _clearImage(isFront),
+                              tooltip: 'Quitar imagen',
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : GestureDetector(
+                      onTap: _isLoading ? null : () => _pickImage(isFront),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: isDragging ? Colors.blue.withOpacity(0.3) : Colors.transparent,
+                          border: Border.all(color: isDragging ? Colors.blueAccent : Colors.white54), 
+                          borderRadius: BorderRadius.circular(12)
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo_outlined, size: 50, color: Colors.white70),
+                            SizedBox(height: 8),
+                            Text("Arrastra o haz clic", style: TextStyle(color: Colors.white70))
+                          ],
+                        ),
+                      ),
+                    ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -12,8 +12,6 @@ import 'detection_screen.dart';
 import 'history_screen.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
-import 'package:desktop_drop/desktop_drop.dart';
-import 'package:image_picker/image_picker.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -28,11 +26,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final AuthService _authService = AuthService();
   final DetectionService _detectionService = DetectionService();
-  final ImagePicker _picker = ImagePicker();
   late bool _isNavExpanded;
   bool _isLoading = true;
   List<dynamic> _recentAnalyses = [];
-  bool _isDragging = false;
 
   @override
   void initState() {
@@ -107,25 +103,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _pickAndNavigateToDetection({XFile? imageFile}) async {
-    XFile? finalImageFile = imageFile;
-
-    if (finalImageFile == null) {
-      finalImageFile = await _picker.pickImage(source: ImageSource.gallery);
-    }
-
-    if (finalImageFile != null && mounted) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => DetectionScreen(
-            isNavExpanded: _isNavExpanded,
-            initialImageFile: finalImageFile,
-          ),
-        ),
-      );
-      _fetchRecentAnalyses();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -255,64 +232,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildFileUploadCard() {
-    return DropTarget(
-      onDragDone: (detail) {
-        if (detail.files.isNotEmpty) {
-          _pickAndNavigateToDetection(imageFile: detail.files.first);
-        }
-        setState(() { _isDragging = false; });
-      },
-      onDragEntered: (detail) => setState(() { _isDragging = true; }),
-      onDragExited: (detail) => setState(() { _isDragging = false; }),
-      child: GestureDetector(
-        onTap: () => _pickAndNavigateToDetection(),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              decoration: BoxDecoration(
-                color: _isDragging ? Colors.blue.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _isDragging ? Colors.blueAccent : Colors.white.withOpacity(0.2)),
+Widget _buildFileUploadCard() {
+  return GestureDetector(
+    onTap: () {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
+  ));
+},
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // El texto de la derecha que explica la acción
+              const Text(
+                "Utiliza este botón para iniciar el proceso de detección.",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _isDragging ? Icons.download_for_offline_outlined : Icons.cloud_upload_outlined,
-                    color: Colors.white, size: 40
+              const SizedBox(height: 24),
+              // El nuevo botón principal
+              ElevatedButton.icon(
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text("Cargar Nueva Imagen"),
+                onPressed: () {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
+  ));
+},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30.0),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Arrastra y suelta tu archivo aquí",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Límite 20MB por archivo • JPG, PNG, JPEG",
-                    style: TextStyle(color: Colors.white.withOpacity(0.5)),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _pickAndNavigateToDetection(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                    ),
-                    child: const Text("Buscar archivo"),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildViewAllCard() {
     return GestureDetector(

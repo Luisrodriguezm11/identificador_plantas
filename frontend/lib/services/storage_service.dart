@@ -1,7 +1,6 @@
 // frontend/lib/services/storage_service.dart
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
