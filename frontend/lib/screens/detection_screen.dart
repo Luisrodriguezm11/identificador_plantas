@@ -20,6 +20,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/detection_service.dart';
 import '../services/storage_service.dart';
 import 'analysis_detail_screen.dart';
+import 'package:lottie/lottie.dart';
 
 class DetectionScreen extends StatefulWidget {
   final bool isNavExpanded;
@@ -55,10 +56,10 @@ class _DetectionScreenState extends State<DetectionScreen> {
   int _currentPage = 0;
 
   final List<Map<String, dynamic>> recommendations = [
-    {'icon': Icons.lightbulb_outline, 'text': 'Usa buena iluminación, preferiblemente luz natural.'},
-    {'icon': Icons.center_focus_strong_outlined, 'text': 'Asegúrate que la hoja esté bien enfocada y nítida.'},
-    {'icon': Icons.blur_off_outlined, 'text': 'Evita el desenfoque por movimiento, sujeta firme el dispositivo.'},
-    {'icon': Icons.texture_outlined, 'text': 'Utiliza fondos sencillos y planos para no confundir a la IA.'},
+    {'icon': 'assets/animations/sun_animation.json', 'text': 'Usa buena iluminación, preferiblemente luz natural.'},
+    {'icon': 'assets/animations/focus_animation.json', 'text': 'Asegúrate que la hoja esté bien enfocada y nítida.'},
+    {'icon': 'assets/animations/blurried_animation.json', 'text': 'Evita el desenfoque por movimiento, sujeta firme el dispositivo.'},
+    {'icon': 'assets/animations/background_animation.json', 'text': 'Utiliza fondos sencillos y planos para no confundir a la IA.'},
   ];
 
   @override
@@ -336,11 +337,29 @@ Widget _buildRecommendationsCarousel() {
                     },
                     itemBuilder: (context, index) {
                       final item = recommendations[index];
+                      // --- LÓGICA PARA DECIDIR QUÉ WIDGET MOSTRAR ---
+  Widget iconWidget;
+  if (item['icon'] is String) {
+    // Si es un String, es una ruta a un Lottie
+    iconWidget = Lottie.asset(
+      item['icon'],
+      width: 120, // Ajusta el tamaño como prefieras
+      height: 120,
+    );
+  } else {
+    // Si no, es un IconData
+    iconWidget = Icon(
+      item['icon'],
+      color: Colors.white,
+      size: 60,
+    );
+  }
+  // ---------------------------------------------
                       return Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(item['icon'], color: Colors.white, size: 60),
-                          const SizedBox(height: 20),
+                                iconWidget, // <-- Usa el widget que acabamos de crear
+      const SizedBox(height: 20),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32.0),
                             child: Text(
@@ -420,45 +439,72 @@ Widget _buildUploadArea() {
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
       child: Container(
-        padding: const EdgeInsets.all(32.0), // Aumentamos el padding aquí
+        padding: const EdgeInsets.all(32.0),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.15),
           borderRadius: BorderRadius.circular(24.0),
           border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceAround, // Cambiamos a spaceAround
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Column( // Este Column agrupa título y slots de imagen
+            Column(
               children: [
                 const Text(
                   "Subir Fotos de la Hoja",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                const SizedBox(height: 32), // Aumentamos el espacio
+                const SizedBox(height: 32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.start, // Alinea al top
                   children: [
                     _buildImageSlot(isFront: true),
+                    const SizedBox(width: 24), // Espacio entre slots
                     _buildImageSlot(isFront: false),
                   ],
                 ),
-                const SizedBox(height: 24), // Aumentamos el espacio
+                const SizedBox(height: 24),
                  if (_errorMessage != null)
                   Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 16), textAlign: TextAlign.center,),
               ],
             ),
-            // El botón de analizar ya estaba al final, esto lo mantendrá centrado
+            
+            // --- BOTÓN CON EFECTO GLASSMORPHISM ---
             if (_imageFileFront != null)
-              ElevatedButton.icon(
-                icon: const Icon(Icons.analytics_outlined, size: 20),
-                label: const Text("Analizar Imagen(es)"),
-                onPressed: _isLoading ? null : _analyzeImages,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(30.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.4), // Mismo color pero con opacidad
+                      borderRadius: BorderRadius.circular(30.0),
+                      border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _isLoading ? null : _analyzeImages,
+                        borderRadius: BorderRadius.circular(30.0),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.analytics_outlined, size: 20, color: Colors.white),
+                              const SizedBox(width: 8),
+                              const Text(
+                                "Analizar Imagen(es)",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -468,79 +514,80 @@ Widget _buildUploadArea() {
   );
 }
 
-  Widget _buildImageSlot({required bool isFront}) {
-    final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
-    final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
-    bool isDragging = false;
+Widget _buildImageSlot({required bool isFront}) {
+  final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
+  final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
+  bool isDragging = false;
+  const double imageSize = 240; // <-- AUMENTAMOS EL TAMAÑO AQUÍ
 
-    return StatefulBuilder(
-      builder: (context, slotSetState) {
-        return DropTarget(
-          onDragDone: (detail) {
-            if (detail.files.isNotEmpty) {
-              slotSetState(() {
-                if(isFront) _imageFileFront = detail.files.first;
-                else _imageFileBack = detail.files.first;
-              });
-            }
-            slotSetState(() => isDragging = false);
-          },
-          onDragEntered: (detail) => slotSetState(() => isDragging = true),
-          onDragExited: (detail) => slotSetState(() => isDragging = false),
-          child: Column(
-            children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              imageFile != null
-                  ? Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12.0),
-                          child: kIsWeb
-                              ? Image.network(imageFile.path, width: 200, height: 200, fit: BoxFit.cover)
-                              : Image.file(File(imageFile.path), width: 200, height: 200, fit: BoxFit.cover),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: Colors.black54,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              icon: const Icon(Icons.close, color: Colors.white, size: 14),
-                              onPressed: _isLoading ? null : () => _clearImage(isFront),
-                              tooltip: 'Quitar imagen',
-                            ),
+  return StatefulBuilder(
+    builder: (context, slotSetState) {
+      return DropTarget(
+        onDragDone: (detail) {
+          if (detail.files.isNotEmpty) {
+            slotSetState(() {
+              if(isFront) _imageFileFront = detail.files.first;
+              else _imageFileBack = detail.files.first;
+            });
+          }
+          slotSetState(() => isDragging = false);
+        },
+        onDragEntered: (detail) => slotSetState(() => isDragging = true),
+        onDragExited: (detail) => slotSetState(() => isDragging = false),
+        child: Column(
+          children: [
+            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            imageFile != null
+                ? Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: kIsWeb
+                            ? Image.network(imageFile.path, width: imageSize, height: imageSize, fit: BoxFit.cover)
+                            : Image.file(File(imageFile.path), width: imageSize, height: imageSize, fit: BoxFit.cover),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Colors.black54,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.close, color: Colors.white, size: 14),
+                            onPressed: _isLoading ? null : () => _clearImage(isFront),
+                            tooltip: 'Quitar imagen',
                           ),
                         ),
-                      ],
-                    )
-                  : GestureDetector(
-                      onTap: _isLoading ? null : () => _pickImage(isFront),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: isDragging ? Colors.blue.withOpacity(0.3) : Colors.transparent,
-                          border: Border.all(color: isDragging ? Colors.blueAccent : Colors.white54), 
-                          borderRadius: BorderRadius.circular(12)
-                        ),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_a_photo_outlined, size: 50, color: Colors.white70),
-                            SizedBox(height: 8),
-                            Text("Arrastra o haz clic", style: TextStyle(color: Colors.white70))
-                          ],
-                        ),
+                      ),
+                    ],
+                  )
+                : GestureDetector(
+                    onTap: _isLoading ? null : () => _pickImage(isFront),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: imageSize,
+                      height: imageSize,
+                      decoration: BoxDecoration(
+                        color: isDragging ? Colors.blue.withOpacity(0.3) : Colors.transparent,
+                        border: Border.all(color: isDragging ? Colors.blueAccent : Colors.white54), 
+                        borderRadius: BorderRadius.circular(12)
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_a_photo_outlined, size: 50, color: Colors.white70),
+                          SizedBox(height: 8),
+                          Text("Arrastra o haz clic", style: TextStyle(color: Colors.white70))
+                        ],
                       ),
                     ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                  ),
+          ],
+        ),
+      );
+    },
+  );
+}
 }
