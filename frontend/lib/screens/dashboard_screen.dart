@@ -232,60 +232,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-Widget _buildFileUploadCard() {
-  return GestureDetector(
-    onTap: () {
-  Navigator.of(context).push(MaterialPageRoute(
-    builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
-  ));
-},
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // El texto de la derecha que explica la acción
-              const Text(
-                "Utiliza este botón para iniciar el proceso de detección.",
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // El nuevo botón principal
-              ElevatedButton.icon(
-                icon: const Icon(Icons.upload_file_outlined),
-                label: const Text("Cargar Nueva Imagen"),
-                onPressed: () {
-  Navigator.of(context).push(MaterialPageRoute(
-    builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
-  ));
-},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30.0),
+  // --- 👇 WIDGET MODIFICADO Y CORREGIDO 👇 ---
+  Widget _buildFileUploadCard() {
+    // Esta función auxiliar maneja la navegación y la actualización.
+    void navigateAndRefresh() async {
+      // 1. Navega a la pantalla de detección y ESPERA a que se cierre.
+      final result = await Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
+      ));
+
+      // 2. Si la pantalla se cerró con un resultado 'true', refresca los datos.
+      if (result == true && mounted) {
+        _fetchRecentAnalyses();
+      }
+    }
+
+    return GestureDetector(
+      onTap: navigateAndRefresh, // Llama a la nueva función
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  "Utiliza este botón para iniciar el proceso de detección.",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.upload_file_outlined),
+                  label: const Text("Cargar Nueva Imagen"),
+                  onPressed: navigateAndRefresh, // Llama a la misma función
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
 
   Widget _buildViewAllCard() {
     return GestureDetector(
@@ -318,7 +323,6 @@ Widget _buildFileUploadCard() {
     );
   }
 
-  // --- 👇 FUNCIÓN MODIFICADA 👇 ---
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
@@ -397,15 +401,12 @@ Widget _buildFileUploadCard() {
                                     border: Border.all(color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
-                                    // --- ACCIÓN DEL BOTÓN CORREGIDA ---
                                     onPressed: () {
                                       showDialog(
                                         context: context,
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
                                             backgroundColor: Colors.transparent,
-                                            // Se pasa el 'analysis' map completo, que
-                                            // ya contiene ambas URLs del backend.
                                             child: AnalysisDetailScreen(analysis: analysis),
                                           );
                                         },

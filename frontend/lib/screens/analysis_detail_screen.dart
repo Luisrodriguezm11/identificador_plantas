@@ -16,7 +16,7 @@ class AnalysisDetailScreen extends StatefulWidget {
 
 class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   final DetectionService _detectionService = DetectionService();
-  
+
   final PageController _pageController = PageController();
   final List<String> _imageUrls = [];
   int _currentPage = 0;
@@ -34,7 +34,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     _setupImages();
     _updateDominantColor();
     _fetchDiseaseDetails();
-    
+
     _pageController.addListener(() {
       final newPage = _pageController.page?.round();
       if (newPage != null && newPage != _currentPage) {
@@ -50,7 +50,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     _pageController.dispose();
     super.dispose();
   }
-  
+
   void _setupImages() {
     final frontImageUrl = widget.analysis['url_imagen'];
     final backImageUrl = widget.analysis['url_imagen_reverso'];
@@ -65,81 +65,168 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
   Future<void> _updateDominantColor() async {
     if (_imageUrls.isEmpty) {
-        setState(() => _isColorLoading = false);
-        return;
+      setState(() => _isColorLoading = false);
+      return;
     }
-    final PaletteGenerator paletteGenerator =
-        await PaletteGenerator.fromImageProvider(
-      NetworkImage(_imageUrls.first),
-      size: const Size(200, 200),
+    try {
+      final PaletteGenerator paletteGenerator =
+          await PaletteGenerator.fromImageProvider(
+        NetworkImage(_imageUrls.first),
+        size: const Size(200, 200),
+      );
+      if (mounted) {
+        setState(() {
+          _dominantColor =
+              (paletteGenerator.dominantColor?.color ?? Colors.black)
+                  .withOpacity(0.6);
+          _isColorLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dominantColor = Colors.black.withOpacity(0.6);
+          _isColorLoading = false;
+        });
+      }
+    }
+  }
+
+  String _formatPredictionName(String originalName) {
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
+      return 'Hoja Sana';
+    }
+    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    if (formattedName.isEmpty) {
+      return 'Desconocido';
+    }
+    return formattedName[0].toUpperCase() + formattedName.substring(1);
+  }
+
+  Future<void> _deleteItem() async {
+    final analysisId = widget.analysis['id_analisis'];
+    if (analysisId == null) return;
+
+    final bool? confirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Borrado'),
+        content: const Text('¿Enviar este análisis a la papelera?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Enviar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
-    if (mounted) {
-      setState(() {
-        _dominantColor = (paletteGenerator.dominantColor?.color ?? Colors.black)
-            .withOpacity(0.6);
-        _isColorLoading = false;
-      });
+
+    if (confirmed != true) return;
+
+    try {
+      final success = await _detectionService.deleteHistoryItem(analysisId);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Análisis enviado a la papelera'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-// En frontend/lib/screens/analysis_detail_screen.dart
+  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.3),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: onPressed,
+            icon: Icon(icon, color: Colors.white, size: 20),
+            tooltip: tooltip,
+          ),
+        ),
+      ),
+    );
+  }
 
-// En frontend/lib/screens/analysis_detail_screen.dart
+  Future<void> _fetchDiseaseDetails() async {
+    try {
+      final String diseaseName =
+          widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
+      final details = await _detectionService.getDiseaseDetails(diseaseName);
 
-Future<void> _fetchDiseaseDetails() async {
-  try {
-    final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
-    final details = await _detectionService.getDiseaseDetails(diseaseName);
+      final recommendationsList =
+          (details['recommendations'] as List).map((rec) {
+        final nombre = rec['nombre_comercial'] ?? 'Desconocido';
+        final activo = rec['ingrediente_activo'] ?? 'No especificado';
+        final tipo = rec['tipo_tratamiento'] ?? 'General';
 
-    // --- ESTA ES LA LÓGICA MEJORADA ---
-    final recommendationsList = (details['recommendations'] as List).map((rec) {
-      // Usamos '??' para proveer un valor por defecto si el campo es nulo
-      final nombre = rec['nombre_comercial'] ?? 'Desconocido';
-      final activo = rec['ingrediente_activo'] ?? 'No especificado';
-      final tipo = rec['tipo_tratamiento'] ?? 'General';
-      
-      // Construimos las partes del texto solo si los datos existen
-      final frecuencia = rec['frecuencia_aplicacion'] != null 
-          ? '\n  • Frecuencia: ${rec['frecuencia_aplicacion']}' 
-          : '';
-      final notas = rec['notas_adicionales'] != null 
-          ? '\n  • Nota: ${rec['notas_adicionales']}' 
-          : '';
+        final frecuencia = rec['frecuencia_aplicacion'] != null
+            ? '\n  • Frecuencia: ${rec['frecuencia_aplicacion']}'
+            : '';
+        final notas = rec['notas_adicionales'] != null
+            ? '\n  • Nota: ${rec['notas_adicionales']}'
+            : '';
 
-      return '▶ $nombre ($tipo)\n  • Ingrediente Activo: $activo$frecuencia$notas';
-    }).join('\n\n'); // Separamos cada tratamiento con un doble salto de línea
+        return '▶ $nombre ($tipo)\n  • Ingrediente Activo: $activo$frecuencia$notas';
+      }).join('\n\n');
 
-    if (mounted) {
-      setState(() {
-        _diseaseInfo = details['info']['descripcion'] ?? 'No hay descripción disponible.';
-        _recommendations = recommendationsList.isNotEmpty 
-            ? recommendationsList 
-            : 'No hay recomendaciones de tratamiento registradas.';
-        _isDetailsLoading = false;
-      });
-    }
-  } catch (e) {
-    if (mounted) {
-      setState(() {
-        _errorMessage = "Error al cargar detalles: ${e.toString()}";
-        _isDetailsLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _diseaseInfo =
+              details['info']['descripcion'] ?? 'No hay descripción disponible.';
+          _recommendations = recommendationsList.isNotEmpty
+              ? recommendationsList
+              : 'No hay recomendaciones de tratamiento registradas.';
+          _isDetailsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = "Error al cargar detalles: ${e.toString()}";
+          _isDetailsLoading = false;
+        });
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
-    // --- 👇 ESTA ES LA LÍNEA CORREGIDA Y MÁS SEGURA 👇 ---
-    // Busca la confianza con ambas claves ('confidence' o 'confianza'),
-    // provee un valor por defecto de 0.0, y lo convierte a double de forma segura.
-    final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
+    final confidenceValue =
+        widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
     final double confidence = (confidenceValue as num).toDouble();
-    
-    final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
+
+    final String prediction = widget.analysis['prediction'] ??
+        widget.analysis['resultado_prediccion'] ??
+        "Análisis no disponible";
 
     return Center(
-      // ... (El resto del código es idéntico al anterior y ya está correcto)
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.0),
         child: BackdropFilter(
@@ -253,7 +340,7 @@ Future<void> _fetchDiseaseDetails() async {
                     ],
                   ),
                 ),
-                
+
                 // --- COLUMNA DERECHA: INFORMACIÓN ---
                 Expanded(
                   flex: 3,
@@ -270,14 +357,35 @@ Future<void> _fetchDiseaseDetails() async {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  prediction,
-                                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _formatPredictionName(prediction),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.bold,
+                                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
+                                      ),
+                                    ),
+                                    _buildActionButton( // <--- USANDO LA NUEVA FUNCIÓN
+                                      icon: Icons.delete_outline,
+                                      color: Colors.red,
+                                      tooltip: 'Enviar a la papelera',
+                                      onPressed: _deleteItem,
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   "Confianza del ${(confidence * 100).toStringAsFixed(1)}%",
-                                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 16, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.8),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 16),
                                 const TabBar(
@@ -295,17 +403,17 @@ Future<void> _fetchDiseaseDetails() async {
                                   child: _isDetailsLoading
                                       ? const Center(child: CircularProgressIndicator(color: Colors.white))
                                       : _errorMessage != null
-                                        ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
-                                        : TabBarView(
-                                            children: [
-                                              SingleChildScrollView(
-                                                child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
-                                              ),
-                                              SingleChildScrollView(
-                                                child: Text(_recommendations, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
-                                              ),
-                                            ],
-                                          ),
+                                          ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
+                                          : TabBarView(
+                                              children: [
+                                                SingleChildScrollView(
+                                                  child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                                                ),
+                                                SingleChildScrollView(
+                                                  child: Text(_recommendations, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                                                ),
+                                              ],
+                                            ),
                                 ),
                               ],
                             ),
@@ -320,7 +428,8 @@ Future<void> _fetchDiseaseDetails() async {
                           child: Container(
                             color: Colors.black.withOpacity(0.5),
                             child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white),
                             ),
                           ),
                         ),

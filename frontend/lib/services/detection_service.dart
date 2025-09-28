@@ -108,6 +108,30 @@ class DetectionService {
     }
   }
 
+  // --- 👇 NUEVO MÉTODO PARA GUARDAR EL RESULTADO DEL ANÁLISIS 👇 ---
+  Future<http.Response> saveAnalysisResult(Map<String, dynamic> analysisResult) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.post(
+        Uri.parse('$_baseUrl/history/save'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+        body: jsonEncode(analysisResult),
+      ).timeout(const Duration(seconds: 20));
+
+      return response;
+    } on TimeoutException catch (_) {
+      throw Exception('El servidor tardó demasiado en guardar el resultado.');
+    } on http.ClientException catch (e) {
+      throw Exception('Error de red al guardar el resultado: ${e.message}');
+    } catch (e) {
+      debugPrint('Error inesperado en saveAnalysisResult: $e');
+      throw Exception('Ocurrió un error inesperado al guardar el análisis.');
+    }
+  }
+
   // --- MOVER UN ANÁLISIS A LA PAPELERA ---
   Future<bool> deleteHistoryItem(int analysisId) async {
     try {

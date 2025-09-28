@@ -13,6 +13,7 @@ import 'trash_screen.dart';
 import 'dart:ui';
 // Asegúrate de importar la pantalla de detalles
 import 'analysis_detail_screen.dart';
+import 'detection_screen.dart'; // <-- AÑADE ESTA IMPORTACIÓN
 
 class HistoryScreen extends StatefulWidget {
   final bool isNavExpanded;
@@ -162,6 +163,19 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.of(context).push(MaterialPageRoute(
+            builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
+          ));
+          if (result == true && mounted) {
+            _fetchHistory();
+          }
+        },
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add, color: Colors.white),
+        tooltip: 'Nuevo Análisis',
+      ),
       body: Stack(
         children: [
           Container(
@@ -252,7 +266,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     );
   }
 
-  // --- 👇 FUNCIÓN MODIFICADA 👇 ---
   Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
@@ -327,8 +340,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                                   icon: Icons.info_outline,
                                   color: Colors.blue,
                                   tooltip: 'Más info',
-                                  onPressed: () {
-                                    showDialog(
+                                  onPressed: () async { // <-- Convertido a async
+                                    // Esperamos el resultado del diálogo
+                                    final result = await showDialog(
                                       context: context,
                                       builder: (BuildContext dialogContext) {
                                         return Dialog(
@@ -337,6 +351,10 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                                         );
                                       },
                                     );
+                                    // Si el resultado es 'true', significa que se borró algo
+                                    if (result == true) {
+                                      _fetchHistory();
+                                    }
                                   },
                                 ),
                                 const SizedBox(width: 8),
@@ -383,7 +401,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return cardContent;
   }
 
-  // --- 👇 NUEVA FUNCIÓN AÑADIDA 👇 ---
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),

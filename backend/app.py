@@ -157,19 +157,22 @@ def _run_prediction(image_url):
         if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
 
+
+
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
-    total_start_time = time.time() # <--- Medimos el tiempo total de la solicitud
+    # --- ESTA FUNCIÓN AHORA SOLO ANALIZA, NO GUARDA ---
+    total_start_time = time.time()
     data = request.get_json()
     image_url_front = data.get('image_url_front')
-    image_url_back = data.get('image_url_back') # <-- Se obtiene la URL del reverso (puede ser None)
+    image_url_back = data.get('image_url_back')
 
     if not image_url_front:
         return jsonify({"error": "La URL de la imagen del frente es requerida"}), 400
 
     try:
-        print("\n--- Iniciando análisis para el usuario:", current_user_id)
+        print("\n--- Iniciando análisis (sin guardar) para el usuario:", current_user_id)
         
         result_front = _run_prediction(image_url_front)
         final_result = result_front
@@ -188,37 +191,15 @@ def analyze_image(current_user_id):
             else:
                 final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
-        # --- MEDIMOS EL TIEMPO DE INSERCIÓN EN LA BASE DE DATOS ---
-        start_db = time.time()
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # --- 👇 MODIFICACIÓN AQUÍ 👇 ---
-        # Se añade la columna 'url_imagen_reverso' a la consulta INSERT
-        cur.execute(
-            """
-            INSERT INTO analisis (id_usuario, url_imagen, url_imagen_reverso, resultado_prediccion, confianza, fecha_analisis)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            # Se añade 'image_url_back' a los valores
-            (current_user_id, image_url_front, image_url_back, final_result['prediction'], final_result['confidence'], datetime.utcnow())
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
-        end_db = time.time()
-        print(f"💾 Tiempo de inserción en DB: {end_db - start_db:.2f} segundos")
-
         total_end_time = time.time()
         print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
 
-        # --- 👇 MODIFICACIÓN EN LA RESPUESTA 👇 ---
-        # Se crea un nuevo diccionario para la respuesta que incluye ambas URLs
+        # Se devuelve el resultado completo, incluyendo las URLs para guardarlas después
         response_data = {
             "prediction": final_result['prediction'],
             "confidence": final_result['confidence'],
             "url_imagen": image_url_front,
-            "url_imagen_reverso": image_url_back  # Puede ser None si no se subió
+            "url_imagen_reverso": image_url_back
         }
 
         return jsonify(response_data), 200
@@ -226,8 +207,53 @@ def analyze_image(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
-# ... (El resto de tus rutas: /disease, /history, etc., no cambian)
-# En backend/app.py
+
+
+# --- 👇 ESTA ES LA NUEVA FUNCIÓN PARA GUARDAR 👇 ---
+@app.route('/history/save', methods=['POST'])
+@token_required
+def save_analysis(current_user_id):
+    data = request.get_json()
+    
+    # Extraemos todos los datos necesarios del cuerpo de la solicitud
+    url_imagen = data.get('url_imagen')
+    url_imagen_reverso = data.get('url_imagen_reverso')
+    resultado_prediccion = data.get('prediction')
+    confianza = data.get('confidence')
+
+    if not all([url_imagen, resultado_prediccion, confianza is not None]):
+        return jsonify({"error": "Faltan datos para guardar el análisis"}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            INSERT INTO analisis (id_usuario, url_imagen, url_imagen_reverso, resultado_prediccion, confianza, fecha_analisis)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id_analisis;
+            """,
+            (current_user_id, url_imagen, url_imagen_reverso, resultado_prediccion, confianza, datetime.utcnow())
+        )
+        new_id = cur.fetchone()[0] # Obtenemos el ID del nuevo análisis guardado
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        # Devolvemos el resultado completo con el nuevo ID, por si la app lo necesita
+        response_data = {
+            "id_analisis": new_id,
+            "id_usuario": current_user_id,
+            "url_imagen": url_imagen,
+            "url_imagen_reverso": url_imagen_reverso,
+            "resultado_prediccion": resultado_prediccion,
+            "confianza": confianza
+        }
+        
+        return jsonify(response_data), 201 # 201 Creado
+
+    except Exception as e:
+        return jsonify({"error": f"Error al guardar en la base de datos: {str(e)}"}), 500
 
 @app.route('/disease/<string:roboflow_name>', methods=['GET'])
 @token_required
@@ -377,6 +403,8 @@ def restore_history_item(current_user_id, analysis_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al restaurar: {str(e)}"}), 500
 
+# backend/app.py
+
 @app.route('/history/<int:analysis_id>/permanent', methods=['DELETE'])
 @token_required
 def permanently_delete_item(current_user_id, analysis_id):
@@ -384,42 +412,55 @@ def permanently_delete_item(current_user_id, analysis_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
+        # --- 1. OBTENER AMBAS URLs ANTES DE BORRAR ---
         cur.execute(
-            "SELECT url_imagen FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
+            "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
         )
         item_to_delete = cur.fetchone()
 
         if not item_to_delete:
+            cur.close()
+            conn.close()
             return jsonify({"error": "Análisis no encontrado"}), 404
-        
-        image_url = item_to_delete['url_imagen']
 
-        cur.execute(
-            "DELETE FROM analisis WHERE id_analisis = %s", (analysis_id,)
-        )
+        # --- 2. BORRAR EL REGISTRO DE LA BASE DE DATOS ---
+        cur.execute("DELETE FROM analisis WHERE id_analisis = %s", (analysis_id,))
         conn.commit()
         cur.close()
         conn.close()
 
-        if image_url:
-            try:
-                path_start = image_url.find("/o/") + 3
-                path_end = image_url.find("?alt=media")
-                file_path = unquote(image_url[path_start:path_end])
-                
-                bucket = storage.bucket()
-                blob = bucket.blob(file_path)
-                blob.delete()
-                print(f"Imagen {file_path} borrada de Firebase Storage.")
-            except Exception as e:
-                print(f"No se pudo borrar la imagen de Firebase Storage: {e}")
+        # --- 3. BORRAR AMBAS IMÁGENES DE FIREBASE ---
+        urls_to_delete = [item_to_delete['url_imagen'], item_to_delete['url_imagen_reverso']]
+
+        for image_url in urls_to_delete:
+            if image_url: # Solo si la URL existe
+                try:
+                    path_part = image_url.split('?')[0]
+                    file_path = path_part.split('/o/')[-1].replace('%2F', '/')
+
+                    bucket = storage.bucket()
+                    blob = bucket.blob(file_path)
+
+                    if blob.exists():
+                        blob.delete()
+                        print(f"Imagen {file_path} borrada permanentemente de Firebase Storage.")
+                    else:
+                        print(f"Imagen {file_path} no encontrada en Firebase, posiblementa ya fue borrada.")
+                except Exception as e:
+                    print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
 
         return jsonify({"message": "Análisis borrado permanentemente"}), 200
 
     except Exception as e:
+        if 'conn' in locals() and conn:
+            cur.close()
+            conn.close()
         return jsonify({"error": f"Ocurrió un error en el borrado permanente: {str(e)}"}), 500
     
+    
+# backend/app.py
+
 @app.route('/history/trash/empty', methods=['DELETE'])
 @token_required
 def empty_trash(current_user_id):
@@ -427,29 +468,33 @@ def empty_trash(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
+        # --- 1. OBTENER AMBAS URLs DE TODOS LOS ITEMS EN LA PAPELERA ---
         cur.execute(
-            "SELECT url_imagen FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
             (current_user_id,)
         )
         items_to_delete = cur.fetchall()
 
+        # --- 2. BORRAR IMÁGENES DE FIREBASE ---
         if items_to_delete:
             print(f"Vaciando papelera para el usuario {current_user_id}. {len(items_to_delete)} items encontrados.")
             bucket = storage.bucket()
             for item in items_to_delete:
-                image_url = item['url_imagen']
-                if image_url:
-                    try:
-                        path_start = image_url.find("/o/") + 3
-                        path_end = image_url.find("?alt=media")
-                        if path_start > 2 and path_end != -1:
-                            file_path = unquote(image_url[path_start:path_end])
+                # Crear lista con las dos URLs del item actual
+                urls_to_process = [item['url_imagen'], item['url_imagen_reverso']]
+                for image_url in urls_to_process:
+                    if image_url: # Solo si la URL existe
+                        try:
+                            path_part = image_url.split('?')[0]
+                            file_path = path_part.split('/o/')[-1].replace('%2F', '/')
                             blob = bucket.blob(file_path)
                             if blob.exists():
                                 blob.delete()
-                    except Exception as e:
-                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
-        
+                                print(f"Imagen {file_path} borrada de Firebase Storage al vaciar papelera.")
+                        except Exception as e:
+                            print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
+
+        # --- 3. BORRAR REGISTROS DE LA BASE DE DATOS ---
         cur.execute(
             "DELETE FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
             (current_user_id,)
@@ -462,7 +507,11 @@ def empty_trash(current_user_id):
         return jsonify({"message": "La papelera ha sido vaciada exitosamente"}), 200
 
     except Exception as e:
+        if 'conn' in locals() and conn:
+            cur.close()
+            conn.close()
         return jsonify({"error": f"Ocurrió un error al vaciar la papelera: {str(e)}"}), 500
+    
     
 
 @app.route('/calculate_dose', methods=['POST'])
