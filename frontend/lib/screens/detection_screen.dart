@@ -50,6 +50,9 @@ class _DetectionScreenState extends State<DetectionScreen> {
   String _loadingMessage = '';
   String? _errorMessage;
 
+  // --- ✨ NOTIFIER PARA CONTROLAR LA CANCELACIÓN ---
+  late ValueNotifier<bool> _cancellationNotifier;
+
   // Para el carrusel de recomendaciones
   final PageController _pageController = PageController();
   Timer? _carouselTimer;
@@ -66,6 +69,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
   void initState() {
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
+    _cancellationNotifier = ValueNotifier<bool>(false); // Inicializamos el notifier
     if (widget.initialImageFile != null) {
       _imageFileFront = widget.initialImageFile;
     }
@@ -93,9 +97,10 @@ class _DetectionScreenState extends State<DetectionScreen> {
   void dispose() {
     _carouselTimer?.cancel();
     _pageController.dispose();
+    _cancellationNotifier.dispose(); // Liberamos el notifier
     super.dispose();
   }
-
+  
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
@@ -149,45 +154,69 @@ class _DetectionScreenState extends State<DetectionScreen> {
       _errorMessage = null;
     });
   }
-
+  
+  // --- ✨ FUNCIÓN DE ANÁLISIS MODIFICADA CON EL NOTIFIER ---
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
     setState(() {
       _isLoading = true;
+      _cancellationNotifier.value = false; // Reinicia el notifier
       _errorMessage = null;
       _loadingMessage = 'Iniciando proceso...';
     });
-
-    await Future.delayed(const Duration(milliseconds: 50));
-
+  
     try {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
+
       setState(() => _loadingMessage = 'Subiendo imágenes...');
       
-      final List<Future<String?>> uploadTasks = [];
-      uploadTasks.add(_storageService.uploadOriginalImage(_imageFileFront!));
-      if (_imageFileBack != null) {
-        uploadTasks.add(_storageService.uploadOriginalImage(_imageFileBack!));
-      }
-
-      final List<String?> imageUrls = await Future.wait(uploadTasks);
-      final String? imageUrlFront = imageUrls[0];
-      final String? imageUrlBack = imageUrls.length > 1 ? imageUrls[1] : null;
-
+      // Subimos las imágenes una por una para poder cancelar entre ellas
+      final String? imageUrlFront = await _storageService.uploadOriginalImage(
+        _imageFileFront!,
+        cancellationNotifier: _cancellationNotifier
+      );
+      if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
       if (imageUrlFront == null) throw Exception("No se pudo subir la imagen del frente.");
-      if (_imageFileBack != null && imageUrlBack == null) throw Exception("No se pudo subir la imagen del reverso.");
+      
+      String? imageUrlBack;
+      if (_imageFileBack != null) {
+        imageUrlBack = await _storageService.uploadOriginalImage(
+          _imageFileBack!,
+          cancellationNotifier: _cancellationNotifier
+        );
+        if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
+        if (imageUrlBack == null) throw Exception("No se pudo subir la imagen del reverso.");
+      }
       
       setState(() => _loadingMessage = 'Analizando con la IA...\nEsto puede tardar un momento.');
+      if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
       
-      final http.Response response = await _detectionService.analyzeImages(
+      final http.Response analysisResponse = await _detectionService.analyzeImages(
         imageUrlFront: imageUrlFront,
         imageUrlBack: imageUrlBack,
       );
 
+      if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
       if (!mounted) return;
-      setState(() => _isLoading = false);
 
-      if (response.statusCode == 200) {
-        final result = json.decode(response.body);
+      if (analysisResponse.statusCode == 200) {
+        final result = json.decode(analysisResponse.body);
+        
+        setState(() => _loadingMessage = 'Guardando resultado...');
+        if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
+
+        final http.Response saveResponse = await _detectionService.saveAnalysisResult(result);
+
+        if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
+        if (!mounted) return;
+        
+        setState(() => _isLoading = false);
+
+        if (saveResponse.statusCode != 201) {
+           final saveBody = json.decode(saveResponse.body);
+           throw Exception("Error al guardar el análisis: ${saveBody['error'] ?? 'Error desconocido'}");
+        }
         
         await showDialog(
           context: context,
@@ -199,22 +228,21 @@ class _DetectionScreenState extends State<DetectionScreen> {
           },
         );
 
-        // --- 👇 CAMBIO CLAVE AQUÍ 👇 ---
-        // En lugar de una navegación destructiva, simplemente cerramos esta pantalla
-        // y devolvemos 'true' para indicar que se completó un análisis.
         if(mounted) {
           Navigator.of(context).pop(true);
         }
 
       } else {
-        final body = json.decode(response.body);
-        throw Exception("Error del servidor: ${body['error'] ?? response.reasonPhrase}");
+        final body = json.decode(analysisResponse.body);
+        throw Exception("Error del servidor: ${body['error'] ?? analysisResponse.reasonPhrase}");
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
           _isLoading = false;
+          if (e.toString() != "Exception: Cancelado por el usuario") {
+            _errorMessage = e.toString();
+          }
         });
       }
     }
@@ -246,18 +274,16 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32.0),
-                    child: ConstrainedBox( // <<< AÑADE ESTO
-                      constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800), // <<< Y ESTO
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start, // Mantén esto
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Columna Izquierda: Recomendaciones
                           Expanded(
                             flex: 2,
                             child: _buildRecommendationsCarousel(),
                           ),
                           const SizedBox(width: 32),
-                          // Columna Derecha: Carga de imágenes
                           Expanded(
                             flex: 3,
                             child: _buildUploadArea(),
@@ -287,6 +313,20 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
+                        const SizedBox(height: 24),
+                        // --- ✨ BOTÓN MODIFICADO PARA USAR EL NOTIFIER ---
+                        TextButton(
+                          onPressed: () {
+                            _cancellationNotifier.value = true;
+                          },
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.red.withOpacity(0.8),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          ),
+                          child: const Text('Cancelar Análisis'),
+                        ),
                       ],
                     ),
                   ),
@@ -297,7 +337,9 @@ class _DetectionScreenState extends State<DetectionScreen> {
       ),
     );
   }
-
+  
+  // No hay cambios en los widgets de construcción
+  // ... (Pega aquí el resto de tus widgets sin modificar)
   Widget _buildRecommendationsCarousel() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24.0),
@@ -519,7 +561,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     final XFile? imageFile = isFront ? _imageFileFront : _imageFileBack;
     final String title = isFront ? "Frente (Haz)" : "Reverso (Envés)";
     bool isDragging = false;
-    const double imageSize = 240; // <-- AUMENTAMOS EL TAMAÑO AQUÍ
+    const double imageSize = 240;
 
     return StatefulBuilder(
       builder: (context, slotSetState) {

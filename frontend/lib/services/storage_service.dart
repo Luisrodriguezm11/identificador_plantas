@@ -9,7 +9,9 @@ import 'package:uuid/uuid.dart';
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  Future<String?> uploadOriginalImage(XFile imageFile) async {
+  // --- ✨ MODIFICACIÓN PRINCIPAL AQUÍ ---
+  // Ahora el método acepta un ValueNotifier para saber si se canceló.
+  Future<String?> uploadOriginalImage(XFile imageFile, {ValueNotifier<bool>? cancellationNotifier}) async {
     try {
       final String originalFileName = imageFile.name;
       final String fileExtension = originalFileName.split('.').last.toLowerCase();
@@ -19,9 +21,13 @@ class StorageService {
         contentType: 'image/$fileExtension',
       );
 
-      // --- 👇 CAMBIO #1 AQUÍ 👇 ---
-      // Cambiamos 'uploads' por 'analisis'
       final Reference storageRef = _storage.ref().child('analisis/$uniqueFileName');
+
+      // --- Verificación de cancelación ANTES de subir ---
+      if (cancellationNotifier?.value == true) {
+        debugPrint("Subida cancelada antes de iniciar.");
+        return null;
+      }
 
       if (kIsWeb) {
         final Uint8List bytes = await imageFile.readAsBytes();
@@ -29,20 +35,33 @@ class StorageService {
       } else {
         await storageRef.putFile(File(imageFile.path), metadata);
       }
+      
+      // --- Verificación de cancelación DESPUÉS de subir (antes de buscar la redimensionada) ---
+      if (cancellationNotifier?.value == true) {
+        // Si se canceló, borramos el archivo que acabamos de subir
+        debugPrint("Subida cancelada. Eliminando archivo original de Firebase...");
+        await storageRef.delete();
+        return null;
+      }
+
 
       final String resizedFileName = uniqueFileName.replaceFirst(
         '.$fileExtension',
         '_800x800.$fileExtension',
       );
       
-      // --- 👇 CAMBIO #2 AQUÍ 👇 ---
-      // Y también lo cambiamos aquí para que busque la imagen redimensionada
-      // en la carpeta correcta.
       final resizedRef = _storage.ref().child('analisis/$resizedFileName');
 
       String downloadUrl;
       int attempts = 0;
       while (true) {
+        // Verificamos en cada intento si se ha cancelado
+        if (cancellationNotifier?.value == true) {
+          debugPrint("Búsqueda de imagen redimensionada cancelada. Eliminando archivo original...");
+          await storageRef.delete(); // Borramos el original si ya se había subido
+          return null;
+        }
+
         try {
           downloadUrl = await resizedRef.getDownloadURL();
           break; 
@@ -58,7 +77,7 @@ class StorageService {
       return downloadUrl;
 
     } catch (e) {
-      debugPrint("Error al subir imagen y obtener URL redimensionada: $e");
+      debugPrint("Error en el servicio de storage: $e");
       return null;
     }
   }
