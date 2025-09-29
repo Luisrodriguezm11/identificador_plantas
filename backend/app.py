@@ -892,6 +892,69 @@ def get_analyses_for_user(current_user_id, user_id):
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+ # backend/app.py
+
+@app.route('/api/enfermedades', methods=['GET'])
+@token_required
+def get_enfermedades(current_user_id): # <-- Se requiere el argumento del decorador
+    """
+    Endpoint para obtener todas las enfermedades de la base de datos.
+    Devuelve una lista de objetos, cada uno con id y nombre_comun.
+    """
+    try:
+        conn = get_db_connection()
+        # CAMBIO: Usamos RealDictCursor para obtener resultados como diccionarios
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # CAMBIO: Seleccionamos 'id_enfermedad' y le damos un alias 'id' para que coincida con el frontend.
+        cur.execute("SELECT id_enfermedad as id, nombre_comun FROM enfermedades ORDER BY nombre_comun ASC")
+        
+        enfermedades = cur.fetchall() # fetchall() ya devuelve una lista de diccionarios
+        cur.close()
+        conn.close()
+
+        return jsonify(enfermedades)
+    except Exception as e:
+        print(f"Error al obtener enfermedades: {e}")
+        return jsonify({'error': 'Error interno al obtener las enfermedades.'}), 500
+
+@app.route('/api/tratamientos/<int:enfermedad_id>', methods=['GET'])
+@token_required
+def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id): # <-- Se requiere el argumento del decorador
+    """
+    Endpoint para obtener los tratamientos para una enfermedad específica.
+    Recibe el ID de la enfermedad como parámetro en la URL.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # CAMBIOS: Usamos los nombres de columna correctos de tu tabla de tratamientos
+        # y les damos alias para que coincidan con lo que espera el frontend.
+        cur.execute("""
+            SELECT 
+                id_tratamiento as id, 
+                nombre_comercial, 
+                ingrediente_activo, 
+                tipo_tratamiento,
+                dosis_valor as dosis,         -- Usamos 'dosis_valor' y lo renombramos a 'dosis'
+                dosis_unidad as unidad_medida -- Usamos 'dosis_unidad' y lo renombramos
+            FROM tratamientos 
+            WHERE id_enfermedad = %s          -- La columna correcta es 'id_enfermedad'
+            ORDER BY nombre_comercial ASC
+        """, (enfermedad_id,))
+        
+        tratamientos = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        return jsonify(tratamientos)
+    except Exception as e:
+        print(f"Error al obtener tratamientos: {e}")
+        return jsonify({'error': 'Error interno al obtener los tratamientos.'}), 500   
+
+
 
 
 if __name__ == '__main__':
