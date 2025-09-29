@@ -155,6 +155,28 @@ class DetectionService {
     }
   }
 
+  Future<bool> adminDeleteHistoryItem(int analysisId) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/admin/analysis/$analysisId'), // <-- Usa la nueva ruta
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al borrar como admin: ${body['error']}');
+      }
+    } catch (e) {
+      throw Exception('No se pudo completar la operación de borrado de admin: $e');
+    }
+  }
+
   // --- OBTENER ITEMS DE LA PAPELERA ---
   Future<List<dynamic>> getTrashedItems() async {
     try {
@@ -174,6 +196,28 @@ class DetectionService {
     }
   }
 
+  Future<List<dynamic>> getAdminTrashedItems() async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.get(
+        Uri.parse('$_baseUrl/admin/trash'), // <-- Llama a la nueva ruta
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes));
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al cargar la papelera de admin: ${body['error']}');
+      }
+    } catch (e) {
+      throw Exception('No se pudo completar la operación: $e');
+    }
+  }
+
   // --- RESTAURAR UN ITEM DESDE LA PAPELERA ---
   Future<bool> restoreHistoryItem(int analysisId) async {
     try {
@@ -188,6 +232,29 @@ class DetectionService {
       throw Exception('No se pudo restaurar el análisis: $e');
     }
   }
+
+ // --- NUEVO MÉTODO PARA RESTAURAR COMO ADMIN ---
+  Future<bool> adminRestoreHistoryItem(int analysisId) async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.put(
+        Uri.parse('$_baseUrl/admin/analysis/restore/$analysisId'), // <-- Usa la nueva ruta
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token ?? '',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al restaurar como admin: ${body['error']}');
+      }
+    } catch (e) {
+      throw Exception('No se pudo completar la operación: $e');
+    }
+  } 
 
   // --- BORRADO PERMANENTE DE UN ITEM ---
   Future<bool> permanentlyDeleteItem(int analysisId) async {

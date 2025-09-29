@@ -1,8 +1,9 @@
 // frontend/lib/screens/history_screen.dart
 
-import 'dart:async'; // Importar para el Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
+import 'package:frontend/screens/admin_dashboard_screen.dart'; // <-- CAMBIO: Importación añadida
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
@@ -11,9 +12,8 @@ import 'package:frontend/widgets/side_navigation_rail.dart';
 import '../services/detection_service.dart';
 import 'trash_screen.dart';
 import 'dart:ui';
-// Asegúrate de importar la pantalla de detalles
 import 'analysis_detail_screen.dart';
-import 'detection_screen.dart'; // <-- AÑADE ESTA IMPORTACIÓN
+import 'detection_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final bool isNavExpanded;
@@ -33,6 +33,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   String? _errorMessage;
   late bool _isNavExpanded;
   
+  bool _isAdmin = false; // <-- CAMBIO: Variable para saber si el usuario es admin
+
   int? _highlightedId;
   AnimationController? _highlightController;
 
@@ -41,7 +43,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
     _highlightedId = widget.highlightedAnalysisId;
-    _fetchHistory();
+    
+    _loadInitialData(); // <-- CAMBIO: Llamamos a la nueva función que carga todo
 
     if (_highlightedId != null) {
       _highlightController = AnimationController(
@@ -59,6 +62,20 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       });
     }
   }
+  
+  // <-- CAMBIO: Nueva función para cargar los datos en orden
+  Future<void> _loadInitialData() async {
+    await _checkAdminStatus(); // Primero verificamos si es admin
+    await _fetchHistory();     // Luego cargamos el historial
+  }
+
+  // <-- CAMBIO: Nueva función para verificar el rol del usuario
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() => _isAdmin = isAdmin);
+    }
+  }
 
   @override
   void dispose() {
@@ -67,6 +84,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Future<void> _fetchHistory() async {
+    // Tu función _fetchHistory original no necesita cambios
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -90,6 +108,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   String _formatPredictionName(String originalName) {
+    // Tu función original no necesita cambios
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
     }
@@ -100,26 +119,38 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
+  // <-- CAMBIO: Actualizamos la lógica de navegación
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
         Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),);
         break;
       case 1:
+        // Ya estamos aquí, no hacemos nada
         break;
       case 2:
         Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)),);
         break;
       case 3:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 4:
+        // Si es admin, navega al panel. Si no, es el botón de logout.
+        if (_isAdmin) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+        } else {
+            _logout(context);
+        }
+        break;
+      case 5:
+        // Este caso solo ocurre si es admin (es el botón de logout)
         _logout(context);
         break;
     }
   }
 
   void _logout(BuildContext context) async {
+    // Tu función original no necesita cambios
     final navigator = Navigator.of(context);
     await _authService.deleteToken();
     navigator.pushAndRemoveUntil(
@@ -129,6 +160,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Future<void> _deleteItem(int analysisId, int index) async {
+    // Tu función original no necesita cambios
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -190,7 +222,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             children: [
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
-                isAdmin: false, // <-- Añade el argumento requerido aquí (ajusta según tu lógica)
+                isAdmin: _isAdmin, // <-- CAMBIO: Pasamos el valor de admin al widget
                 selectedIndex: 1,
                 onToggle: () {
                   setState(() {
@@ -268,6 +300,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
+    // Tu widget _buildHistoryCard original no necesita cambios
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
     final bool isHighlighted = analysis['id_analisis'] == _highlightedId;
@@ -341,8 +374,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                                   icon: Icons.info_outline,
                                   color: Colors.blue,
                                   tooltip: 'Más info',
-                                  onPressed: () async { // <-- Convertido a async
-                                    // Esperamos el resultado del diálogo
+                                  onPressed: () async { 
                                     final result = await showDialog(
                                       context: context,
                                       builder: (BuildContext dialogContext) {
@@ -352,7 +384,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                                         );
                                       },
                                     );
-                                    // Si el resultado es 'true', significa que se borró algo
                                     if (result == true) {
                                       _fetchHistory();
                                     }
@@ -403,6 +434,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+    // Tu widget _buildActionButton original no necesita cambios
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(

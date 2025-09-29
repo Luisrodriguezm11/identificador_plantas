@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
+import 'package:frontend/screens/admin_dashboard_screen.dart'; // <-- CAMBIO: Importación añadida
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
@@ -22,47 +23,50 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
   late bool _isNavExpanded;
+  bool _isAdmin = false; // <-- CAMBIO: Variable para saber si es admin
 
-  // Controladores para los nuevos campos de texto
   final _productDoseController = TextEditingController();
   final _waterAmountController = TextEditingController();
   final _plantCountController = TextEditingController();
 
-  // Variables de estado para los menús desplegables
-  String _productDoseUnit = 'ml'; // Valor inicial
-  String _waterUnit = 'litros'; // Valor inicial
-
+  String _productDoseUnit = 'ml';
+  String _waterUnit = 'litros';
   String? _resultMessage;
 
   @override
   void initState() {
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
+    _checkAdminStatus(); // <-- CAMBIO: Verificamos el estado de admin
+  }
+  
+  // <-- CAMBIO: Nueva función para verificar el rol
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() => _isAdmin = isAdmin);
+    }
   }
 
   void _performLocalCalculation() {
     if (_formKey.currentState!.validate()) {
-      // 1. Obtener los valores de los campos
       final double productDose = double.parse(_productDoseController.text);
       final double waterAmount = double.parse(_waterAmountController.text);
       final int plantCount = int.parse(_plantCountController.text);
 
-      // 2. Convertir todo a una unidad base (mililitros)
       double productDoseInMl = productDose;
       if (_productDoseUnit == 'onzas') {
-        productDoseInMl = productDose * 29.5735; // 1 onza fluida = 29.5735 ml
+        productDoseInMl = productDose * 29.5735;
       }
 
       double waterAmountInMl = waterAmount;
       if (_waterUnit == 'litros') {
-        waterAmountInMl = waterAmount * 1000; // 1 litro = 1000 ml
+        waterAmountInMl = waterAmount * 1000;
       }
 
-      // 3. Realizar el cálculo final
       final double totalProductMl = productDoseInMl * plantCount;
       final double totalWaterLiters = (waterAmountInMl * plantCount) / 1000;
 
-      // 4. Mostrar el resultado
       setState(() {
         _resultMessage =
             "Necesitarás:\n"
@@ -72,7 +76,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     }
   }
 
-  // --- La navegación no cambia, solo los índices ---
+  // <-- CAMBIO: Lógica de navegación actualizada
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
@@ -87,6 +91,13 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       case 3:
         break; // Ya estamos aquí
       case 4:
+        if (_isAdmin) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+        } else {
+          _logout(context);
+        }
+        break;
+      case 5:
         _logout(context);
         break;
     }
@@ -119,7 +130,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
                 selectedIndex: 3,
-                isAdmin: false, // <-- Añade el argumento requerido aquí (ajusta según tu lógica)
+                isAdmin: _isAdmin, // <-- CAMBIO: Pasamos el estado de admin
                 onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
                 onItemSelected: _onNavItemTapped,
                 onLogout: () => _logout(context),
@@ -148,7 +159,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
                                   const Text("Cálculo de Dosis Dinámico", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
                                   const SizedBox(height: 32),
                                   
-                                  // --- Campos dinámicos ---
                                   Row(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [

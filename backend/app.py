@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
+from psycopg2.extras import RealDictCursor
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
@@ -388,6 +389,39 @@ def delete_history_item(current_user_id, analysis_id):
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al borrar el análisis: {str(e)}"}), 500
+    
+@app.route('/admin/analysis/<int:analysis_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_analysis(current_user_id, analysis_id):
+    """
+    Permite a un administrador mover cualquier análisis a la papelera,
+    sin importar quién sea el propietario.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Como es un admin, no necesitamos verificar el id_usuario
+        cur.execute(
+            "UPDATE analisis SET fecha_eliminado = NOW() AT TIME ZONE 'UTC' WHERE id_analisis = %s",
+            (analysis_id,)
+        )
+        
+        # Verificamos si se afectó alguna fila para saber si el análisis existía
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Análisis no encontrado"}), 404
+            
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Análisis borrado por el administrador exitosamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al borrar el análisis: {str(e)}"}), 500
+
 
 @app.route('/history/trash', methods=['GET'])
 @token_required
@@ -431,8 +465,76 @@ def restore_history_item(current_user_id, analysis_id):
         return jsonify({"message": "Análisis restaurado exitosamente"}), 200
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al restaurar: {str(e)}"}), 500
+    
+@app.route('/admin/analysis/restore/<int:analysis_id>', methods=['PUT'])
+@admin_required
+def admin_restore_analysis(current_user_id, analysis_id):
+    """
+    Permite a un administrador restaurar cualquier análisis (quitarlo de la papelera),
+    sin importar quién sea el propietario.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Simplemente quitamos la fecha de eliminado, sin verificar el propietario
+        cur.execute(
+            "UPDATE analisis SET fecha_eliminado = NULL WHERE id_analisis = %s",
+            (analysis_id,)
+        )
+        
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Análisis no encontrado"}), 404
+            
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Análisis restaurado por el administrador exitosamente"}), 200
 
-# backend/app.py
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al restaurar el análisis: {str(e)}"}), 500
+
+
+@app.route('/admin/trash', methods=['GET'])
+@admin_required
+def get_admin_trashed_items(current_user_id):
+    """
+    Obtiene todos los análisis que han sido movidos a la papelera (eliminado lógicamente)
+    de todos los usuarios.
+    """
+    try:
+        conn = get_db_connection()
+        # --- CAMBIO AQUÍ ---
+        cur = conn.cursor(cursor_factory=RealDictCursor) # <-- AÑADE EL CURSOR FACTORY
+        
+        # Unimos la tabla de analisis con la de usuarios para obtener el email
+        cur.execute("""
+            SELECT a.*, u.email 
+            FROM analisis a
+            JOIN usuarios u ON a.id_usuario = u.id_usuario
+            WHERE a.fecha_eliminado IS NOT NULL
+            ORDER BY a.fecha_eliminado DESC
+        """)
+        
+        trashed_items = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        # --- AÑADIMOS CONVERSIÓN DE FECHA PARA EVITAR ERRORES EN FLUTTER ---
+        results = [dict(row) for row in trashed_items]
+        for r in results:
+            if r.get('fecha_analisis'):
+                r['fecha_analisis'] = r['fecha_analisis'].isoformat()
+            if r.get('fecha_eliminado'):
+                r['fecha_eliminado'] = r['fecha_eliminado'].isoformat()
+
+        return jsonify(results) # <-- Devolvemos los resultados formateados
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al obtener la papelera de administrador: {str(e)}"}), 500
 
 @app.route('/history/<int:analysis_id>/permanent', methods=['DELETE'])
 @token_required

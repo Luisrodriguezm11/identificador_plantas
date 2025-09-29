@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
+import 'package:frontend/screens/admin_dashboard_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
@@ -13,7 +14,6 @@ import 'dart:ui';
 
 class TrashScreen extends StatefulWidget {
   final bool isNavExpanded;
-
   const TrashScreen({super.key, this.isNavExpanded = true});
 
   @override
@@ -26,18 +26,37 @@ class _TrashScreenState extends State<TrashScreen> {
   List<dynamic>? _trashedList;
   bool _isLoading = true;
   late bool _isNavExpanded;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
-    _fetchTrashedItems();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    await _checkAdminStatus();
+    await _fetchTrashedItems();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() => _isAdmin = isAdmin);
+    }
   }
 
   Future<void> _fetchTrashedItems() async {
-    setState(() => _isLoading = true);
     try {
-      final items = await _detectionService.getTrashedItems();
+      List<dynamic> items;
+      if (_isAdmin) {
+        items = await _detectionService.getAdminTrashedItems();
+      } else {
+        items = await _detectionService.getTrashedItems();
+      }
+      
       if (mounted) {
         setState(() {
           _trashedList = items;
@@ -57,9 +76,7 @@ class _TrashScreenState extends State<TrashScreen> {
       return 'Hoja Sana';
     }
     String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
-    if (formattedName.isEmpty) {
-      return 'Desconocido';
-    }
+    if (formattedName.isEmpty) return 'Desconocido';
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
@@ -77,6 +94,13 @@ class _TrashScreenState extends State<TrashScreen> {
          Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
         break;
       case 4:
+        if (_isAdmin) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+        } else {
+          _logout(context);
+        }
+        break;
+      case 5:
         _logout(context);
         break;
     }
@@ -91,47 +115,68 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
+  // --- CAMBIO: LÓGICA DE RESTAURACIÓN TOTALMENTE ACTUALIZADA ---
   Future<void> _restoreItem(int analysisId, int index) async {
-      final success = await _detectionService.restoreHistoryItem(analysisId);
+    final restoredItem = _trashedList![index];
+    bool success = false;
+
+    try {
+      if (_isAdmin) {
+        success = await _detectionService.adminRestoreHistoryItem(analysisId);
+      } else {
+        success = await _detectionService.restoreHistoryItem(analysisId);
+      }
+
       if (success && mounted) {
-        final restoredItem = _trashedList!.removeAt(index);
-        setState(() {});
-        
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: AlertDialog(
-              backgroundColor: Colors.grey[900]?.withOpacity(0.85),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.2))),
-              title: const Text('Análisis Restaurado', style: TextStyle(color: Colors.white)),
-              content: const Text('El análisis ha sido movido de vuelta a tu historial.', style: TextStyle(color: Colors.white70)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cerrar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pushReplacement(
-                      NoTransitionRoute(page: HistoryScreen(
-                        isNavExpanded: _isNavExpanded,
-                        highlightedAnalysisId: restoredItem['id_analisis'],
-                      ))
-                    );
-                  },
-                  child: const Text('Ver en Historial'),
-                ),
-              ],
+        setState(() {
+          _trashedList!.removeAt(index);
+        });
+
+        if (_isAdmin) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Análisis restaurado en el historial del usuario.'),
+            backgroundColor: Colors.green,
+          ));
+        } else {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: AlertDialog(
+                backgroundColor: Colors.grey[900]?.withOpacity(0.85),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.2))),
+                title: const Text('Análisis Restaurado', style: TextStyle(color: Colors.white)),
+                content: const Text('El análisis ha sido movido de vuelta a tu historial.', style: TextStyle(color: Colors.white70)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cerrar'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(context).pushReplacement(
+                        NoTransitionRoute(page: HistoryScreen(
+                          isNavExpanded: _isNavExpanded,
+                          highlightedAnalysisId: restoredItem['id_analisis'],
+                        ))
+                      );
+                    },
+                    child: const Text('Ver en Historial'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo restaurar el análisis'), backgroundColor: Colors.red));
+          );
+        }
+      }
+    } catch (e) {
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo restaurar: ${e.toString()}'), backgroundColor: Colors.red));
       }
     }
+  }
 
   Future<void> _permanentlyDeleteItem(int analysisId, int index) async {
     final confirmed = await showDialog<bool>(
@@ -157,7 +202,6 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
-  // --- NUEVA FUNCIÓN PARA VACIAR LA PAPELERA ---
   Future<void> _emptyTrash() async {
     if (_trashedList == null || _trashedList!.isEmpty) return;
 
@@ -220,7 +264,7 @@ class _TrashScreenState extends State<TrashScreen> {
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
                 selectedIndex: 2,
-                isAdmin: false, // <-- Add this line or set to true if needed
+                isAdmin: _isAdmin,
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;
@@ -249,7 +293,6 @@ class _TrashScreenState extends State<TrashScreen> {
                           ),
                           Row(
                             children: [
-                              // --- NUEVO BOTÓN "VACIAR PAPELERA" ---
                               if (_trashedList != null && _trashedList!.isNotEmpty)
                                 TextButton.icon(
                                   icon: const Icon(Icons.delete_sweep_outlined, size: 16, color: Colors.orangeAccent),
@@ -368,7 +411,16 @@ class _TrashScreenState extends State<TrashScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 8),
+                        if (_isAdmin && item['email'] != null)
+                           Padding(
+                             padding: const EdgeInsets.only(top: 4.0),
+                             child: Text(
+                               item['email'],
+                               style: const TextStyle(color: Colors.white70, fontSize: 12),
+                               overflow: TextOverflow.ellipsis,
+                             ),
+                           ),
+                        const Spacer(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [

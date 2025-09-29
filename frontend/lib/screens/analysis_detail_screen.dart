@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:frontend/services/detection_service.dart';
+import 'package:frontend/services/auth_service.dart'; // <-- CAMBIO: Importación añadida
 import 'package:palette_generator/palette_generator.dart';
 
 class AnalysisDetailScreen extends StatefulWidget {
@@ -16,10 +17,13 @@ class AnalysisDetailScreen extends StatefulWidget {
 
 class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   final DetectionService _detectionService = DetectionService();
+  final AuthService _authService = AuthService(); // <-- CAMBIO: Instancia de AuthService
 
   final PageController _pageController = PageController();
   final List<String> _imageUrls = [];
   int _currentPage = 0;
+
+  bool _isAdmin = false; // <-- CAMBIO: Variable para guardar el rol de admin
 
   Color _dominantColor = Colors.black.withOpacity(0.6);
   bool _isColorLoading = true;
@@ -31,9 +35,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _setupImages();
-    _updateDominantColor();
-    _fetchDiseaseDetails();
+    _loadInitialData(); // <-- CAMBIO: Llamada a la nueva función de carga
 
     _pageController.addListener(() {
       final newPage = _pageController.page?.round();
@@ -43,6 +45,24 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         });
       }
     });
+  }
+  
+  // <-- CAMBIO: Nueva función que organiza la carga de datos
+  Future<void> _loadInitialData() async {
+    _setupImages();
+    _updateDominantColor();
+    await _checkAdminStatus(); // Primero verificamos si es admin
+    _fetchDiseaseDetails();    // Luego cargamos el resto de la información
+  }
+
+  // <-- CAMBIO: Nueva función para verificar el rol del usuario
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
   }
 
   @override
@@ -103,6 +123,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
+  // <-- CAMBIO: Lógica de borrado actualizada
   Future<void> _deleteItem() async {
     final analysisId = widget.analysis['id_analisis'];
     if (analysisId == null) return;
@@ -128,7 +149,15 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     if (confirmed != true) return;
 
     try {
-      final success = await _detectionService.deleteHistoryItem(analysisId);
+      bool success;
+      // Si el usuario es admin, usa la función de borrado de admin.
+      // Si no, usa la función de borrado normal.
+      if (_isAdmin) {
+        success = await _detectionService.adminDeleteHistoryItem(analysisId);
+      } else {
+        success = await _detectionService.deleteHistoryItem(analysisId);
+      }
+      
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -136,6 +165,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        // Devolvemos 'true' para que la pantalla anterior sepa que debe recargar la lista.
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -371,7 +401,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
                                       ),
                                     ),
-                                    _buildActionButton( // <--- USANDO LA NUEVA FUNCIÓN
+                                    _buildActionButton(
                                       icon: Icons.delete_outline,
                                       color: Colors.red,
                                       tooltip: 'Enviar a la papelera',
