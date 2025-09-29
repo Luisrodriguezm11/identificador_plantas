@@ -22,7 +22,19 @@ class AuthService {
 
   Future<void> deleteToken() async {
     await _storage.delete(key: 'jwt_token');
+    // También borramos el estado de admin al cerrar sesión
+    await _storage.delete(key: 'is_admin');
   }
+
+  Future<void> saveAdminStatus(bool isAdmin) async {
+    await _storage.write(key: 'is_admin', value: isAdmin.toString());
+  }
+
+  Future<bool> isAdmin() async {
+    final isAdminString = await _storage.read(key: 'is_admin');
+    return isAdminString == 'true';
+  }
+  // --- --- ---
 
   // --- Métodos de API (ya los tenías) ---
   Future<Map<String, dynamic>> register(String nombreCompleto, String email, String password, String? ong) async {
@@ -61,8 +73,9 @@ class AuthService {
 
         final handledResponse = _handleResponse(response);
         if(handledResponse['success']){
-            // 3. Si el login es exitoso, guarda el token
+            // Si el login es exitoso, guarda el token Y EL ESTADO DE ADMIN
             await saveToken(handledResponse['data']['token']);
+            await saveAdminStatus(handledResponse['data']['es_admin'] ?? false); // <-- ¡AÑADIDO!
         }
         return handledResponse;
     } catch (e) {

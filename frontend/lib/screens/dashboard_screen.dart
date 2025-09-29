@@ -12,6 +12,7 @@ import 'detection_screen.dart';
 import 'history_screen.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 
 class DashboardScreen extends StatefulWidget {
@@ -28,13 +29,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final DetectionService _detectionService = DetectionService();
   late bool _isNavExpanded;
   bool _isLoading = true;
+  bool _isAdmin = false; // <-- VARIABLE DE ESTADO YA PRESENTE, PERFECTO.
   List<dynamic> _recentAnalyses = [];
 
   @override
   void initState() {
     super.initState();
     _isNavExpanded = widget.isNavExpanded;
-    _fetchRecentAnalyses();
+    _loadInitialData(); // <-- CAMBIO 1: Llamamos a un método unificado.
+  }
+
+  // <-- CAMBIO 2: Nuevo método para cargar todos los datos iniciales.
+  Future<void> _loadInitialData() async {
+    await _checkAdminStatus();
+    await _fetchRecentAnalyses();
+  }
+
+  // <-- CAMBIO 3: Nuevo método para verificar si el usuario es admin.
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    }
   }
 
   Future<void> _fetchRecentAnalyses() async {
@@ -75,9 +93,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
+  // <-- CAMBIO 4: Se actualiza la navegación.
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
+        // Ya estamos en el Dashboard, no hacemos nada.
         break;
       case 1:
         Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
@@ -88,7 +108,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 3:
         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
         break;
-      case 4:
+      case 4: // Nuevo caso para el Panel de Administrador
+        if (_isAdmin) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+        }
+        break;
+      case 5: // El logout ahora es el índice 5
         _logout(context);
         break;
     }
@@ -125,6 +150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
                 selectedIndex: 0,
+                isAdmin: _isAdmin, // <-- CAMBIO 5: Pasamos el estado de admin.
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;
@@ -232,23 +258,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- 👇 WIDGET MODIFICADO Y CORREGIDO 👇 ---
+  // --- El resto de los widgets no necesitan cambios ---
+
   Widget _buildFileUploadCard() {
-    // Esta función auxiliar maneja la navegación y la actualización.
     void navigateAndRefresh() async {
-      // 1. Navega a la pantalla de detección y ESPERA a que se cierre.
       final result = await Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
       ));
 
-      // 2. Si la pantalla se cerró con un resultado 'true', refresca los datos.
       if (result == true && mounted) {
         _fetchRecentAnalyses();
       }
     }
 
     return GestureDetector(
-      onTap: navigateAndRefresh, // Llama a la nueva función
+      onTap: navigateAndRefresh,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
@@ -272,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ElevatedButton.icon(
                   icon: const Icon(Icons.upload_file_outlined),
                   label: const Text("Cargar Nueva Imagen"),
-                  onPressed: navigateAndRefresh, // Llama a la misma función
+                  onPressed: navigateAndRefresh,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,
                     foregroundColor: Colors.white,

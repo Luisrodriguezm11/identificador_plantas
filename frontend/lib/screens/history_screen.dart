@@ -190,6 +190,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             children: [
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
+                isAdmin: false, // <-- Añade el argumento requerido aquí (ajusta según tu lógica)
                 selectedIndex: 1,
                 onToggle: () {
                   setState(() {

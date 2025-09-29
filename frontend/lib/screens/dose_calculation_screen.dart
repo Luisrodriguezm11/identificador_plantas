@@ -119,6 +119,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
                 selectedIndex: 3,
+                isAdmin: false, // <-- Añade el argumento requerido aquí (ajusta según tu lógica)
                 onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
                 onItemSelected: _onNavItemTapped,
                 onLogout: () => _logout(context),

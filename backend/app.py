@@ -68,7 +68,6 @@ def register():
 
 @app.route('/login', methods=['POST'])
 def login():
-    # ... (código sin cambios)
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -79,7 +78,8 @@ def login():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+        # Pedimos la nueva columna 'es_admin' en la consulta
+        cur.execute("SELECT id_usuario, password_hash, es_admin FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -90,10 +90,16 @@ def login():
         if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             token = jwt.encode({
                 'user_id': user['id_usuario'],
+                # Incluimos el rol en el token para validarlo después
+                'es_admin': user['es_admin'],
                 'exp': datetime.utcnow() + timedelta(hours=24)
             }, app.config['SECRET_KEY'], algorithm="HS256")
 
-            return jsonify({"token": token}), 200
+            # Devolvemos el token Y el rol de administrador
+            return jsonify({
+                "token": token,
+                "es_admin": user['es_admin'] # <-- ¡AÑADIDO!
+            }), 200
         else:
             return jsonify({"error": "Credenciales inválidas"}), 401
 
@@ -118,6 +124,29 @@ def token_required(f):
         except:
             return jsonify({'message': 'El token es inválido o ha expirado'}), 401
         
+        return f(current_user_id, *args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+
+        if not token:
+            return jsonify({'message': 'Falta el token de autenticación'}), 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user_id = data['user_id']
+            # Verificamos si la clave 'es_admin' está y si es verdadera
+            if not data.get('es_admin'):
+                return jsonify({'message': 'Acceso denegado. Se requieren permisos de administrador.'}), 403 # 403 Forbidden
+        except:
+            return jsonify({'message': 'El token es inválido o ha expirado'}), 401
+
+        # Pasamos el user_id como en token_required, por si lo necesitamos
         return f(current_user_id, *args, **kwargs)
     return decorated    
     
@@ -564,6 +593,203 @@ def calculate_dose(current_user_id):
         return jsonify({"error": "El número de plantas debe ser un número entero"}), 400
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
+    
+# Endpoint para obtener TODAS las enfermedades
+@app.route('/admin/diseases', methods=['GET'])
+@admin_required
+def get_all_diseases(current_user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("SELECT id_enfermedad, nombre_comun, roboflow_class FROM enfermedades ORDER BY nombre_comun ASC")
+        diseases = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify([dict(row) for row in diseases]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para AÑADIR una nueva recomendación a una enfermedad
+@app.route('/admin/treatments', methods=['POST'])
+@admin_required
+def add_treatment(current_user_id):
+    data = request.get_json()
+    id_enfermedad = data.get('id_enfermedad')
+    # Añadimos todos los campos que podría tener una recomendación
+    nombre_comercial = data.get('nombre_comercial')
+    ingrediente_activo = data.get('ingrediente_activo')
+    tipo_tratamiento = data.get('tipo_tratamiento')
+    dosis = data.get('dosis')
+    frecuencia_aplicacion = data.get('frecuencia_aplicacion')
+    notas_adicionales = data.get('notas_adicionales')
+
+    if not id_enfermedad or not nombre_comercial or not ingrediente_activo:
+        return jsonify({"error": "Faltan datos requeridos"}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(
+            """
+            INSERT INTO tratamientos (id_enfermedad, nombre_comercial, ingrediente_activo, tipo_tratamiento, dosis, frecuencia_aplicacion, notas_adicionales)
+            VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *;
+            """,
+            (id_enfermedad, nombre_comercial, ingrediente_activo, tipo_tratamiento, dosis, frecuencia_aplicacion, notas_adicionales)
+        )
+        new_treatment = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify(dict(new_treatment)), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para MODIFICAR una recomendación existente
+@app.route('/admin/treatments/<int:treatment_id>', methods=['PUT'])
+@admin_required
+def update_treatment(current_user_id, treatment_id):
+    data = request.get_json()
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(
+            """
+            UPDATE tratamientos SET
+                nombre_comercial = %s,
+                ingrediente_activo = %s,
+                tipo_tratamiento = %s,
+                dosis = %s,
+                frecuencia_aplicacion = %s,
+                notas_adicionales = %s
+            WHERE id_tratamiento = %s RETURNING *;
+            """,
+            (
+                data.get('nombre_comercial'), data.get('ingrediente_activo'),
+                data.get('tipo_tratamiento'), data.get('dosis'),
+                data.get('frecuencia_aplicacion'), data.get('notas_adicionales'),
+                treatment_id
+            )
+        )
+        updated_treatment = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        if updated_treatment:
+            return jsonify(dict(updated_treatment)), 200
+        return jsonify({"error": "Tratamiento no encontrado"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para ELIMINAR una recomendación
+@app.route('/admin/treatments/<int:treatment_id>', methods=['DELETE'])
+@admin_required
+def delete_treatment(current_user_id, treatment_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM tratamientos WHERE id_tratamiento = %s", (treatment_id,))
+        conn.commit()
+
+        # rowcount nos dice cuántas filas fueron afectadas. Si es 0, no se encontró.
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Tratamiento no encontrado"}), 404
+
+        cur.close()
+        conn.close()
+        return jsonify({"message": "Tratamiento eliminado exitosamente"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Endpoint para que el admin vea TODOS los análisis de TODOS los usuarios
+@app.route('/admin/analyses', methods=['GET'])
+@admin_required
+def get_all_analyses(current_user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Unimos la tabla de análisis con la de usuarios para obtener el email
+        cur.execute(
+            """
+            SELECT a.*, u.email 
+            FROM analisis a
+            JOIN usuarios u ON a.id_usuario = u.id_usuario
+            WHERE a.fecha_eliminado IS NULL
+            ORDER BY a.fecha_analisis DESC
+            """
+        )
+        analyses = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        # Convertimos las fechas a string para que no den problemas en JSON
+        result = []
+        for row in analyses:
+            row_dict = dict(row)
+            row_dict['fecha_analisis'] = row_dict['fecha_analisis'].isoformat()
+            result.append(row_dict)
+
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+# --- NUEVO: Endpoint para obtener una lista de usuarios con análisis ---
+@app.route('/admin/users_with_analyses', methods=['GET'])
+@admin_required
+def get_users_with_analyses(current_user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        # Seleccionamos de forma única los usuarios que aparecen en la tabla de análisis
+        cur.execute(
+            """
+            SELECT DISTINCT ON (u.id_usuario) u.id_usuario, u.nombre_completo, u.email,
+            (SELECT COUNT(*) FROM analisis a WHERE a.id_usuario = u.id_usuario AND a.fecha_eliminado IS NULL) as analysis_count
+            FROM usuarios u
+            JOIN analisis a ON u.id_usuario = a.id_usuario
+            WHERE a.fecha_eliminado IS NULL
+            ORDER BY u.id_usuario;
+            """
+        )
+        users = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify([dict(row) for row in users]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- NUEVO: Endpoint para obtener los análisis de un usuario específico ---
+@app.route('/admin/analyses/user/<int:user_id>', methods=['GET'])
+@admin_required
+def get_analyses_for_user(current_user_id, user_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(
+            """
+            SELECT a.*, u.email 
+            FROM analisis a
+            JOIN usuarios u ON a.id_usuario = u.id_usuario
+            WHERE a.id_usuario = %s AND a.fecha_eliminado IS NULL
+            ORDER BY a.fecha_analisis DESC
+            """, (user_id,)
+        )
+        analyses = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        result = []
+        for row in analyses:
+            row_dict = dict(row)
+            row_dict['fecha_analisis'] = row_dict['fecha_analisis'].isoformat()
+            result.append(row_dict)
+
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':

@@ -250,4 +250,116 @@ class DetectionService {
       throw Exception('Error de conexión al calcular la dosis: $e');
     }
   }
+
+Future<List<dynamic>> getAdminAllDiseases() async {
+    final token = await _authService.readToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/admin/diseases'),
+      headers: {'x-access-token': token ?? ''},
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al cargar las enfermedades: ${response.reasonPhrase}');
+    }
+  }
+
+  Future<Map<String, dynamic>> addTreatment(Map<String, dynamic> treatmentData) async {
+    final token = await _authService.readToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/admin/treatments'),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'x-access-token': token ?? '',
+      },
+      body: jsonEncode(treatmentData),
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 201) {
+      return json.decode(response.body);
+    } else {
+      final body = json.decode(response.body);
+      throw Exception('Error al añadir tratamiento: ${body['error']}');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateTreatment(int treatmentId, Map<String, dynamic> treatmentData) async {
+    final token = await _authService.readToken();
+    final response = await http.put(
+      Uri.parse('$_baseUrl/admin/treatments/$treatmentId'),
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'x-access-token': token ?? '',
+      },
+      body: jsonEncode(treatmentData),
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      final body = json.decode(response.body);
+      throw Exception('Error al actualizar tratamiento: ${body['error']}');
+    }
+  }
+
+  Future<bool> deleteTreatment(int treatmentId) async {
+    final token = await _authService.readToken();
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/admin/treatments/$treatmentId'),
+      headers: {'x-access-token': token ?? ''},
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      final body = json.decode(response.body);
+      throw Exception('Error al eliminar tratamiento: ${body['error']}');
+    }
+  }
+
+Future<List<dynamic>> getUsersWithAnalyses() async {
+    final token = await _authService.readToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/admin/users_with_analyses'),
+      headers: {'x-access-token': token ?? ''},
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al cargar la lista de usuarios');
+    }
+  }
+
+  Future<List<dynamic>> getAnalysesForUser(int userId) async {
+    final token = await _authService.readToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/admin/analyses/user/$userId'),
+      headers: {'x-access-token': token ?? ''},
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al cargar los análisis del usuario');
+    }
+  }
+
+  Future<List<dynamic>> getAdminAllAnalyses() async {
+    final token = await _authService.readToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/admin/analyses'),
+      headers: {'x-access-token': token ?? ''},
+    ).timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Error al cargar todos los análisis: ${response.reasonPhrase}');
+    }
+  }
+
 }
+
+

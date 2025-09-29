@@ -4,7 +4,8 @@ import 'dart:ui';
 
 class SideNavigationRail extends StatelessWidget {
   final bool isExpanded;
-  final int selectedIndex; // <-- NUEVO: Para saber qué item está seleccionado
+  final int selectedIndex;
+  final bool isAdmin;
   final VoidCallback onToggle;
   final VoidCallback onLogout;
   final Function(int) onItemSelected;
@@ -12,7 +13,8 @@ class SideNavigationRail extends StatelessWidget {
   const SideNavigationRail({
     super.key,
     required this.isExpanded,
-    required this.selectedIndex, // <-- NUEVO
+    required this.selectedIndex,
+    required this.isAdmin,
     required this.onToggle,
     required this.onLogout,
     required this.onItemSelected,
@@ -77,9 +79,13 @@ class SideNavigationRail extends StatelessWidget {
               _buildNavItem(Icons.dashboard_outlined, "Dashboard", 0, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.history_outlined, "Historial", 1, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.delete_sweep_outlined, "Papelera", 2, selectedIndex, isExpanded, onItemSelected),
-              _buildNavItem(Icons.calculate_outlined, "Calcular Dosis", 3, selectedIndex, isExpanded, onItemSelected), // <-- NUEVO ITEM
+              _buildNavItem(Icons.calculate_outlined, "Calcular Dosis", 3, selectedIndex, isExpanded, onItemSelected), 
+
+              if (isAdmin)
+                _buildNavItem(Icons.admin_panel_settings_outlined, "Panel Admin", 4, selectedIndex, isExpanded, onItemSelected),
+  
               const Spacer(),
-              _buildNavItem(Icons.logout, "Cerrar Sesión", 4, selectedIndex, isExpanded, onItemSelected),
+              _buildNavItem(Icons.logout, "Cerrar Sesión", 5, selectedIndex, isExpanded, onItemSelected),
               const SizedBox(height: 16),
               IconButton(
                 icon: Icon(isExpanded ? Icons.arrow_back_ios_new : Icons.arrow_forward_ios, color: Colors.white, size: 18),

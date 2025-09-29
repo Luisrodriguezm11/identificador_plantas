@@ -220,6 +220,7 @@ class _TrashScreenState extends State<TrashScreen> {
               SideNavigationRail(
                 isExpanded: _isNavExpanded,
                 selectedIndex: 2,
+                isAdmin: false, // <-- Add this line or set to true if needed
                 onToggle: () {
                   setState(() {
                     _isNavExpanded = !_isNavExpanded;

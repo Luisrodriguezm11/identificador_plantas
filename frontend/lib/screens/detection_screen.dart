@@ -268,7 +268,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 selectedIndex: 0,
                 onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
                 onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
+                onLogout: () => _logout(context), isAdmin: false,
               ),
               Expanded(
                 child: Center(
