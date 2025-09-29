@@ -97,7 +97,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
 
 
   Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     final bool isEditing = treatment != null;
 
     final TextEditingController nameController = TextEditingController(text: isEditing ? treatment['nombre_comercial'] : '');
@@ -114,7 +114,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(isEditing ? 'Editar Tratamiento' : 'Añadir Tratamiento', style: const TextStyle(color: Colors.white)),
           content: Form(
-            key: _formKey,
+            key: formKey,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -132,7 +132,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
             TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (_formKey.currentState!.validate()) {
+                if (formKey.currentState!.validate()) {
                   final treatmentData = {
                     'id_enfermedad': widget.disease['id_enfermedad'],
                     'nombre_comercial': nameController.text,
@@ -145,10 +145,11 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
 
                   try {
                     if (isEditing) {
-                      await _detectionService.updateTreatment(treatment!['id_tratamiento'], treatmentData);
+                      await _detectionService.updateTreatment(treatment['id_tratamiento'], treatmentData);
                     } else {
                       await _detectionService.addTreatment(treatmentData);
                     }
+                    // ignore: use_build_context_synchronously
                     Navigator.of(context).pop(true);
                   } catch (e) {
                       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));

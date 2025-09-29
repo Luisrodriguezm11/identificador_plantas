@@ -921,7 +921,7 @@ def get_enfermedades(current_user_id): # <-- Se requiere el argumento del decora
 
 @app.route('/api/tratamientos/<int:enfermedad_id>', methods=['GET'])
 @token_required
-def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id): # <-- Se requiere el argumento del decorador
+def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id):
     """
     Endpoint para obtener los tratamientos para una enfermedad específica.
     Recibe el ID de la enfermedad como parámetro en la URL.
@@ -930,18 +930,20 @@ def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id): # <-- Se re
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-        # CAMBIOS: Usamos los nombres de columna correctos de tu tabla de tratamientos
-        # y les damos alias para que coincidan con lo que espera el frontend.
+        # --- 👇 AQUÍ ESTÁ LA NUEVA CORRECCIÓN 👇 ---
+        # Usamos COALESCE para manejar valores NULL en dosis y unidad.
+        # Esto previene errores en el frontend si los datos están incompletos.
         cur.execute("""
             SELECT 
                 id_tratamiento as id, 
                 nombre_comercial, 
                 ingrediente_activo, 
                 tipo_tratamiento,
-                dosis_valor as dosis,         -- Usamos 'dosis_valor' y lo renombramos a 'dosis'
-                dosis_unidad as unidad_medida -- Usamos 'dosis_unidad' y lo renombramos
+                COALESCE(dosis_valor, 0.0) as dosis, -- <-- ¡CORRECCIÓN! Si es NULL, devuelve 0.0
+                COALESCE(dosis_unidad, '') as unidad_medida, -- <-- ¡CORRECCIÓN! Si es NULL, devuelve ''
+                CAST(NULL AS TEXT) as periodo_carencia
             FROM tratamientos 
-            WHERE id_enfermedad = %s          -- La columna correcta es 'id_enfermedad'
+            WHERE id_enfermedad = %s
             ORDER BY nombre_comercial ASC
         """, (enfermedad_id,))
         
@@ -952,8 +954,7 @@ def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id): # <-- Se re
         return jsonify(tratamientos)
     except Exception as e:
         print(f"Error al obtener tratamientos: {e}")
-        return jsonify({'error': 'Error interno al obtener los tratamientos.'}), 500   
-
+        return jsonify({'error': 'Error interno al obtener los tratamientos.'}), 500
 
 
 
