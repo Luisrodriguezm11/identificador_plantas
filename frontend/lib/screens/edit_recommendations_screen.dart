@@ -103,6 +103,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
     final TextEditingController nameController = TextEditingController(text: isEditing ? treatment['nombre_comercial'] : '');
     final TextEditingController ingredientController = TextEditingController(text: isEditing ? treatment['ingrediente_activo'] : '');
     final TextEditingController typeController = TextEditingController(text: isEditing ? treatment['tipo_tratamiento'] : '');
+    final TextEditingController doseController = TextEditingController(text: isEditing ? treatment['dosis'] : '');
     final TextEditingController frequencyController = TextEditingController(text: isEditing ? treatment['frecuencia_aplicacion'] : '');
     final TextEditingController notesController = TextEditingController(text: isEditing ? treatment['notas_adicionales'] : '');
 
@@ -122,6 +123,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
                   _buildTextFormField(controller: nameController, label: 'Nombre Comercial'),
                   _buildTextFormField(controller: ingredientController, label: 'Ingrediente Activo'),
                   _buildTextFormField(controller: typeController, label: 'Tipo (Sistémico, De Contacto...)'),
+                  _buildTextFormField(controller: doseController, label: 'Dosis del Producto (ej: 10ml/L)', isOptional: true),
                   _buildTextFormField(controller: frequencyController, label: 'Frecuencia de Aplicación', isOptional: true),
                   _buildTextFormField(controller: notesController, label: 'Notas Adicionales', isOptional: true),
                 ],
@@ -138,9 +140,9 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
                     'nombre_comercial': nameController.text,
                     'ingrediente_activo': ingredientController.text,
                     'tipo_tratamiento': typeController.text,
+                    'dosis': doseController.text,
                     'frecuencia_aplicacion': frequencyController.text,
                     'notas_adicionales': notesController.text,
-                    'dosis': null, 
                   };
 
                   try {
@@ -261,49 +263,14 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
                               ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
                               : _treatments.isEmpty
                                 ? const Center(child: Text("No hay tratamientos para esta enfermedad.", style: TextStyle(color: Colors.white70, fontSize: 16)))
-                                : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                                  itemCount: _treatments.length,
-                                  itemBuilder: (context, index) {
-                                    final treatment = _treatments[index];
-                                    return Card(
-                                      color: Colors.white.withOpacity(0.15),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      margin: const EdgeInsets.only(bottom: 16),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(treatment['nombre_comercial'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                                            const Divider(color: Colors.white30, height: 20),
-                                            _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
-                                            _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
-                                            _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
-                                            _buildInfoRow('Notas:', treatment['notas_adicionales']),
-                                            const SizedBox(height: 16),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.end,
-                                              children: [
-                                                _buildGlassIconButton(
-                                                  icon: Icons.edit,
-                                                  color: Colors.blueAccent,
-                                                  onPressed: () => _showEditDialog(treatment: treatment),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                _buildGlassIconButton(
-                                                  icon: Icons.delete_forever,
-                                                  color: Colors.redAccent,
-                                                  onPressed: () => _deleteTreatment(treatment['id_tratamiento']),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                : SingleChildScrollView(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+                                    child: Column(
+                                      children: _treatments.map((treatment) => 
+                                        _buildTreatmentCard(treatment)
+                                      ).toList(),
+                                    ),
+                                  ),
                     ),
                   ],
                 ),
@@ -315,20 +282,102 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
     );
   }
 
-  Widget _buildGlassIconButton({required IconData icon, required Color color, required VoidCallback onPressed}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+  Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Stack(
+              children: [
+                // --- Contenido Principal ---
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Espacio para el botón de editar
+                      const SizedBox(height: 30),
+                      Text(
+                        treatment['nombre_comercial'] ?? '',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Divider(color: Colors.white30, height: 24, thickness: 1),
+                      _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
+                      _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
+                      _buildInfoRow('Dosis:', treatment['dosis']),
+                      _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
+                      _buildInfoRow('Notas:', treatment['notas_adicionales']),
+                      // Espacio para el botón de eliminar
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+
+                // --- Botón de Editar en la esquina superior derecha ---
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _buildGlassIconButton(
+                    icon: Icons.edit,
+                    color: Colors.blueAccent,
+                    onPressed: () => _showEditDialog(treatment: treatment),
+                    tooltip: 'Editar Tratamiento',
+                  ),
+                ),
+
+                // --- Botón de Eliminar en la esquina inferior derecha ---
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: _buildGlassIconButton(
+                    icon: Icons.delete_forever,
+                    color: Colors.redAccent,
+                    onPressed: () => _deleteTreatment(treatment['id_tratamiento']),
+                    tooltip: 'Eliminar Tratamiento',
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: IconButton(
-            icon: Icon(icon, color: Colors.white),
-            onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassIconButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: IconButton(
+              icon: Icon(icon, color: Colors.white),
+              onPressed: onPressed,
+            ),
           ),
         ),
       ),

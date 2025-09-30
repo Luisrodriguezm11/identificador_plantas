@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:frontend/services/detection_service.dart';
-import 'package:frontend/services/auth_service.dart'; // <-- CAMBIO: Importación añadida
+import 'package:frontend/services/auth_service.dart';
 import 'package:palette_generator/palette_generator.dart';
 
 class AnalysisDetailScreen extends StatefulWidget {
@@ -17,25 +17,25 @@ class AnalysisDetailScreen extends StatefulWidget {
 
 class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   final DetectionService _detectionService = DetectionService();
-  final AuthService _authService = AuthService(); // <-- CAMBIO: Instancia de AuthService
+  final AuthService _authService = AuthService();
 
   final PageController _pageController = PageController();
   final List<String> _imageUrls = [];
   int _currentPage = 0;
 
-  bool _isAdmin = false; // <-- CAMBIO: Variable para guardar el rol de admin
+  bool _isAdmin = false;
 
   Color _dominantColor = Colors.black.withOpacity(0.6);
   bool _isColorLoading = true;
   bool _isDetailsLoading = true;
   String _diseaseInfo = '';
-  String _recommendations = '';
+  List<dynamic> _recommendationsList = [];
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData(); // <-- CAMBIO: Llamada a la nueva función de carga
+    _loadInitialData();
 
     _pageController.addListener(() {
       final newPage = _pageController.page?.round();
@@ -46,16 +46,14 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       }
     });
   }
-  
-  // <-- CAMBIO: Nueva función que organiza la carga de datos
+
   Future<void> _loadInitialData() async {
     _setupImages();
     _updateDominantColor();
-    await _checkAdminStatus(); // Primero verificamos si es admin
-    _fetchDiseaseDetails();    // Luego cargamos el resto de la información
+    await _checkAdminStatus();
+    _fetchDiseaseDetails();
   }
 
-  // <-- CAMBIO: Nueva función para verificar el rol del usuario
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
@@ -123,7 +121,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
-  // <-- CAMBIO: Lógica de borrado actualizada
   Future<void> _deleteItem() async {
     final analysisId = widget.analysis['id_analisis'];
     if (analysisId == null) return;
@@ -150,8 +147,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
     try {
       bool success;
-      // Si el usuario es admin, usa la función de borrado de admin.
-      // Si no, usa la función de borrado normal.
       if (_isAdmin) {
         success = await _detectionService.adminDeleteHistoryItem(analysisId);
       } else {
@@ -165,7 +160,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Devolvemos 'true' para que la pantalla anterior sepa que debe recargar la lista.
         Navigator.of(context).pop(true);
       }
     } catch (e) {
@@ -179,60 +173,18 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       }
     }
   }
-
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-        child: Container(
-          height: 40,
-          width: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.4)),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white, size: 20),
-            tooltip: tooltip,
-          ),
-        ),
-      ),
-    );
-  }
-
+  
   Future<void> _fetchDiseaseDetails() async {
     try {
       final String diseaseName =
           widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
       final details = await _detectionService.getDiseaseDetails(diseaseName);
 
-      final recommendationsList =
-          (details['recommendations'] as List).map((rec) {
-        final nombre = rec['nombre_comercial'] ?? 'Desconocido';
-        final activo = rec['ingrediente_activo'] ?? 'No especificado';
-        final tipo = rec['tipo_tratamiento'] ?? 'General';
-
-        final frecuencia = rec['frecuencia_aplicacion'] != null
-            ? '\n  • Frecuencia: ${rec['frecuencia_aplicacion']}'
-            : '';
-        final notas = rec['notas_adicionales'] != null
-            ? '\n  • Nota: ${rec['notas_adicionales']}'
-            : '';
-
-        return '▶ $nombre ($tipo)\n  • Ingrediente Activo: $activo$frecuencia$notas';
-      }).join('\n\n');
-
       if (mounted) {
         setState(() {
           _diseaseInfo =
               details['info']['descripcion'] ?? 'No hay descripción disponible.';
-          _recommendations = recommendationsList.isNotEmpty
-              ? recommendationsList
-              : 'No hay recomendaciones de tratamiento registradas.';
+          _recommendationsList = details['recommendations'];
           _isDetailsLoading = false;
         });
       }
@@ -271,7 +223,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             ),
             child: Row(
               children: [
-                // --- COLUMNA IZQUIERDA: CARRUSEL DE IMÁGENES ---
                 Expanded(
                   flex: 2,
                   child: Stack(
@@ -308,19 +259,9 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                           ),
                         ),
                       ),
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: CircleAvatar(
-                            backgroundColor: Colors.black.withOpacity(0.4),
-                            child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ),
-                        ),
-                      ),
+                      
+                      // --- CAMBIO: Se eliminó el botón de cerrar de aquí ---
+
                       if (_imageUrls.length > 1)
                         Align(
                           alignment: Alignment.centerLeft,
@@ -371,7 +312,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                   ),
                 ),
 
-                // --- COLUMNA DERECHA: INFORMACIÓN ---
                 Expanded(
                   flex: 3,
                   child: Stack(
@@ -401,11 +341,12 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
                                       ),
                                     ),
+                                    // --- CAMBIO 1: El botón de borrar ahora es el de CERRAR ---
                                     _buildActionButton(
-                                      icon: Icons.delete_outline,
-                                      color: Colors.red,
-                                      tooltip: 'Enviar a la papelera',
-                                      onPressed: _deleteItem,
+                                      icon: Icons.close,
+                                      color: Colors.grey,
+                                      tooltip: 'Cerrar',
+                                      onPressed: () => Navigator.of(context).pop(),
                                     ),
                                   ],
                                 ),
@@ -425,7 +366,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                                   indicatorSize: TabBarIndicatorSize.tab,
                                   tabs: [
                                     Tab(text: 'INFORMACIÓN'),
-                                    Tab(text: 'RECOMENDACIONES'),
+                                    Tab(text: 'TRATAMIENTOS'),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -439,9 +380,20 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                                                 SingleChildScrollView(
                                                   child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
                                                 ),
-                                                SingleChildScrollView(
-                                                  child: Text(_recommendations, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
-                                                ),
+                                                _recommendationsList.isEmpty
+                                                ? const Center(
+                                                    child: Text(
+                                                      "No hay tratamientos registrados para esta condición.",
+                                                      style: TextStyle(color: Colors.white70, fontSize: 16)
+                                                    ),
+                                                  )
+                                                : ListView.builder(
+                                                    itemCount: _recommendationsList.length,
+                                                    itemBuilder: (context, index) {
+                                                      final treatment = _recommendationsList[index];
+                                                      return _buildTreatmentCard(treatment);
+                                                    },
+                                                  ),
                                               ],
                                             ),
                                 ),
@@ -450,6 +402,19 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                           ),
                         ),
                       ),
+
+                      // --- CAMBIO 2: Nuevo botón de BORRAR posicionado abajo a la derecha ---
+                      Positioned(
+                        bottom: 24,
+                        right: 24,
+                        child: _buildActionButton(
+                          icon: Icons.delete_outline,
+                          color: Colors.red,
+                          tooltip: 'Enviar a la papelera',
+                          onPressed: _deleteItem,
+                        ),
+                      ),
+                      
                       Visibility(
                         visible: _isColorLoading,
                         child: AnimatedOpacity(
@@ -469,6 +434,85 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+          child: Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  treatment['nombre_comercial'] ?? 'Sin nombre',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Divider(color: Colors.white30, height: 20),
+                _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
+                _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
+                _buildInfoRow('Dosis:', treatment['dosis']),
+                _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
+                _buildInfoRow('Notas:', treatment['notas_adicionales']),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'Roboto'),
+          children: [
+            TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          height: 40,
+          width: 40,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.3),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: onPressed,
+            icon: Icon(icon, color: Colors.white, size: 20),
+            tooltip: tooltip,
           ),
         ),
       ),
