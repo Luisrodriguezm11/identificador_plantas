@@ -54,8 +54,12 @@ class Tratamiento {
 }
 
 class TreatmentService {
-  final String _baseUrl = "http://192.168.0.34:5001"; // Asegúrate que esta IP es la de tu PC
+
+  final String _baseUrl = "https://identificador-plantas-backend.onrender.com"; 
+  //final String _baseUrl = "http://192.168.0.34:5001";
   final AuthService _authService = AuthService();
+  // Asegúrate que esta IP es la de tu PC
+
 
   Future<List<Enfermedad>> getEnfermedades() async {
     try {
