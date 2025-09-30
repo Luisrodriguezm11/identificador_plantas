@@ -189,7 +189,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Calcular Dosis de Tratamiento",
+          "Guía de Tratamientos",
           style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,

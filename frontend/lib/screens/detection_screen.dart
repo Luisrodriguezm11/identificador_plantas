@@ -521,7 +521,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                     filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.4), // Mismo color pero con opacidad
+                        color: Colors.blueAccent.withOpacity(0.8), // Mismo color pero con opacidad
                         borderRadius: BorderRadius.circular(30.0),
                         border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
                       ),

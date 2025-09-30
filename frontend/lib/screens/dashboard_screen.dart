@@ -166,7 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 50),
                         const Text(
                           "Detección de plagas y enfermedades 🌱",
                           style: TextStyle(
@@ -179,38 +179,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           "Una herramienta inteligente para el detectar plagas y enfermedades en el cultivo del café.",
                           style: TextStyle(fontSize: 16, color: Colors.white70),
                         ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 125),
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Spacer(flex: 2),
-                            const Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Cargar y Analizar Medios",
-                                    style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white),
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    "Arrastra y suelta un archivo o búscalo en tu equipo para analizarlo.",
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 4,
-                              child: _buildFileUploadCard(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 48),
+  crossAxisAlignment: CrossAxisAlignment.center,
+  children: [
+    const Spacer(flex: 3), // <-- AÑADIDO: Empuja desde la izquierda
+    const Expanded(
+      flex: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Cargar y Analizar Medios",
+            style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white),
+          ),
+          SizedBox(height: 8),
+          Text(
+            "Arrastra y suelta un archivo o búscalo en tu equipo para analizarlo.",
+            style: TextStyle(color: Colors.white70),
+          ),
+        ],
+      ),
+    ),
+    const SizedBox(width: 75),
+    Expanded(
+      flex: 3, 
+      child: _buildFileUploadCard(),
+    ),
+    const Spacer(flex: 2), // <-- AÑADIDO: Empuja desde la derecha
+  ],
+),
+
+                        const SizedBox(height: 125),
                         const Text(
                           "Mis Archivos Recientes",
                           style: TextStyle(

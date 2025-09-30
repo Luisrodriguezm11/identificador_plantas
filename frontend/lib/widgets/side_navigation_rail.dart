@@ -79,7 +79,7 @@ class SideNavigationRail extends StatelessWidget {
               _buildNavItem(Icons.dashboard_outlined, "Dashboard", 0, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.history_outlined, "Historial", 1, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.delete_sweep_outlined, "Papelera", 2, selectedIndex, isExpanded, onItemSelected),
-              _buildNavItem(Icons.calculate_outlined, "Calcular Dosis", 3, selectedIndex, isExpanded, onItemSelected), 
+              _buildNavItem(Icons.calculate_outlined, "Tratamientos", 3, selectedIndex, isExpanded, onItemSelected), 
 
               if (isAdmin)
                 _buildNavItem(Icons.admin_panel_settings_outlined, "Panel Admin", 4, selectedIndex, isExpanded, onItemSelected),
