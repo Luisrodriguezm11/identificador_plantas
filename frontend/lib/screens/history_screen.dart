@@ -3,12 +3,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
-import 'package:frontend/screens/admin_dashboard_screen.dart'; // <-- CAMBIO: Importación añadida
+import 'package:frontend/screens/admin_dashboard_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart'; 
 import '../services/detection_service.dart';
 import 'trash_screen.dart';
 import 'dart:ui';
@@ -16,10 +16,9 @@ import 'analysis_detail_screen.dart';
 import 'detection_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
-  final bool isNavExpanded;
   final int? highlightedAnalysisId;
 
-  const HistoryScreen({super.key, this.isNavExpanded = true, this.highlightedAnalysisId});
+  const HistoryScreen({super.key, this.highlightedAnalysisId});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -31,9 +30,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   List<dynamic>? _historyList;
   bool _isLoading = true;
   String? _errorMessage;
-  late bool _isNavExpanded;
   
-  bool _isAdmin = false; // <-- CAMBIO: Variable para saber si el usuario es admin
+  bool _isAdmin = false; 
 
   int? _highlightedId;
   AnimationController? _highlightController;
@@ -41,10 +39,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _isNavExpanded = widget.isNavExpanded;
     _highlightedId = widget.highlightedAnalysisId;
     
-    _loadInitialData(); // <-- CAMBIO: Llamamos a la nueva función que carga todo
+    _loadInitialData(); 
 
     if (_highlightedId != null) {
       _highlightController = AnimationController(
@@ -63,13 +60,11 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     }
   }
   
-  // <-- CAMBIO: Nueva función para cargar los datos en orden
   Future<void> _loadInitialData() async {
-    await _checkAdminStatus(); // Primero verificamos si es admin
-    await _fetchHistory();     // Luego cargamos el historial
+    await _checkAdminStatus(); 
+    await _fetchHistory();     
   }
 
-  // <-- CAMBIO: Nueva función para verificar el rol del usuario
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
@@ -84,7 +79,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Future<void> _fetchHistory() async {
-    // Tu función _fetchHistory original no necesita cambios
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -108,7 +102,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   String _formatPredictionName(String originalName) {
-    // Tu función original no necesita cambios
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
     }
@@ -119,38 +112,29 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
-  // <-- CAMBIO: Actualizamos la lógica de navegación
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),);
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        // Ya estamos aquí, no hacemos nada
+        // Ya estamos aquí
         break;
       case 2:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)),);
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
-        // Si es admin, navega al panel. Si no, es el botón de logout.
         if (_isAdmin) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
-        } else {
-            _logout(context);
         }
-        break;
-      case 5:
-        // Este caso solo ocurre si es admin (es el botón de logout)
-        _logout(context);
         break;
     }
   }
 
   void _logout(BuildContext context) async {
-    // Tu función original no necesita cambios
     final navigator = Navigator.of(context);
     await _authService.deleteToken();
     navigator.pushAndRemoveUntil(
@@ -160,7 +144,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Future<void> _deleteItem(int analysisId, int index) async {
-    // Tu función original no necesita cambios
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -195,10 +178,17 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: TopNavigationBar(
+        selectedIndex: 1, // El índice para Historial es 1
+        isAdmin: _isAdmin,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
+            builder: (context) => const DetectionScreen(),
           ));
           if (result == true && mounted) {
             _fetchHistory();
@@ -218,89 +208,95 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               ),
             ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                isAdmin: _isAdmin, // <-- CAMBIO: Pasamos el valor de admin al widget
-                selectedIndex: 1,
-                onToggle: () {
-                  setState(() {
-                    _isNavExpanded = !_isNavExpanded;
-                  });
-                },
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          // --- INICIO DE LA MODIFICACIÓN ---
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200), // Ancho máximo del contenido
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "Historial de Análisis",
-                            style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
-                            label: const Text("Volver al Dashboard", style: TextStyle(color: Colors.white70)),
-                            onPressed: () => Navigator.of(context).pushReplacement(
-                              NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
-                            ),
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.1),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                            : _errorMessage != null
-                                ? Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.white)))
-                                : _historyList!.isEmpty
-                                    ? const Center(child: Text('No hay análisis en tu historial.', style: TextStyle(color: Colors.white)))
-                                    : RefreshIndicator(
-                                        onRefresh: _fetchHistory,
-                                        child: GridView.builder(
-                                          padding: const EdgeInsets.only(bottom: 24),
-                                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                            maxCrossAxisExtent: 250,
-                                            childAspectRatio: 2 / 2.8,
-                                            crossAxisSpacing: 20,
-                                            mainAxisSpacing: 20,
-                                          ),
-                                          itemCount: _historyList!.length,
-                                          itemBuilder: (context, index) {
-                                            final analysis = _historyList![index];
-                                            return _buildHistoryCard(analysis, index);
-                                          },
-                                        ),
-                                      ),
-                      ),
+                      SizedBox(height: kToolbarHeight + 60),
+                      // Nueva sección de encabezado, igual que en el Dashboard
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      // Contenido principal de la grilla
+                      _buildHistoryGrid(),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
-            ],
-          )
+            ),
+          ),
+          // --- FIN DE LA MODIFICACIÓN ---
         ],
       ),
     );
   }
+  
+  // --- NUEVO WIDGET PARA EL ENCABEZADO ---
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        const Text(
+          'Historial de Análisis',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: const Text(
+            'Aquí encontrarás todos los diagnósticos que has realizado. Puedes ver los detalles o enviar un análisis a la papelera.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // --- NUEVO WIDGET PARA LA GRILLA DEL HISTORIAL ---
+  Widget _buildHistoryGrid() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        : _errorMessage != null
+            ? Center(child: Text('Error: $_errorMessage', style: const TextStyle(color: Colors.white)))
+            : _historyList!.isEmpty
+                ? const Center(child: Text('No hay análisis en tu historial.', style: TextStyle(color: Colors.white, fontSize: 16)))
+                : RefreshIndicator(
+                    onRefresh: _fetchHistory,
+                    child: GridView.builder(
+                      shrinkWrap: true, // Importante para que funcione dentro de un Column
+                      physics: const NeverScrollableScrollPhysics(), // El scroll lo maneja el SingleChildScrollView padre
+                      padding: const EdgeInsets.only(bottom: 24),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 250,
+                        childAspectRatio: 2 / 2.8,
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                      ),
+                      itemCount: _historyList!.length,
+                      itemBuilder: (context, index) {
+                        final analysis = _historyList![index];
+                        return _buildHistoryCard(analysis, index);
+                      },
+                    ),
+                  );
+  }
+
+  // --- El resto de tus widgets (_buildHistoryCard, _buildActionButton) no necesitan cambios ---
 
   Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
-    // Tu widget _buildHistoryCard original no necesita cambios
+    // ... (Tu código original de _buildHistoryCard va aquí, sin cambios)
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
     final bool isHighlighted = analysis['id_analisis'] == _highlightedId;
@@ -434,7 +430,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
-    // Tu widget _buildActionButton original no necesita cambios
+    // ... (Tu código original de _buildActionButton va aquí, sin cambios)
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(

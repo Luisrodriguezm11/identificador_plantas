@@ -8,13 +8,12 @@ import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart'; 
 import '../services/detection_service.dart';
 import 'dart:ui';
 
 class TrashScreen extends StatefulWidget {
-  final bool isNavExpanded;
-  const TrashScreen({super.key, this.isNavExpanded = true});
+  const TrashScreen({super.key});
 
   @override
   State<TrashScreen> createState() => _TrashScreenState();
@@ -25,13 +24,11 @@ class _TrashScreenState extends State<TrashScreen> {
   final AuthService _authService = AuthService();
   List<dynamic>? _trashedList;
   bool _isLoading = true;
-  late bool _isNavExpanded;
   bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
-    _isNavExpanded = widget.isNavExpanded;
     _loadInitialData();
   }
 
@@ -83,25 +80,21 @@ class _TrashScreenState extends State<TrashScreen> {
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
+        // Ya estamos aquí
         break;
       case 3:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+         Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         if (_isAdmin) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
-        } else {
-          _logout(context);
         }
-        break;
-      case 5:
-        _logout(context);
         break;
     }
   }
@@ -115,7 +108,6 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
-  // --- CAMBIO: LÓGICA DE RESTAURACIÓN TOTALMENTE ACTUALIZADA ---
   Future<void> _restoreItem(int analysisId, int index) async {
     final restoredItem = _trashedList![index];
     bool success = false;
@@ -158,7 +150,6 @@ class _TrashScreenState extends State<TrashScreen> {
                       Navigator.of(context).pop();
                       Navigator.of(context).pushReplacement(
                         NoTransitionRoute(page: HistoryScreen(
-                          isNavExpanded: _isNavExpanded,
                           highlightedAnalysisId: restoredItem['id_analisis'],
                         ))
                       );
@@ -192,11 +183,17 @@ class _TrashScreenState extends State<TrashScreen> {
     );
 
     if (confirmed == true) {
-      final success = await _detectionService.permanentlyDeleteItem(analysisId);
-      if (success) {
-        setState(() => _trashedList!.removeAt(index));
+      try {
+        final success = await _detectionService.permanentlyDeleteItem(analysisId);
+        if (success) {
+          setState(() => _trashedList!.removeAt(index));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Borrado permanentemente'), backgroundColor: Colors.orange));
+          }
+        }
+      } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Borrado permanentemente'), backgroundColor: Colors.orange));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
         }
       }
     }
@@ -249,6 +246,13 @@ class _TrashScreenState extends State<TrashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: TopNavigationBar(
+        selectedIndex: 2, // El índice para Papelera es 2
+        isAdmin: _isAdmin,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           Container(
@@ -259,103 +263,98 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 2,
-                isAdmin: _isAdmin,
-                onToggle: () {
-                  setState(() {
-                    _isNavExpanded = !_isNavExpanded;
-                  });
-                },
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          // --- INICIO DE LA MODIFICACIÓN ---
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                           Text(
-                            "Papelera",
-                            style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                shadows: [Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.3))]),
-                          ),
-                          Row(
-                            children: [
-                              if (_trashedList != null && _trashedList!.isNotEmpty)
-                                TextButton.icon(
-                                  icon: const Icon(Icons.delete_sweep_outlined, size: 16, color: Colors.orangeAccent),
-                                  label: const Text("Vaciar Papelera", style: TextStyle(color: Colors.orangeAccent)),
-                                  onPressed: _emptyTrash,
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: Colors.white.withOpacity(0.1),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                                  ),
-                                ),
-                              const SizedBox(width: 16),
-                              TextButton.icon(
-                                icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
-                                label: const Text("Volver al Dashboard", style: TextStyle(color: Colors.white70)),
-                                onPressed: () => Navigator.of(context).pushReplacement(
-                                  NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)),
-                                ),
-                                style: TextButton.styleFrom(
-                                  backgroundColor: Colors.white.withOpacity(0.1),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Los archivos en la papelera se eliminarán permanentemente después de 30 días.",
-                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontStyle: FontStyle.italic),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                            : _trashedList == null || _trashedList!.isEmpty
-                                ? const Center(child: Text('La papelera está vacía.', style: TextStyle(color: Colors.white)))
-                                : GridView.builder(
-                                    padding: const EdgeInsets.only(bottom: 24),
-                                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 250,
-                                      childAspectRatio: 2 / 2.8,
-                                      crossAxisSpacing: 20,
-                                      mainAxisSpacing: 20,
-                                    ),
-                                    itemCount: _trashedList!.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _trashedList![index];
-                                      return _buildTrashCard(item, index);
-                                    },
-                                  ),
-                      ),
+                      SizedBox(height: kToolbarHeight + 60),
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      _buildTrashGrid(),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
+          // --- FIN DE LA MODIFICACIÓN ---
         ],
       ),
     );
   }
-
+  
+  // --- NUEVO WIDGET PARA EL ENCABEZADO ---
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        const Text(
+          'Papelera de Análisis',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Text(
+            'Los análisis eliminados se guardan aquí por 30 días antes de ser borrados permanentemente. Puedes restaurarlos o eliminarlos definitivamente.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white.withOpacity(0.7), height: 1.5),
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
+          TextButton.icon(
+            icon: const Icon(Icons.delete_sweep_outlined, size: 18, color: Colors.orangeAccent),
+            label: const Text("Vaciar Papelera", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+            onPressed: _emptyTrash,
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+            ),
+          ),
+      ],
+    );
+  }
+  
+  // --- NUEVO WIDGET PARA LA GRILLA DE LA PAPELERA ---
+  Widget _buildTrashGrid() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        : _trashedList == null || _trashedList!.isEmpty
+            ? const Center(child: Text('La papelera está vacía.', style: TextStyle(color: Colors.white, fontSize: 16)))
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 24),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 250,
+                  childAspectRatio: 2 / 2.8,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                ),
+                itemCount: _trashedList!.length,
+                itemBuilder: (context, index) {
+                  final item = _trashedList![index];
+                  return _buildTrashCard(item, index);
+                },
+              );
+  }
+  
+  // --- El resto de tus widgets (_buildTrashCard, _buildActionButton) no cambian ---
+  
   Widget _buildTrashCard(Map<String, dynamic> item, int index) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24.0),

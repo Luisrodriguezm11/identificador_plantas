@@ -5,7 +5,7 @@ import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/detection_service.dart';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'detection_screen.dart';
@@ -14,11 +14,8 @@ import 'dart:ui';
 import 'analysis_detail_screen.dart';
 import 'admin_dashboard_screen.dart';
 
-
 class DashboardScreen extends StatefulWidget {
-  final bool isNavExpanded;
-
-  const DashboardScreen({super.key, this.isNavExpanded = true});
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -27,39 +24,45 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final AuthService _authService = AuthService();
   final DetectionService _detectionService = DetectionService();
-  late bool _isNavExpanded;
   bool _isLoading = true;
-  bool _isAdmin = false; // <-- VARIABLE DE ESTADO YA PRESENTE, PERFECTO.
+  bool _isAdmin = false;
+  String _userName = ''; // Estado para guardar el nombre del usuario
   List<dynamic> _recentAnalyses = [];
 
   @override
   void initState() {
     super.initState();
-    _isNavExpanded = widget.isNavExpanded;
-    _loadInitialData(); // <-- CAMBIO 1: Llamamos a un método unificado.
+    _loadInitialData();
   }
 
-  // <-- CAMBIO 2: Nuevo método para cargar todos los datos iniciales.
   Future<void> _loadInitialData() async {
-    await _checkAdminStatus();
-    await _fetchRecentAnalyses();
+    // Obtenemos todos los datos necesarios en paralelo
+    await Future.wait([
+      _checkAdminStatus(),
+      _fetchRecentAnalyses(),
+      _fetchUserName(), // <-- Nueva función para obtener el nombre
+    ]);
   }
 
-  // <-- CAMBIO 3: Nuevo método para verificar si el usuario es admin.
+  Future<void> _fetchUserName() async {
+    final name = await _authService.getUserName();
+    if (mounted) {
+      setState(() {
+        _userName = name ?? 'Usuario';
+      });
+    }
+  }
+
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
-      setState(() {
-        _isAdmin = isAdmin;
-      });
+      setState(() => _isAdmin = isAdmin);
     }
   }
 
   Future<void> _fetchRecentAnalyses() async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       final history = await _detectionService.getHistory();
       if (mounted) {
@@ -70,9 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error al cargar análisis: $e'),
@@ -81,60 +82,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
   }
-  
-  String _formatPredictionName(String originalName) {
-    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
-      return 'Hoja Sana';
-    }
-    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
-    if (formattedName.isEmpty) {
-      return 'Desconocido'; 
-    }
-    return formattedName[0].toUpperCase() + formattedName.substring(1);
-  }
 
-  // <-- CAMBIO 4: Se actualiza la navegación.
   void _onNavItemTapped(int index) {
+    // Lógica de navegación no cambia
     switch (index) {
       case 0:
-        // Ya estamos en el Dashboard, no hacemos nada.
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context,
+            NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context,
+            NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
-      case 4: // Nuevo caso para el Panel de Administrador
+      case 4:
         if (_isAdmin) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
-        break;
-      case 5: // El logout ahora es el índice 5
-        _logout(context);
         break;
     }
   }
 
   void _logout(BuildContext context) async {
     final navigator = Navigator.of(context);
-    await _authService.deleteToken();
+    // --- CORRECCIÓN AQUÍ ---
+    // Cambiamos logout() de vuelta a deleteToken() para que coincida con tu auth_service.dart
+    await _authService.deleteToken(); 
+    // --- FIN DE LA CORRECCIÓN ---
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
   }
-
-
   @override
   Widget build(BuildContext context) {
-    final analysesToShow = _recentAnalyses.take(5).toList();
-    final bool showViewAllButton = _recentAnalyses.length > 5;
-
     return Scaffold(
+      appBar: TopNavigationBar(
+        selectedIndex: 0,
+        isAdmin: _isAdmin,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           Container(
@@ -145,171 +140,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 0,
-                isAdmin: _isAdmin, // <-- CAMBIO 5: Pasamos el estado de admin.
-                onToggle: () {
-                  setState(() {
-                    _isNavExpanded = !_isNavExpanded;
-                  });
-                },
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 50),
-                        const Text(
-                          "Detección de plagas y enfermedades 🌱",
-                          style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "Una herramienta inteligente para el detectar plagas y enfermedades en el cultivo del café.",
-                          style: TextStyle(fontSize: 16, color: Colors.white70),
-                        ),
-                        const SizedBox(height: 125),
-                        Row(
-  crossAxisAlignment: CrossAxisAlignment.center,
-  children: [
-    const Spacer(flex: 3), // <-- AÑADIDO: Empuja desde la izquierda
-    const Expanded(
-      flex: 4,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Cargar y Analizar Medios",
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Arrastra y suelta un archivo o búscalo en tu equipo para analizarlo.",
-            style: TextStyle(color: Colors.white70),
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(width: 75),
-    Expanded(
-      flex: 3, 
-      child: _buildFileUploadCard(),
-    ),
-    const Spacer(flex: 2), // <-- AÑADIDO: Empuja desde la derecha
-  ],
-),
-
-                        const SizedBox(height: 125),
-                        const Text(
-                          "Mis Archivos Recientes",
-                          style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
-                        ),
-                        const SizedBox(height: 16),
-                        _isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : _recentAnalyses.isEmpty
-                                ? const Text(
-                                    "Aún no has analizado ningún archivo recientemente.",
-                                    style: TextStyle(color: Colors.white70),
-                                  )
-                                : GridView.builder(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    gridDelegate:
-                                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 250,
-                                      childAspectRatio: 2 / 2.8,
-                                      crossAxisSpacing: 20,
-                                      mainAxisSpacing: 20,
-                                    ),
-                                    itemCount: analysesToShow.length + (showViewAllButton ? 1 : 0),
-                                    itemBuilder: (context, index) {
-                                      if (showViewAllButton && index == analysesToShow.length) {
-                                        return _buildViewAllCard();
-                                      }
-                                      final analysis = analysesToShow[index];
-                                      return _buildAnalysisCard(analysis);
-                                    },
-                                  ),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+          // Usamos un SingleChildScrollView para evitar overflow en pantallas pequeñas
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(height: kToolbarHeight + 60),
+                      // --- NUEVA SECCIÓN DE BIENVENIDA ---
+                      _buildWelcomeSection(),
+                      const SizedBox(height: 40),
+                      // --- NUEVA SECCIÓN DE BOTONES DE ACCIÓN ---
+                      _buildActionButtons(),
+                      const SizedBox(height: 60),
+                      // --- NUEVA TARJETA PRINCIPAL DE ANÁLISIS ---
+                      _buildMainAnalysisCard(),
+                      const SizedBox(height: 60),
+                      // --- SECCIÓN DE HISTORIAL RECIENTE (MODIFICADA) ---
+                      _buildRecentHistorySection(),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
               ),
-            ],
-          )
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // --- El resto de los widgets no necesitan cambios ---
+  // --- WIDGET DE BIENVENIDA ---
+  Widget _buildWelcomeSection() {
+    return Column(
+      children: [
+        Text(
+          '¡Bienvenido, $_userName!',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: const Text(
+            'Tu asistente inteligente para el monitoreo de cultivos de café. Empieza un nuevo análisis o revisa tu historial.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
 
-  Widget _buildFileUploadCard() {
-    void navigateAndRefresh() async {
-      final result = await Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => DetectionScreen(isNavExpanded: _isNavExpanded),
-      ));
-
-      if (result == true && mounted) {
-        _fetchRecentAnalyses();
-      }
-    }
-
-    return GestureDetector(
-      onTap: navigateAndRefresh,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+  // --- WIDGET PARA BOTONES DE ACCIÓN ---
+  Widget _buildActionButtons() {
+    return Wrap(
+      spacing: 20,
+      runSpacing: 20,
+      alignment: WrapAlignment.center,
+      children: [
+        _buildActionButton(
+          icon: Icons.history_outlined,
+          label: 'Historial Completo',
+          onTap: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen())),
+        ),
+        _buildActionButton(
+          icon: Icons.calculate_outlined,
+          label: 'Guía de Tratamientos',
+          onTap: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen())),
+        ),
+        _buildActionButton(
+          icon: Icons.delete_sweep_outlined,
+          label: 'Papelera',
+          onTap: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen())),
+        ),
+      ],
+    );
+  }
+  
+  // Widget para un botón de acción individual
+  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            width: 220,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Utiliza este botón para iniciar el proceso de detección.",
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text("Cargar Nueva Imagen"),
-                  onPressed: navigateAndRefresh,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                    ),
-                  ),
-                ),
+                Icon(icon, color: Colors.white, size: 28),
+                const SizedBox(height: 12),
+                Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
           ),
@@ -319,35 +259,113 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
 
-  Widget _buildViewAllCard() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.arrow_forward_ios, color: Colors.white, size: 40),
-                  SizedBox(height: 8),
-                  Text("Ver todo el historial", style: TextStyle(color: Colors.white), textAlign: TextAlign.center,),
-                ],
+  // --- WIDGET PARA LA TARJETA PRINCIPAL DE ANÁLISIS ---
+  Widget _buildMainAnalysisCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Detectar Plagas y Enfermedades",
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      "Sube una imagen de la hoja de tu planta de café para obtener un diagnóstico instantáneo y recomendaciones de tratamiento.",
+                      style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.5),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: 40),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.upload_file_outlined, size: 24),
+                label: const Text("Iniciar Nuevo Análisis"),
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
+                  if (result == true && mounted) {
+                    _fetchRecentAnalyses();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  // --- WIDGET PARA LA SECCIÓN DE HISTORIAL ---
+  Widget _buildRecentHistorySection() {
+    final analysesToShow = _recentAnalyses.take(4).toList();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Mis Análisis Recientes",
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        const SizedBox(height: 24),
+        _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _recentAnalyses.isEmpty
+                ? const Center(
+                    child: Text(
+                      "Aún no has analizado ningún archivo.",
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                  )
+                : GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 250,
+                      childAspectRatio: 2 / 2.8,
+                      crossAxisSpacing: 20,
+                      mainAxisSpacing: 20,
+                    ),
+                    itemCount: analysesToShow.length,
+                    itemBuilder: (context, index) {
+                      final analysis = analysesToShow[index];
+                      return _buildAnalysisCard(analysis);
+                    },
+                  ),
+      ],
+    );
+  }
+
+  // --- El resto de tus widgets (_formatPredictionName, _buildAnalysisCard) no necesitan cambios ---
+  String _formatPredictionName(String originalName) {
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
+      return 'Hoja Sana';
+    }
+    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    if (formattedName.isEmpty) {
+      return 'Desconocido';
+    }
+    return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
@@ -377,14 +395,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.grey[800],
                       child: const Center(
-                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
+                        child: Icon(Icons.image_not_supported_outlined,
+                            color: Colors.white70, size: 40),
                       ),
                     ),
                   ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.8)
+                        ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0.5, 1.0],
@@ -398,12 +420,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _formatPredictionName(analysis['resultado_prediccion']),
+                          _formatPredictionName(
+                              analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+                            shadows: [
+                              Shadow(blurRadius: 4, color: Colors.black54)
+                            ],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -415,17 +440,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text(
                               fechaFormateada,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 14),
                             ),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(30.0),
                               child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                filter:
+                                    ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(30.0),
-                                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                                    border: Border.all(
+                                        color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
                                     onPressed: () {
@@ -434,14 +462,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
                                             backgroundColor: Colors.transparent,
-                                            child: AnalysisDetailScreen(analysis: analysis),
+                                            child: AnalysisDetailScreen(
+                                                analysis: analysis),
                                           );
                                         },
                                       );
                                     },
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
                                     ),
                                     child: const Text('Más info'),
                                   ),

@@ -3,14 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'dart:ui';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart'; // Importa la barra de navegación superior
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/screens/admin_dashboard_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
 
 
@@ -29,7 +28,9 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
   List<dynamic> _treatments = [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool _isNavExpanded = true;
+  
+  // 'isNavExpanded' ya no es necesaria
+  // bool _isNavExpanded = true;
 
   @override
   void initState() {
@@ -67,36 +68,31 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
   }
 
   void _onNavItemTapped(int index) {
-      final navigator = Navigator.of(context);
-      if (index == 5) {
-        _logout(context);
-        return;
-      }
-      Widget page;
+      // Navegación consistente con las otras pantallas
       switch (index) {
         case 0:
-          page = const DashboardScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
           break;
         case 1:
-          page = const HistoryScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
           break;
         case 2:
-          page = const TrashScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
           break;
         case 3:
-          page = const DoseCalculationScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
           break;
         case 4:
-          page = const AdminDashboardScreen();
+          // Podríamos ir al AdminDashboard, pero por ahora un pop() es más intuitivo
+          // ya que esta pantalla es hija de una de las opciones del admin dashboard.
+          Navigator.of(context).pop();
           break;
-        default:
-          return;
       }
-      navigator.pushReplacement(NoTransitionRoute(page: page));
   }
 
 
   Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
+    // Tu código original para el diálogo no necesita cambios
     final formKey = GlobalKey<FormState>();
     final bool isEditing = treatment != null;
 
@@ -171,6 +167,7 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
   }
 
   Future<void> _deleteTreatment(int treatmentId) async {
+    // Tu código original para eliminar no necesita cambios
     final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -196,10 +193,18 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: TopNavigationBar(
+        selectedIndex: 4, // Mantenemos seleccionado el Panel de Admin
+        isAdmin: true,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showEditDialog(),
         tooltip: 'Añadir Tratamiento',
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -207,148 +212,134 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
             decoration: const BoxDecoration(
               image: DecorationImage(image: AssetImage("assets/background.jpg"), fit: BoxFit.cover),
             ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-              child: Container(),
-            ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 4,
-                isAdmin: true,
-                onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 40),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.disease['nombre_comun'],
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
-                            label: const Text("Volver", style: TextStyle(color: Colors.white70)),
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.1),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                          : _errorMessage != null
-                              ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
-                              : _treatments.isEmpty
-                                ? const Center(child: Text("No hay tratamientos para esta enfermedad.", style: TextStyle(color: Colors.white70, fontSize: 16)))
-                                : SingleChildScrollView(
-                                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
-                                    child: Column(
-                                      children: _treatments.map((treatment) => 
-                                        _buildTreatmentCard(treatment)
-                                      ).toList(),
-                                    ),
-                                  ),
-                    ),
-                  ],
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Column(
+                    children: [
+                      SizedBox(height: kToolbarHeight + 60),
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      _buildTreatmentsList(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           )
         ],
       ),
     );
   }
 
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        Text(
+          widget.disease['nombre_comun'],
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: const Text(
+            'Añade, edita o elimina las recomendaciones de tratamientos para esta condición.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTreatmentsList() {
+    return _isLoading
+        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        : _errorMessage != null
+            ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
+            : _treatments.isEmpty
+                ? const Center(child: Text("No hay tratamientos para esta enfermedad.", style: TextStyle(color: Colors.white70, fontSize: 16)))
+                : ListView.builder( // Usamos ListView.builder para eficiencia
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _treatments.length,
+                    itemBuilder: (context, index) {
+                      final treatment = _treatments[index];
+                      return _buildTreatmentCard(treatment);
+                    },
+                  );
+  }
+
   Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(24.0),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16.0),
+              borderRadius: BorderRadius.circular(24.0),
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
-            child: Stack(
-              children: [
-                // --- Contenido Principal ---
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Espacio para el botón de editar
-                      const SizedBox(height: 30),
-                      Text(
-                        treatment['nombre_comercial'] ?? '',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          treatment['nombre_comercial'] ?? 'Sin Nombre',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      const Divider(color: Colors.white30, height: 24, thickness: 1),
-                      _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
-                      _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
-                      _buildInfoRow('Dosis:', treatment['dosis']),
-                      _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
-                      _buildInfoRow('Notas:', treatment['notas_adicionales']),
-                      // Espacio para el botón de eliminar
-                      const SizedBox(height: 40),
+                      Row(
+                        children: [
+                           _buildGlassIconButton(
+                              icon: Icons.edit_outlined,
+                              color: Colors.blueAccent,
+                              onPressed: () => _showEditDialog(treatment: treatment),
+                              tooltip: 'Editar Tratamiento',
+                            ),
+                            const SizedBox(width: 12),
+                           _buildGlassIconButton(
+                              icon: Icons.delete_forever_outlined,
+                              color: Colors.redAccent,
+                              onPressed: () => _deleteTreatment(treatment['id_tratamiento']),
+                              tooltip: 'Eliminar Tratamiento',
+                            ),
+                        ],
+                      )
                     ],
                   ),
-                ),
-
-                // --- Botón de Editar en la esquina superior derecha ---
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _buildGlassIconButton(
-                    icon: Icons.edit,
-                    color: Colors.blueAccent,
-                    onPressed: () => _showEditDialog(treatment: treatment),
-                    tooltip: 'Editar Tratamiento',
-                  ),
-                ),
-
-                // --- Botón de Eliminar en la esquina inferior derecha ---
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: _buildGlassIconButton(
-                    icon: Icons.delete_forever,
-                    color: Colors.redAccent,
-                    onPressed: () => _deleteTreatment(treatment['id_tratamiento']),
-                    tooltip: 'Eliminar Tratamiento',
-                  ),
-                ),
-              ],
+                  const Divider(color: Colors.white30, height: 30, thickness: 1),
+                  _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
+                  _buildInfoRow('Tipo de Tratamiento:', treatment['tipo_tratamiento']),
+                  _buildInfoRow('Dosis:', treatment['dosis']),
+                  _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
+                  _buildInfoRow('Notas Adicionales:', treatment['notas_adicionales']),
+                ],
+              ),
             ),
           ),
         ),
@@ -393,7 +384,11 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.white70),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.5))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white)),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.1)
         ),
         validator: (value) {
           if (!isOptional && (value == null || value.isEmpty)) {
@@ -408,15 +403,14 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
   Widget _buildInfoRow(String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'Roboto'),
-          children: [
-            TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold)),
-            TextSpan(text: value),
-          ],
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+           Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+           const SizedBox(height: 4),
+           Text(value, style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.4)),
+        ],
       ),
     );
   }

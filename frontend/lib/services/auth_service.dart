@@ -2,12 +2,11 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- 1. Importa el paquete
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService {
-  final String _baseUrl = "https://identificador-plantas-backend.onrender.com";
-  //final String _baseUrl = "http://192.168.0.34:5001";
-  // 2. Crea una instancia del almacenamiento seguro
+  //final String _baseUrl = "https://identificador-plantas-backend.onrender.com";
+  final String _baseUrl = "http://192.168.0.34:5001";
   final _storage = const FlutterSecureStorage();
 
   // --- Métodos de almacenamiento de Token ---
@@ -22,9 +21,11 @@ class AuthService {
 
   Future<void> deleteToken() async {
     await _storage.delete(key: 'jwt_token');
-    // También borramos el estado de admin al cerrar sesión
     await _storage.delete(key: 'is_admin');
+    await _storage.delete(key: 'user_name'); // <--- CAMBIO: Asegurarse de borrar el nombre también
   }
+
+  // --- Métodos de estado de Admin ---
 
   Future<void> saveAdminStatus(bool isAdmin) async {
     await _storage.write(key: 'is_admin', value: isAdmin.toString());
@@ -34,11 +35,23 @@ class AuthService {
     final isAdminString = await _storage.read(key: 'is_admin');
     return isAdminString == 'true';
   }
-  // --- --- ---
+  
+  // --- MÉTODOS NUEVOS PARA EL NOMBRE DE USUARIO ---
 
-  // --- Métodos de API (ya los tenías) ---
+  // <--- CAMBIO: Nuevo método para guardar el nombre del usuario ---
+  Future<void> saveUserName(String userName) async {
+    await _storage.write(key: 'user_name', value: userName);
+  }
+
+  // <--- CAMBIO: Nuevo método para leer el nombre del usuario ---
+  Future<String?> getUserName() async {
+    return await _storage.read(key: 'user_name');
+  }
+
+
+  // --- MÉTODOS DE API ---
+
   Future<Map<String, dynamic>> register(String nombreCompleto, String email, String password, String? ong) async {
-    // ... tu código de registro no cambia
     try {
         final response = await http.post(
           Uri.parse('$_baseUrl/register'),
@@ -73,9 +86,11 @@ class AuthService {
 
         final handledResponse = _handleResponse(response);
         if(handledResponse['success']){
-            // Si el login es exitoso, guarda el token Y EL ESTADO DE ADMIN
+            // Si el login es exitoso, guarda cada dato con su método correspondiente
             await saveToken(handledResponse['data']['token']);
-            await saveAdminStatus(handledResponse['data']['es_admin'] ?? false); // <-- ¡AÑADIDO!
+            await saveAdminStatus(handledResponse['data']['es_admin'] ?? false);
+            // <--- CAMBIO: Guarda el nombre del usuario al iniciar sesión
+            await saveUserName(handledResponse['data']['nombre_completo'] ?? 'Usuario'); 
         }
         return handledResponse;
     } catch (e) {
@@ -84,7 +99,6 @@ class AuthService {
   }
 
   Map<String, dynamic> _handleResponse(http.Response response) {
-    // ... tu código para manejar la respuesta no cambia
      final Map<String, dynamic> body = json.decode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return {'success': true, 'data': body};

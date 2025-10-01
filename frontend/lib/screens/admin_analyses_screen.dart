@@ -4,14 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart'; // 1. Importa la barra de navegación
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/screens/admin_dashboard_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
 
 class AdminAnalysesScreen extends StatefulWidget {
@@ -25,7 +24,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   final DetectionService _detectionService = DetectionService();
   final AuthService _authService = AuthService();
   late Future<List<dynamic>> _analysesFuture;
-  bool _isNavExpanded = true;
+  // 'isNavExpanded' ya no es necesaria
 
   @override
   void initState() {
@@ -50,31 +49,26 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
 
   void _onNavItemTapped(int index) {
       final navigator = Navigator.of(context);
-      if (index == 5) {
-        _logout(context);
-        return;
-      }
-      Widget page;
       switch (index) {
         case 0:
-          page = const DashboardScreen();
+          navigator.pushReplacement(NoTransitionRoute(page: const DashboardScreen()));
           break;
         case 1:
-          page = const HistoryScreen();
+          navigator.pushReplacement(NoTransitionRoute(page: const HistoryScreen()));
           break;
         case 2:
-          page = const TrashScreen();
+          navigator.pushReplacement(NoTransitionRoute(page: const TrashScreen()));
           break;
         case 3:
-          page = const DoseCalculationScreen();
+          navigator.pushReplacement(NoTransitionRoute(page: const DoseCalculationScreen()));
           break;
         case 4:
-          page = const AdminDashboardScreen();
+           // Navegamos hacia atrás porque esta pantalla es hija del Admin Dashboard
+          Navigator.of(context).pop();
           break;
         default:
           return;
       }
-      navigator.pushReplacement(NoTransitionRoute(page: page));
   }
 
   String _formatPredictionName(String originalName) {
@@ -86,7 +80,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
-  // --- CAMBIO: Nueva función para borrar un análisis ---
   Future<void> _deleteItem(int analysisId) async {
     final bool? confirmed = await showDialog(
       context: context,
@@ -108,7 +101,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Análisis enviado a la papelera'), backgroundColor: Colors.green),
         );
-        _refreshAnalyses(); // Recargamos la lista
+        _refreshAnalyses();
       }
     } catch (e) {
       if (mounted) {
@@ -122,102 +115,113 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 2. Añadimos la barra de navegación superior
+      appBar: TopNavigationBar(
+        selectedIndex: 4,
+        isAdmin: true,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(image: AssetImage("assets/background.jpg"), fit: BoxFit.cover),
             ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-              child: Container(),
-            ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 4,
-                isAdmin: true,
-                onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 40),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "Todos los Análisis",
-                            style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
-                            label: const Text("Volver", style: TextStyle(color: Colors.white70)),
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.1),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: FutureBuilder<List<dynamic>>(
-                        future: _analysesFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator(color: Colors.white));
-                          }
-                          if (snapshot.hasError) {
-                            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
-                          }
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return const Center(child: Text('No hay análisis de usuarios para mostrar.', style: TextStyle(color: Colors.white)));
-                          }
-                    
-                          final analyses = snapshot.data!;
-                          
-                          return GridView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 250,
-                              childAspectRatio: 2 / 2.8,
-                              crossAxisSpacing: 20,
-                              mainAxisSpacing: 20,
-                            ),
-                            itemCount: analyses.length,
-                            itemBuilder: (context, index) {
-                              final analysis = analyses[index];
-                              return _buildAnalysisCard(analysis);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+          // 3. Reestructuramos el layout para que sea consistente
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    children: [
+                      SizedBox(height: kToolbarHeight + 60),
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      _buildAnalysesGrid(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
+  
+  // 4. Nuevo widget para el encabezado
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        const Text(
+          'Monitor de Análisis',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: const Text(
+            'Visualiza todos los análisis realizados por los productores en la plataforma. Puedes ver detalles o gestionar cada registro.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
 
-  // --- CAMBIO: Tarjeta de análisis actualizada con botones ---
+  // 5. Nuevo widget para la grilla de análisis
+  Widget _buildAnalysesGrid() {
+    return FutureBuilder<List<dynamic>>(
+      future: _analysesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.white));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No hay análisis de usuarios para mostrar.', style: TextStyle(color: Colors.white)));
+        }
+  
+        final analyses = snapshot.data!;
+        
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 24.0),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 250,
+            childAspectRatio: 2 / 2.8,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 20,
+          ),
+          itemCount: analyses.length,
+          itemBuilder: (context, index) {
+            final analysis = analyses[index];
+            return _buildAnalysisCard(analysis);
+          },
+        );
+      },
+    );
+  }
+
+  // El widget _buildAnalysisCard y _buildActionButton no necesitan cambios
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
+    // ... (Tu código original de _buildAnalysisCard va aquí, sin cambios)
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
 
@@ -333,8 +337,8 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
     );
   }
 
-  // --- CAMBIO: Nuevo widget para los botones de acción ---
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+    // ... (Tu código original de _buildActionButton va aquí, sin cambios)
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(

@@ -14,21 +14,23 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+// Importa la nueva barra de navegación
+import 'package:frontend/widgets/top_navigation_bar.dart'; 
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../services/detection_service.dart';
 import '../services/storage_service.dart';
 import 'analysis_detail_screen.dart';
 import 'package:lottie/lottie.dart';
+import 'admin_dashboard_screen.dart';
+
 
 class DetectionScreen extends StatefulWidget {
-  final bool isNavExpanded;
+  // Ya no necesitas 'isNavExpanded'
   final XFile? initialImageFile;
 
   const DetectionScreen({
     super.key,
-    this.isNavExpanded = true,
     this.initialImageFile,
   });
 
@@ -44,16 +46,14 @@ class _DetectionScreenState extends State<DetectionScreen> {
   final DetectionService _detectionService = DetectionService();
   final StorageService _storageService = StorageService();
   final AuthService _authService = AuthService();
-  late bool _isNavExpanded;
-
+  
+  bool _isAdmin = false;
   bool _isLoading = false;
   String _loadingMessage = '';
   String? _errorMessage;
 
-  // --- ✨ NOTIFIER PARA CONTROLAR LA CANCELACIÓN ---
   late ValueNotifier<bool> _cancellationNotifier;
 
-  // Para el carrusel de recomendaciones
   final PageController _pageController = PageController();
   Timer? _carouselTimer;
   int _currentPage = 0;
@@ -68,12 +68,19 @@ class _DetectionScreenState extends State<DetectionScreen> {
   @override
   void initState() {
     super.initState();
-    _isNavExpanded = widget.isNavExpanded;
-    _cancellationNotifier = ValueNotifier<bool>(false); // Inicializamos el notifier
+    _cancellationNotifier = ValueNotifier<bool>(false);
     if (widget.initialImageFile != null) {
       _imageFileFront = widget.initialImageFile;
     }
+    _checkAdminStatus();
     _startCarouselTimer();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() => _isAdmin = isAdmin);
+    }
   }
 
   void _startCarouselTimer() {
@@ -97,26 +104,29 @@ class _DetectionScreenState extends State<DetectionScreen> {
   void dispose() {
     _carouselTimer?.cancel();
     _pageController.dispose();
-    _cancellationNotifier.dispose(); // Liberamos el notifier
+    _cancellationNotifier.dispose();
     super.dispose();
   }
   
   void _onNavItemTapped(int index) {
+    // La navegación ahora es consistente
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DashboardScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: HistoryScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: TrashScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: DoseCalculationScreen(isNavExpanded: _isNavExpanded)));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
-        _logout(context);
+        if (_isAdmin) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+        }
         break;
     }
   }
@@ -155,12 +165,11 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
   }
   
-  // --- ✨ FUNCIÓN DE ANÁLISIS MODIFICADA CON EL NOTIFIER ---
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
     setState(() {
       _isLoading = true;
-      _cancellationNotifier.value = false; // Reinicia el notifier
+      _cancellationNotifier.value = false;
       _errorMessage = null;
       _loadingMessage = 'Iniciando proceso...';
     });
@@ -171,7 +180,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
       setState(() => _loadingMessage = 'Subiendo imágenes...');
       
-      // Subimos las imágenes una por una para poder cancelar entre ellas
       final String? imageUrlFront = await _storageService.uploadOriginalImage(
         _imageFileFront!,
         cancellationNotifier: _cancellationNotifier
@@ -229,6 +237,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
         );
 
         if(mounted) {
+          // Se devuelve 'true' para que la pantalla anterior sepa que debe refrescar
           Navigator.of(context).pop(true);
         }
 
@@ -251,8 +260,18 @@ class _DetectionScreenState extends State<DetectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 1. Añadimos el AppBar y lo hacemos transparente
+      appBar: TopNavigationBar(
+        // El índice aquí puede ser cualquiera que no esté seleccionado, o el de Dashboard
+        selectedIndex: -1, 
+        isAdmin: _isAdmin,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // Fondo de la aplicación
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -261,21 +280,17 @@ class _DetectionScreenState extends State<DetectionScreen> {
               ),
             ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 0,
-                onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context), isAdmin: false,
-              ),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
+          // 2. Quitamos el Row y el SideNavigationRail
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
+                child: Column(
+                  children: [
+                    // Espacio para que el contenido no quede debajo del AppBar
+                    SizedBox(height: kToolbarHeight), 
+                    Expanded(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -291,11 +306,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
                         ],
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
+          // El loading overlay no cambia
           if (_isLoading)
             Positioned.fill(
               child: BackdropFilter(
@@ -314,7 +330,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 24),
-                        // --- ✨ BOTÓN MODIFICADO PARA USAR EL NOTIFIER ---
                         TextButton(
                           onPressed: () {
                             _cancellationNotifier.value = true;
@@ -338,15 +353,15 @@ class _DetectionScreenState extends State<DetectionScreen> {
     );
   }
   
-  // No hay cambios en los widgets de construcción
-  // ... (Pega aquí el resto de tus widgets sin modificar)
+  // El resto de tus widgets (_buildRecommendationsCarousel, _buildUploadArea, _buildImageSlot) no necesitan cambios
+  // ... (puedes pegarlos aquí tal como estaban)
   Widget _buildRecommendationsCarousel() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 24.0), // Padding vertical
+          padding: const EdgeInsets.symmetric(vertical: 24.0),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.3),
             borderRadius: BorderRadius.circular(24.0),
@@ -368,40 +383,34 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // El Carrusel
                     PageView.builder(
                       controller: _pageController,
                       itemCount: recommendations.length,
                       onPageChanged: (int page) {
-                        // Actualizamos la página actual para el timer
                         setState(() {
                           _currentPage = page;
                         });
                       },
                       itemBuilder: (context, index) {
                         final item = recommendations[index];
-                        // --- LÓGICA PARA DECIDIR QUÉ WIDGET MOSTRAR ---
                         Widget iconWidget;
                         if (item['icon'] is String) {
-                          // Si es un String, es una ruta a un Lottie
                           iconWidget = Lottie.asset(
                             item['icon'],
-                            width: 120, // Ajusta el tamaño como prefieras
+                            width: 120,
                             height: 120,
                           );
                         } else {
-                          // Si no, es un IconData
                           iconWidget = Icon(
                             item['icon'],
                             color: Colors.white,
                             size: 60,
                           );
                         }
-                        // ---------------------------------------------
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            iconWidget, // <-- Usa el widget que acabamos de crear
+                            iconWidget,
                             const SizedBox(height: 20),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -415,7 +424,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                         );
                       },
                     ),
-                    // Flecha Izquierda
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
@@ -428,7 +436,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                         },
                       ),
                     ),
-                    // Flecha Derecha
                     Align(
                       alignment: Alignment.centerRight,
                       child: IconButton(
@@ -500,10 +507,10 @@ class _DetectionScreenState extends State<DetectionScreen> {
                   const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start, // Alinea al top
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildImageSlot(isFront: true),
-                      const SizedBox(width: 24), // Espacio entre slots
+                      const SizedBox(width: 24),
                       _buildImageSlot(isFront: false),
                     ],
                   ),
@@ -513,7 +520,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 ],
               ),
 
-              // --- BOTÓN CON EFECTO GLASSMORPHISM ---
               if (_imageFileFront != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(30.0),
@@ -521,7 +527,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                     filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.8), // Mismo color pero con opacidad
+                        color: Colors.blueAccent.withOpacity(0.8),
                         borderRadius: BorderRadius.circular(30.0),
                         border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
                       ),

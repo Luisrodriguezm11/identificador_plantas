@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'dart:ui';
-import 'package:frontend/widgets/side_navigation_rail.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'admin_analyses_screen.dart';
@@ -13,7 +13,6 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/screens/admin_dashboard_screen.dart';
 
 class AdminUserListScreen extends StatefulWidget {
   const AdminUserListScreen({super.key});
@@ -26,7 +25,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
   final DetectionService _detectionService = DetectionService();
   final AuthService _authService = AuthService();
   late Future<List<dynamic>> _usersFuture;
-  bool _isNavExpanded = true;
+  // La variable _isNavExpanded ya no es necesaria
 
   @override
   void initState() {
@@ -44,148 +43,146 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
   }
 
   void _onNavItemTapped(int index) {
-      final navigator = Navigator.of(context);
-      if (index == 5) { // Assuming 5 is logout
-        _logout(context);
-        return;
-      }
-      Widget page;
       switch (index) {
         case 0:
-          page = const DashboardScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
           break;
         case 1:
-          page = const HistoryScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
           break;
         case 2:
-          page = const TrashScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
           break;
         case 3:
-          page = const DoseCalculationScreen();
+          Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
           break;
         case 4:
-          page = const AdminDashboardScreen();
+          // Navegamos hacia atrás porque esta pantalla es hija del Admin Dashboard
+          Navigator.of(context).pop();
           break;
-        default:
-          return;
       }
-      navigator.pushReplacement(NoTransitionRoute(page: page));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 1. Añadimos la barra de navegación superior
+      appBar: TopNavigationBar(
+        selectedIndex: 4,
+        isAdmin: true,
+        onItemSelected: _onNavItemTapped,
+        onLogout: () => _logout(context),
+      ),
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(image: AssetImage("assets/background.jpg"), fit: BoxFit.cover),
             ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-              child: Container(),
-            ),
           ),
-          Row(
-            children: [
-              SideNavigationRail(
-                isExpanded: _isNavExpanded,
-                selectedIndex: 4,
-                isAdmin: true,
-                onToggle: () => setState(() => _isNavExpanded = !_isNavExpanded),
-                onItemSelected: _onNavItemTapped,
-                onLogout: () => _logout(context),
-              ),
-              Expanded(
-                child: FutureBuilder<List<dynamic>>(
-                  future: _usersFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator(color: Colors.white));
-                    }
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
-                    }
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('Ningún usuario ha realizado análisis aún.', style: TextStyle(color: Colors.white)));
-                    }
-
-                    final users = snapshot.data!;
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 40),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "Monitor de Productores",
-                                style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
-                              ),
-                               TextButton.icon(
-                                icon: const Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.white70),
-                                label: const Text("Volver al Panel", style: TextStyle(color: Colors.white70)),
-                                onPressed: () => Navigator.of(context).pop(),
-                                style: TextButton.styleFrom(
-                                  backgroundColor: Colors.white.withOpacity(0.1),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                                ),
-                              ),
-                            ],
-                          )
-                        ),
-                        const SizedBox(height: 24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: _buildGlassButton(
-                            context,
-                            icon: Icons.grid_view_rounded,
-                            label: 'Ver todos los análisis juntos',
-                            onPressed: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()));
-                            }
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // --- CAMBIO: Usamos GridView.builder para las tarjetas de usuario ---
-                        Expanded(
-                          child: GridView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 0), // Quitar padding vertical si no se quiere
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 250, // Ancho máximo de cada tarjeta
-                              childAspectRatio: 2 / 2.8, // Relación de aspecto similar a las de análisis
-                              crossAxisSpacing: 20,
-                              mainAxisSpacing: 20,
-                            ),
-                            itemCount: users.length,
-                            itemBuilder: (context, index) {
-                              final user = users[index];
-                              return _buildUserCard(user); // <-- Nuestro nuevo widget de tarjeta de usuario
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+          // 2. Reestructuramos el layout para ser consistente
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    children: [
+                      SizedBox(height: kToolbarHeight + 60),
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      _buildUsersGrid(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
+  
+  // 3. Nuevo widget para el encabezado de la sección
+  Widget _buildHeaderSection() {
+    return Column(
+      children: [
+        const Text(
+          'Monitor de Productores',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            letterSpacing: -1.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: const Text(
+            'Visualiza la lista de productores que han realizado análisis. Selecciona uno para ver su historial específico o mira todos los análisis juntos.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Botón para ver todos los análisis
+         _buildGlassButton(
+            context,
+            icon: Icons.grid_view_rounded,
+            label: 'Ver todos los análisis juntos',
+            onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()));
+            }
+          ),
+      ],
+    );
+  }
 
-  // --- ¡NUEVO WIDGET _buildUserCard, inspirado en la tarjeta de análisis! ---
+  // 4. Nuevo widget para la grilla de usuarios
+  Widget _buildUsersGrid() {
+    return FutureBuilder<List<dynamic>>(
+      future: _usersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.white));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('Ningún usuario ha realizado análisis aún.', style: TextStyle(color: Colors.white)));
+        }
+
+        final users = snapshot.data!;
+        
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 24.0),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 250,
+            childAspectRatio: 2 / 2.8,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 20,
+          ),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return _buildUserCard(user);
+          },
+        );
+      },
+    );
+  }
+
+  // El widget _buildUserCard y _buildGlassButton se mantienen, ya que su diseño es consistente
   Widget _buildUserCard(Map<String, dynamic> user) {
-    // Usamos una imagen de placeholder por ahora, ya que la subida de foto no está implementada.
-    // Podrías tener una imagen por defecto o cargar una real si la tuvieras.
+    // ... (Tu código original de _buildUserCard va aquí, sin cambios)
     final String userImageUrl = user['profile_image_url'] ?? 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=USER'; // URL de imagen por defecto o real
     final String userName = user['nombre_completo'] ?? 'Usuario Desconocido';
     final String userEmail = user['email'] ?? 'correo@ejemplo.com';
@@ -283,8 +280,8 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     );
   }
 
-  // --- Widget para botones de cristal (mantener) ---
   Widget _buildGlassButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
+    // ... (Tu código original de _buildGlassButton va aquí, sin cambios)
     return ClipRRect(
       borderRadius: BorderRadius.circular(12.0),
       child: BackdropFilter(
@@ -295,7 +292,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white.withOpacity(0.2),
             foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 50),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(color: Colors.white.withOpacity(0.3))

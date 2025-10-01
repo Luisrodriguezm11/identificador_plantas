@@ -223,95 +223,13 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             ),
             child: Row(
               children: [
+                // --- COLUMNA DE LA IMAGEN (IZQUIERDA) ---
                 Expanded(
                   flex: 2,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (_imageUrls.isNotEmpty)
-                        PageView.builder(
-                          controller: _pageController,
-                          itemCount: _imageUrls.length,
-                          itemBuilder: (context, index) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: NetworkImage(_imageUrls[index]),
-                                  fit: BoxFit.cover,
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(24.0),
-                                  bottomLeft: Radius.circular(24.0),
-                                ),
-                              ),
-                            );
-                          },
-                        )
-                      else
-                        const Center(child: Text("Imagen no disponible", style: TextStyle(color: Colors.white))),
-
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.black.withOpacity(0.5), Colors.transparent],
-                            begin: Alignment.topLeft,
-                            end: Alignment.center,
-                          ),
-                        ),
-                      ),
-                      
-                      // --- CAMBIO: Se eliminó el botón de cerrar de aquí ---
-
-                      if (_imageUrls.length > 1)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
-                            child: IconButton(
-                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                              onPressed: () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
-                            ),
-                          ),
-                        ),
-                      if (_imageUrls.length > 1)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            margin: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
-                            child: IconButton(
-                              icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
-                              onPressed: () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
-                            ),
-                          ),
-                        ),
-                      if (_imageUrls.length > 1)
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(_imageUrls.length, (index) {
-                                return AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                                  height: 8.0,
-                                  width: _currentPage == index ? 24.0 : 8.0,
-                                  decoration: BoxDecoration(
-                                    color: _currentPage == index ? Colors.white : Colors.white54,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: _buildImageCarousel(),
                 ),
 
+                // --- COLUMNA DE DETALLES (DERECHA) ---
                 Expanded(
                   flex: 3,
                   child: Stack(
@@ -320,99 +238,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                         duration: const Duration(seconds: 1),
                         curve: Curves.easeIn,
                         color: _dominantColor,
-                        child: DefaultTabController(
-                          length: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        _formatPredictionName(prediction),
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.bold,
-                                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
-                                      ),
-                                    ),
-                                    // --- CAMBIO 1: El botón de borrar ahora es el de CERRAR ---
-                                    _buildActionButton(
-                                      icon: Icons.close,
-                                      color: Colors.grey,
-                                      tooltip: 'Cerrar',
-                                      onPressed: () => Navigator.of(context).pop(),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  "Confianza del ${(confidence * 100).toStringAsFixed(1)}%",
-                                  style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 16),
-                                const TabBar(
-                                  indicatorColor: Colors.white,
-                                  labelColor: Colors.white,
-                                  unselectedLabelColor: Colors.white70,
-                                  indicatorSize: TabBarIndicatorSize.tab,
-                                  tabs: [
-                                    Tab(text: 'INFORMACIÓN'),
-                                    Tab(text: 'TRATAMIENTOS'),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Expanded(
-                                  child: _isDetailsLoading
-                                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                                      : _errorMessage != null
-                                          ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
-                                          : TabBarView(
-                                              children: [
-                                                SingleChildScrollView(
-                                                  child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
-                                                ),
-                                                _recommendationsList.isEmpty
-                                                ? const Center(
-                                                    child: Text(
-                                                      "No hay tratamientos registrados para esta condición.",
-                                                      style: TextStyle(color: Colors.white70, fontSize: 16)
-                                                    ),
-                                                  )
-                                                : ListView.builder(
-                                                    itemCount: _recommendationsList.length,
-                                                    itemBuilder: (context, index) {
-                                                      final treatment = _recommendationsList[index];
-                                                      return _buildTreatmentCard(treatment);
-                                                    },
-                                                  ),
-                                              ],
-                                            ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // --- CAMBIO 2: Nuevo botón de BORRAR posicionado abajo a la derecha ---
-                      Positioned(
-                        bottom: 24,
-                        right: 24,
-                        child: _buildActionButton(
-                          icon: Icons.delete_outline,
-                          color: Colors.red,
-                          tooltip: 'Enviar a la papelera',
-                          onPressed: _deleteItem,
-                        ),
+                        child: _buildDetailsSection(prediction, confidence),
                       ),
                       
                       Visibility(
@@ -423,8 +249,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                           child: Container(
                             color: Colors.black.withOpacity(0.5),
                             child: const Center(
-                              child: CircularProgressIndicator(
-                                  color: Colors.white),
+                              child: CircularProgressIndicator(color: Colors.white),
                             ),
                           ),
                         ),
@@ -440,6 +265,194 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     );
   }
 
+  // --- WIDGETS DE CONSTRUCCIÓN (REFACTORIZADOS PARA MAYOR ORDEN) ---
+
+  Widget _buildImageCarousel() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (_imageUrls.isNotEmpty)
+          PageView.builder(
+            controller: _pageController,
+            itemCount: _imageUrls.length,
+            itemBuilder: (context, index) {
+              return Container(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(_imageUrls[index]),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              );
+            },
+          )
+        else
+          const Center(child: Text("Imagen no disponible", style: TextStyle(color: Colors.white))),
+
+        // Botones y paginación solo si hay más de una imagen
+        if (_imageUrls.length > 1) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _buildCarouselArrow(isLeft: true),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildCarouselArrow(isLeft: false),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _buildPageIndicator(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCarouselArrow({required bool isLeft}) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
+      child: IconButton(
+        icon: Icon(isLeft ? Icons.arrow_back_ios_new : Icons.arrow_forward_ios, color: Colors.white),
+        onPressed: () {
+          if (isLeft) {
+            _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+          } else {
+            _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildPageIndicator() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_imageUrls.length, (index) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 4.0),
+            height: 8.0,
+            width: _currentPage == index ? 24.0 : 8.0,
+            decoration: BoxDecoration(
+              color: _currentPage == index ? Colors.white : Colors.white54,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+  
+  Widget _buildDetailsSection(String prediction, double confidence) {
+    return DefaultTabController(
+      length: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- INICIO: CAMBIOS EN EL HEADER ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       Text(
+                        _formatPredictionName(prediction),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32, // Un poco más grande
+                            fontWeight: FontWeight.bold,
+                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Confianza del ${(confidence * 100).toStringAsFixed(1)}%",
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 18, // Un poco más grande
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                // Acciones agrupadas a la derecha
+                Row(
+                  children: [
+                     _buildActionButton(
+                      icon: Icons.delete_outline,
+                      color: Colors.red,
+                      tooltip: 'Enviar a la papelera',
+                      onPressed: _deleteItem,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildActionButton(
+                      icon: Icons.close,
+                      color: Colors.grey.shade600,
+                      tooltip: 'Cerrar',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            // --- FIN: CAMBIOS EN EL HEADER ---
+            const SizedBox(height: 24),
+            const TabBar(
+              indicatorColor: Colors.white,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              indicatorSize: TabBarIndicatorSize.tab,
+              tabs: [
+                Tab(text: 'INFORMACIÓN'),
+                Tab(text: 'TRATAMIENTOS'),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: _isDetailsLoading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  : _errorMessage != null
+                      ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
+                      : TabBarView(
+                          children: [
+                            SingleChildScrollView(
+                              child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                            ),
+                            _buildRecommendationsTab(),
+                          ],
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsTab() {
+    return _recommendationsList.isEmpty
+        ? const Center(
+            child: Text(
+              "No hay tratamientos registrados para esta condición.",
+              style: TextStyle(color: Colors.white70, fontSize: 16)
+            ),
+          )
+        : ListView.builder(
+            itemCount: _recommendationsList.length,
+            itemBuilder: (context, index) {
+              final treatment = _recommendationsList[index];
+              return _buildTreatmentCard(treatment);
+            },
+          );
+  }
+
   Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -448,7 +461,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
           child: Container(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16.0),
@@ -465,7 +478,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Divider(color: Colors.white30, height: 20),
+                const Divider(color: Colors.white30, height: 24),
                 _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
                 _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
                 _buildInfoRow('Dosis:', treatment['dosis']),
@@ -485,7 +498,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(color: Colors.white70, fontSize: 14, fontFamily: 'Roboto'),
+          style: const TextStyle(color: Colors.white70, fontSize: 15, fontFamily: 'Roboto', height: 1.4),
           children: [
             TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             TextSpan(text: value),
