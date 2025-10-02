@@ -12,6 +12,7 @@ import 'package:frontend/services/detection_service.dart';
 import 'dart:ui';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'edit_recommendations_screen.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class ManageRecommendationsScreen extends StatefulWidget {
   const ManageRecommendationsScreen({super.key});
@@ -40,25 +41,25 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
       (Route<dynamic> route) => false,
     );
   }
-  
+
   void _onNavItemTapped(int index) {
-      switch (index) {
-        case 0:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
-          break;
-        case 1:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
-          break;
-        case 2:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
-          break;
-        case 3:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
-          break;
-        case 4:
-          Navigator.of(context).pop();
-          break;
-      }
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
+        break;
+      case 1:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
+        break;
+      case 2:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
+        break;
+      case 3:
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        break;
+      case 4:
+        Navigator.of(context).pop();
+        break;
+    }
   }
 
   @override
@@ -73,16 +74,10 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/background.jpg"),
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // --- INICIO DE LA CORRECCIÓN ---
-          // Envolvemos el contenido principal con SingleChildScrollView
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -95,65 +90,61 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
                       _buildHeaderSection(),
                       const SizedBox(height: 60),
                       _buildDiseasesGrid(),
-                      const SizedBox(height: 40), // Espacio al final para que no quede pegado
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-          // --- FIN DE LA CORRECCIÓN ---
         ],
       ),
     );
   }
-  
+
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        const Text(
+        // 3. TEXTOS DINÁMICOS
+        Text(
           'Gestionar Tratamientos',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Selecciona una condición para añadir, editar o eliminar las recomendaciones de tratamiento asociadas.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
       ],
     );
   }
-  
+
   Widget _buildDiseasesGrid() {
+    final theme = Theme.of(context);
     return FutureBuilder<List<dynamic>>(
       future: _diseasesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return Center(child: CircularProgressIndicator(color: theme.colorScheme.primary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+          return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: theme.colorScheme.error)));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No se encontraron enfermedades.', style: TextStyle(color: Colors.white)));
+          return Center(child: Text('No se encontraron enfermedades.', style: theme.textTheme.bodyMedium));
         }
 
         final diseases = snapshot.data!;
 
         return GridView.builder(
           shrinkWrap: true,
-          // El scroll ahora lo maneja el SingleChildScrollView padre
-          physics: const NeverScrollableScrollPhysics(), 
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 24.0),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 400,
@@ -170,8 +161,11 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
       },
     );
   }
-  
+
   Widget _buildDiseaseCard(Map<String, dynamic> disease) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -191,14 +185,15 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+            // 4. TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.biotech_outlined, color: Colors.white, size: 40),
+                Icon(Icons.biotech_outlined, color: theme.textTheme.bodyMedium?.color, size: 40),
                 const SizedBox(width: 20),
                 Expanded(
                   child: Column(
@@ -207,18 +202,18 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
                     children: [
                       Text(
                         disease['nombre_comun'] ?? 'Nombre no disponible',
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Clase: ${disease['roboflow_class']}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        style: theme.textTheme.bodySmall,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 20),
-                const Icon(Icons.edit_note, color: Colors.white70),
+                Icon(Icons.edit_note, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
               ],
             ),
           ),

@@ -8,9 +8,10 @@ import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-import 'package:frontend/widgets/top_navigation_bar.dart'; 
+import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/detection_service.dart';
 import 'dart:ui';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class TrashScreen extends StatefulWidget {
   const TrashScreen({super.key});
@@ -46,6 +47,8 @@ class _TrashScreenState extends State<TrashScreen> {
   }
 
   Future<void> _fetchTrashedItems() async {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     try {
       List<dynamic> items;
       if (_isAdmin) {
@@ -53,7 +56,7 @@ class _TrashScreenState extends State<TrashScreen> {
       } else {
         items = await _detectionService.getTrashedItems();
       }
-      
+
       if (mounted) {
         setState(() {
           _trashedList = items;
@@ -63,7 +66,9 @@ class _TrashScreenState extends State<TrashScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger));
       }
     }
   }
@@ -72,7 +77,8 @@ class _TrashScreenState extends State<TrashScreen> {
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
     }
-    String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
+    String formattedName =
+        originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
     if (formattedName.isEmpty) return 'Desconocido';
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
@@ -80,20 +86,23 @@ class _TrashScreenState extends State<TrashScreen> {
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        // Ya estamos aquí
         break;
       case 3:
-         Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         if (_isAdmin) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
@@ -109,6 +118,8 @@ class _TrashScreenState extends State<TrashScreen> {
   }
 
   Future<void> _restoreItem(int analysisId, int index) async {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final restoredItem = _trashedList![index];
     bool success = false;
 
@@ -125,75 +136,82 @@ class _TrashScreenState extends State<TrashScreen> {
         });
 
         if (_isAdmin) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Análisis restaurado en el historial del usuario.'),
-            backgroundColor: Colors.green,
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('Análisis restaurado en el historial del usuario.'),
+            backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success,
           ));
         } else {
           showDialog(
             context: context,
-            barrierDismissible: false,
-            builder: (context) => BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: AlertDialog(
-                backgroundColor: Colors.grey[900]?.withOpacity(0.85),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withOpacity(0.2))),
-                title: const Text('Análisis Restaurado', style: TextStyle(color: Colors.white)),
-                content: const Text('El análisis ha sido movido de vuelta a tu historial.', style: TextStyle(color: Colors.white70)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cerrar'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).pushReplacement(
-                        NoTransitionRoute(page: HistoryScreen(
-                          highlightedAnalysisId: restoredItem['id_analisis'],
-                        ))
-                      );
-                    },
-                    child: const Text('Ver en Historial'),
-                  ),
-                ],
-              ),
+            builder: (context) => AlertDialog(
+              title: const Text('Análisis Restaurado'),
+              content: const Text(
+                  'El análisis ha sido movido de vuelta a tu historial.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).pushReplacement(NoTransitionRoute(
+                        page: HistoryScreen(
+                      highlightedAnalysisId: restoredItem['id_analisis'],
+                    )));
+                  },
+                  child: const Text('Ver en Historial'),
+                ),
+              ],
             ),
           );
         }
       }
     } catch (e) {
-       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo restaurar: ${e.toString()}'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('No se pudo restaurar: ${e.toString()}'),
+            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger));
       }
     }
   }
 
   Future<void> _permanentlyDeleteItem(int analysisId, int index) async {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Borrado Permanente'),
         content: const Text('Esta acción no se puede deshacer. ¿Continuar?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Borrar', style: TextStyle(color: Colors.red))),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Borrar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger))),
         ],
       ),
     );
 
     if (confirmed == true) {
       try {
-        final success = await _detectionService.permanentlyDeleteItem(analysisId);
+        final success =
+            await _detectionService.permanentlyDeleteItem(analysisId);
         if (success) {
           setState(() => _trashedList!.removeAt(index));
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Borrado permanentemente'), backgroundColor: Colors.orange));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Borrado permanentemente'),
+                backgroundColor: Colors.orange));
           }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger));
         }
       }
     }
@@ -201,17 +219,22 @@ class _TrashScreenState extends State<TrashScreen> {
 
   Future<void> _emptyTrash() async {
     if (_trashedList == null || _trashedList!.isEmpty) return;
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Vaciar Papelera'),
-        content: const Text('Todos los análisis en la papelera se eliminarán permanentemente. Esta acción no se puede deshacer.'),
+        content: const Text(
+            'Todos los análisis en la papelera se eliminarán permanentemente. Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Vaciar', style: TextStyle(color: Colors.red)),
+            child: Text('Vaciar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)),
           ),
         ],
       ),
@@ -226,13 +249,17 @@ class _TrashScreenState extends State<TrashScreen> {
             _trashedList!.clear();
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('La papelera ha sido vaciada'), backgroundColor: Colors.green),
+            SnackBar(
+                content: const Text('La papelera ha sido vaciada'),
+                backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text('Error: ${e.toString()}'),
+                backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger),
           );
         }
       } finally {
@@ -247,7 +274,7 @@ class _TrashScreenState extends State<TrashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TopNavigationBar(
-        selectedIndex: 2, // El índice para Papelera es 2
+        selectedIndex: 2,
         isAdmin: _isAdmin,
         onItemSelected: _onNavItemTapped,
         onLogout: () => _logout(context),
@@ -255,15 +282,10 @@ class _TrashScreenState extends State<TrashScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/background.jpg"),
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // --- INICIO DE LA MODIFICACIÓN ---
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -284,25 +306,22 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           ),
-          // --- FIN DE LA MODIFICACIÓN ---
         ],
       ),
     );
   }
-  
-  // --- NUEVO WIDGET PARA EL ENCABEZADO ---
+
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Column(
       children: [
-        const Text(
+        // 3. TEXTOS DINÁMICOS
+        Text(
           'Papelera de Análisis',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
@@ -310,31 +329,39 @@ class _TrashScreenState extends State<TrashScreen> {
           child: Text(
             'Los análisis eliminados se guardan aquí por 30 días antes de ser borrados permanentemente. Puedes restaurarlos o eliminarlos definitivamente.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white.withOpacity(0.7), height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
         const SizedBox(height: 24),
+        // 4. BOTÓN "VACIAR PAPELERA" ADAPTATIVO
         if (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
           TextButton.icon(
-            icon: const Icon(Icons.delete_sweep_outlined, size: 18, color: Colors.orangeAccent),
-            label: const Text("Vaciar Papelera", style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+            icon: Icon(Icons.delete_sweep_outlined,
+                size: 18, color: isDark ? AppColorsDark.danger : AppColorsLight.danger),
+            label: Text("Vaciar Papelera",
+                style: TextStyle(
+                    color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
+                    fontWeight: FontWeight.bold)),
             onPressed: _emptyTrash,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.1),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-            ),
+                backgroundColor: theme.colorScheme.surface.withOpacity(0.1),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12))),
           ),
       ],
     );
   }
-  
-  // --- NUEVO WIDGET PARA LA GRILLA DE LA PAPELERA ---
+
   Widget _buildTrashGrid() {
+    final theme = Theme.of(context);
     return _isLoading
-        ? const Center(child: CircularProgressIndicator(color: Colors.white))
+        ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
         : _trashedList == null || _trashedList!.isEmpty
-            ? const Center(child: Text('La papelera está vacía.', style: TextStyle(color: Colors.white, fontSize: 16)))
+            ? Center(
+                child: Text('La papelera está vacía.',
+                    style: theme.textTheme.bodyMedium))
             : GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -352,19 +379,26 @@ class _TrashScreenState extends State<TrashScreen> {
                 },
               );
   }
-  
-  // --- El resto de tus widgets (_buildTrashCard, _buildActionButton) no cambian ---
-  
+
   Widget _buildTrashCard(Map<String, dynamic> item, int index) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
+          // 5. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: isDark
+                ? Colors.white.withOpacity(0.1)
+                : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.2)
+                    : Colors.black.withOpacity(0.1)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -377,16 +411,20 @@ class _TrashScreenState extends State<TrashScreen> {
                     item['url_imagen'],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      child: Center(
+                        child: Icon(Icons.image_not_supported_outlined,
+                            color: isDark ? Colors.white70 : Colors.black54, size: 40),
                       ),
                     ),
                   ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.8)
+                        ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0.5, 1.0],
@@ -411,30 +449,31 @@ class _TrashScreenState extends State<TrashScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (_isAdmin && item['email'] != null)
-                           Padding(
-                             padding: const EdgeInsets.only(top: 4.0),
-                             child: Text(
-                               item['email'],
-                               style: const TextStyle(color: Colors.white70, fontSize: 12),
-                               overflow: TextOverflow.ellipsis,
-                             ),
-                           ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              item['email'],
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         const Spacer(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             _buildActionButton(
-                              icon: Icons.restore_from_trash,
-                              color: Colors.blue,
-                              onPressed: () => _restoreItem(item['id_analisis'], index),
-                              tooltip: 'Restaurar'
-                            ),
+                                icon: Icons.restore_from_trash,
+                                color: isDark ? AppColorsDark.info : AppColorsLight.info,
+                                onPressed: () =>
+                                    _restoreItem(item['id_analisis'], index),
+                                tooltip: 'Restaurar'),
                             _buildActionButton(
-                              icon: Icons.delete_forever,
-                              color: Colors.red,
-                              onPressed: () => _permanentlyDeleteItem(item['id_analisis'], index),
-                              tooltip: 'Eliminar permanentemente'
-                            ),
+                                icon: Icons.delete_forever,
+                                color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
+                                onPressed: () => _permanentlyDeleteItem(
+                                    item['id_analisis'], index),
+                                tooltip: 'Eliminar permanentemente'),
                           ],
                         ),
                       ],
@@ -449,16 +488,23 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+  Widget _buildActionButton(
+      {required IconData icon,
+      required Color color,
+      required VoidCallback onPressed,
+      required String tooltip}) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
         child: Container(
           decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
+            color: color.withOpacity(isDark ? 0.3 : 0.2),
             borderRadius: BorderRadius.circular(30.0),
-            border: Border.all(color: color.withOpacity(0.4)),
+            border: Border.all(color: color.withOpacity(isDark ? 0.4 : 0.3)),
           ),
           child: IconButton(
             onPressed: onPressed,

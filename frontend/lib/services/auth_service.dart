@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService {
   //final String _baseUrl = "https://identificador-plantas-backend.onrender.com";
-  final String _baseUrl = "http://192.168.0.34:5001";
+  final String _baseUrl = "http://192.168.0.30:5001";
   final _storage = const FlutterSecureStorage();
 
   // --- Métodos de almacenamiento de Token ---

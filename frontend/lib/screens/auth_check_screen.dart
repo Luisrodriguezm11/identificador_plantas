@@ -1,6 +1,8 @@
 // frontend/lib/screens/auth_check_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
+import 'package:lottie/lottie.dart'; // <-- 2. IMPORTAMOS LOTTIE PARA ANIMACIONES
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
@@ -22,18 +24,16 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   }
 
   void _checkLoginStatus() async {
-    // Un pequeño retraso para que la pantalla de carga no sea instantánea
-    await Future.delayed(const Duration(seconds: 1));
+    // Un pequeño retraso para que la pantalla de carga se sienta más natural
+    await Future.delayed(const Duration(seconds: 2));
 
     final token = await _authService.readToken();
-    if (mounted) { // Verifica que el widget siga en pantalla
+    if (mounted) {
       if (token != null) {
-        // Si hay token, va al Dashboard
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const DashboardScreen()),
         );
       } else {
-        // Si no hay token, va al Login
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
@@ -43,10 +43,34 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Muestra un indicador de progreso mientras se verifica el token
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // 3. APLICAMOS EL FONDO UNIFICADO
+          Container(
+            decoration: AppTheme.backgroundDecoration,
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // 4. USAMOS UNA ANIMACIÓN DE LOTTIE
+                Lottie.asset(
+                  'assets/animations/focus_animation.json', // Puedes cambiar esta por otra animación si quieres
+                  width: 150,
+                  height: 150,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Cargando tu espacio de trabajo...',
+                  style: theme.textTheme.titleLarge,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -13,6 +13,7 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class AdminUserListScreen extends StatefulWidget {
   const AdminUserListScreen({super.key});
@@ -25,7 +26,6 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
   final DetectionService _detectionService = DetectionService();
   final AuthService _authService = AuthService();
   late Future<List<dynamic>> _usersFuture;
-  // La variable _isNavExpanded ya no es necesaria
 
   @override
   void initState() {
@@ -43,30 +43,34 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
   }
 
   void _onNavItemTapped(int index) {
-      switch (index) {
-        case 0:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
-          break;
-        case 1:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
-          break;
-        case 2:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
-          break;
-        case 3:
-          Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
-          break;
-        case 4:
-          // Navegamos hacia atrás porque esta pantalla es hija del Admin Dashboard
-          Navigator.of(context).pop();
-          break;
-      }
+    switch (index) {
+      case 0:
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DashboardScreen()));
+        break;
+      case 1:
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const HistoryScreen()));
+        break;
+      case 2:
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const TrashScreen()));
+        break;
+      case 3:
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        break;
+      case 4:
+        Navigator.of(context).pop();
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      // 1. Añadimos la barra de navegación superior
       appBar: TopNavigationBar(
         selectedIndex: 4,
         isAdmin: true,
@@ -76,12 +80,10 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(image: AssetImage("assets/background.jpg"), fit: BoxFit.cover),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // 2. Reestructuramos el layout para ser consistente
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -105,61 +107,59 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
       ),
     );
   }
-  
-  // 3. Nuevo widget para el encabezado de la sección
+
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        const Text(
+        // 3. TEXTOS DINÁMICOS
+        Text(
           'Monitor de Productores',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Visualiza la lista de productores que han realizado análisis. Selecciona uno para ver su historial específico o mira todos los análisis juntos.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
         const SizedBox(height: 24),
-        // Botón para ver todos los análisis
-         _buildGlassButton(
-            context,
-            icon: Icons.grid_view_rounded,
-            label: 'Ver todos los análisis juntos',
-            onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()));
-            }
-          ),
+        _buildGlassButton(
+          context,
+          icon: Icons.grid_view_rounded,
+          label: 'Ver todos los análisis juntos',
+          onPressed: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()));
+          },
+        ),
       ],
     );
   }
 
-  // 4. Nuevo widget para la grilla de usuarios
   Widget _buildUsersGrid() {
+    final theme = Theme.of(context);
     return FutureBuilder<List<dynamic>>(
       future: _usersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return Center(child: CircularProgressIndicator(color: theme.colorScheme.primary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+          return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: theme.colorScheme.error)));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('Ningún usuario ha realizado análisis aún.', style: TextStyle(color: Colors.white)));
+          return Center(
+              child: Text('Ningún usuario ha realizado análisis aún.',
+                  style: theme.textTheme.bodyMedium));
         }
 
         final users = snapshot.data!;
-        
+
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -180,28 +180,28 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     );
   }
 
-  // El widget _buildUserCard y _buildGlassButton se mantienen, ya que su diseño es consistente
   Widget _buildUserCard(Map<String, dynamic> user) {
-    // ... (Tu código original de _buildUserCard va aquí, sin cambios)
-    final String userImageUrl = user['profile_image_url'] ?? 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=USER'; // URL de imagen por defecto o real
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    final String userImageUrl = user['profile_image_url'] ?? 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=USER';
     final String userName = user['nombre_completo'] ?? 'Usuario Desconocido';
     final String userEmail = user['email'] ?? 'correo@ejemplo.com';
-    final int analysisCount = user['analysis_count'] ?? 0; // Obtener el conteo de análisis
+    final int analysisCount = user['analysis_count'] ?? 0;
 
     return GestureDetector(
       onTap: () {
-        // Navega a la pantalla de análisis específicos del usuario
         Navigator.push(context, MaterialPageRoute(builder: (context) => UserSpecificAnalysesScreen(user: user)));
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.0), // Bordes más redondeados
+        borderRadius: BorderRadius.circular(24.0),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
+            // 4. TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
               borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
             ),
             child: Padding(
               padding: const EdgeInsets.all(8.0),
@@ -210,18 +210,16 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Fondo con imagen de usuario (placeholder por ahora)
                     Image.network(
                       userImageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[800],
-                        child: const Center(
-                          child: Icon(Icons.person_outline, color: Colors.white70, size: 40),
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
+                        child: Center(
+                          child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 40),
                         ),
                       ),
                     ),
-                    // Gradiente oscuro en la parte inferior para mejorar la legibilidad del texto
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -240,31 +238,23 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
                         children: [
                           Text(
                             userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
-                            ),
+                            style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             userEmail,
-                            style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 8),
-                          // Chip para mostrar el número de análisis
                           Align(
                             alignment: Alignment.bottomRight,
                             child: Chip(
-                              avatar: const Icon(Icons.analytics_outlined, color: Colors.white70, size: 18),
-                              label: Text('$analysisCount análisis', style: const TextStyle(color: Colors.white)),
-                              backgroundColor: Colors.white.withOpacity(0.1),
-                              side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                              avatar: Icon(Icons.analytics_outlined, color: theme.chipTheme.labelStyle?.color, size: 18),
+                              label: Text('$analysisCount análisis'),
                             ),
                           ),
                         ],
@@ -281,7 +271,8 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
   }
 
   Widget _buildGlassButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
-    // ... (Tu código original de _buildGlassButton va aquí, sin cambios)
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12.0),
       child: BackdropFilter(
@@ -290,12 +281,12 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
           icon: Icon(icon),
           label: Text(label),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white.withOpacity(0.2),
-            foregroundColor: Colors.white,
+            backgroundColor: isDark ? Colors.white.withOpacity(0.2) : AppColorsLight.surface.withOpacity(0.7),
+            foregroundColor: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.white.withOpacity(0.3))
+              side: BorderSide(color: isDark ? Colors.white.withOpacity(0.3) : Colors.black.withOpacity(0.2)),
             ),
           ),
           onPressed: onPressed,

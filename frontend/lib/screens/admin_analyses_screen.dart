@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
-import 'package:frontend/widgets/top_navigation_bar.dart'; // 1. Importa la barra de navegación
+import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
@@ -12,6 +12,7 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class AdminAnalysesScreen extends StatefulWidget {
   const AdminAnalysesScreen({super.key});
@@ -24,7 +25,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   final DetectionService _detectionService = DetectionService();
   final AuthService _authService = AuthService();
   late Future<List<dynamic>> _analysesFuture;
-  // 'isNavExpanded' ya no es necesaria
 
   @override
   void initState() {
@@ -63,7 +63,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
           navigator.pushReplacement(NoTransitionRoute(page: const DoseCalculationScreen()));
           break;
         case 4:
-           // Navegamos hacia atrás porque esta pantalla es hija del Admin Dashboard
           Navigator.of(context).pop();
           break;
         default:
@@ -81,6 +80,8 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   }
 
   Future<void> _deleteItem(int analysisId) async {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -88,7 +89,11 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
         content: const Text('¿Enviar este análisis a la papelera?'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Enviar', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            // 4. COLOR DE TEXTO ADAPTATIVO
+            child: Text('Enviar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)),
+          ),
         ],
       ),
     );
@@ -99,14 +104,21 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
       final success = await _detectionService.adminDeleteHistoryItem(analysisId);
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Análisis enviado a la papelera'), backgroundColor: Colors.green),
+          SnackBar(
+            content: const Text('Análisis enviado a la papelera'),
+            // COLOR DE SNACKBAR ADAPTATIVO
+            backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success,
+          ),
         );
         _refreshAnalyses();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger,
+          ),
         );
       }
     }
@@ -115,7 +127,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 2. Añadimos la barra de navegación superior
       appBar: TopNavigationBar(
         selectedIndex: 4,
         isAdmin: true,
@@ -125,12 +136,10 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. USAMOS EL FONDO DEL TEMA
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(image: AssetImage("assets/background.jpg"), fit: BoxFit.cover),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // 3. Reestructuramos el layout para que sea consistente
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -155,46 +164,44 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
     );
   }
   
-  // 4. Nuevo widget para el encabezado
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
+    // 3. USAMOS LOS ESTILOS DE TEXTO DEL TEMA
     return Column(
       children: [
-        const Text(
+        Text(
           'Monitor de Análisis',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge,
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Visualiza todos los análisis realizados por los productores en la plataforma. Puedes ver detalles o gestionar cada registro.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium,
           ),
         ),
       ],
     );
   }
 
-  // 5. Nuevo widget para la grilla de análisis
   Widget _buildAnalysesGrid() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return FutureBuilder<List<dynamic>>(
       future: _analysesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return Center(child: CircularProgressIndicator(color: theme.colorScheme.primary));
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.redAccent)));
+          return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No hay análisis de usuarios para mostrar.', style: TextStyle(color: Colors.white)));
+          return Center(child: Text('No hay análisis de usuarios para mostrar.', style: theme.textTheme.bodyMedium));
         }
   
         final analyses = snapshot.data!;
@@ -219,9 +226,9 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
     );
   }
 
-  // El widget _buildAnalysisCard y _buildActionButton no necesitan cambios
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
-    // ... (Tu código original de _buildAnalysisCard va aquí, sin cambios)
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
 
@@ -230,10 +237,11 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
+          // 5. COLORES DE TARJETA ADAPTATIVOS
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -246,9 +254,9 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                     analysis['url_imagen'],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
+                      color: theme.colorScheme.surface.withOpacity(0.5),
+                      child: Center(
+                        child: Icon(Icons.image_not_supported_outlined, color: theme.colorScheme.onSurface.withOpacity(0.5), size: 40),
                       ),
                     ),
                   ),
@@ -270,19 +278,12 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                       children: [
                         Text(
                           _formatPredictionName(analysis['resultado_prediccion']),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineSmall?.copyWith(color: AppColorsDark.textPrimary, shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           analysis['email'],
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          style: theme.textTheme.bodySmall?.copyWith(color: AppColorsDark.textSecondary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -293,13 +294,14 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                           children: [
                             Text(
                               fechaFormateada,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              style: theme.textTheme.bodySmall?.copyWith(color: AppColorsDark.textSecondary),
                             ),
                             Row(
                               children: [
+                                // 6. COLORES DE BOTONES ADAPTATIVOS
                                 _buildActionButton(
                                   icon: Icons.info_outline,
-                                  color: Colors.blue,
+                                  color: isDark ? AppColorsDark.info : AppColorsLight.info,
                                   tooltip: 'Más info',
                                   onPressed: () async {
                                     final result = await showDialog(
@@ -317,7 +319,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                                 const SizedBox(width: 8),
                                 _buildActionButton(
                                   icon: Icons.delete_outline,
-                                  color: Colors.red,
+                                  color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
                                   tooltip: 'Enviar a la papelera',
                                   onPressed: () => _deleteItem(analysis['id_analisis']),
                                 ),
@@ -338,7 +340,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
-    // ... (Tu código original de _buildActionButton va aquí, sin cambios)
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(

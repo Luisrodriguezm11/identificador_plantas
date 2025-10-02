@@ -1,6 +1,7 @@
 // frontend/lib/screens/dashboard_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/config/app_theme.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
@@ -26,7 +27,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final DetectionService _detectionService = DetectionService();
   bool _isLoading = true;
   bool _isAdmin = false;
-  String _userName = ''; // Estado para guardar el nombre del usuario
+  String _userName = '';
   List<dynamic> _recentAnalyses = [];
 
   @override
@@ -36,11 +37,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    // Obtenemos todos los datos necesarios en paralelo
     await Future.wait([
       _checkAdminStatus(),
       _fetchRecentAnalyses(),
-      _fetchUserName(), // <-- Nueva función para obtener el nombre
+      _fetchUserName(),
     ]);
   }
 
@@ -74,36 +74,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error al cargar análisis: $e'),
-              backgroundColor: Colors.red),
+              backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger),
         );
       }
     }
   }
 
   void _onNavItemTapped(int index) {
-    // Lógica de navegación no cambia
     switch (index) {
       case 0:
         break;
       case 1:
-        Navigator.pushReplacement(context,
-            NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const TrashScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(context,
-            NoTransitionRoute(page: const DoseCalculationScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         if (_isAdmin) {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
@@ -111,15 +107,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _logout(BuildContext context) async {
     final navigator = Navigator.of(context);
-    // --- CORRECCIÓN AQUÍ ---
-    // Cambiamos logout() de vuelta a deleteToken() para que coincida con tu auth_service.dart
-    await _authService.deleteToken(); 
-    // --- FIN DE LA CORRECCIÓN ---
+    await _authService.deleteToken();
     navigator.pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,15 +126,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 1. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/background.jpg"),
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // Usamos un SingleChildScrollView para evitar overflow en pantallas pequeñas
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -151,16 +140,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       SizedBox(height: kToolbarHeight + 60),
-                      // --- NUEVA SECCIÓN DE BIENVENIDA ---
                       _buildWelcomeSection(),
                       const SizedBox(height: 40),
-                      // --- NUEVA SECCIÓN DE BOTONES DE ACCIÓN ---
                       _buildActionButtons(),
                       const SizedBox(height: 60),
-                      // --- NUEVA TARJETA PRINCIPAL DE ANÁLISIS ---
                       _buildMainAnalysisCard(),
                       const SizedBox(height: 60),
-                      // --- SECCIÓN DE HISTORIAL RECIENTE (MODIFICADA) ---
                       _buildRecentHistorySection(),
                       const SizedBox(height: 40),
                     ],
@@ -174,34 +159,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET DE BIENVENIDA ---
+  // --- WIDGETS DE CONSTRUCCIÓN ADAPTADOS AL TEMA ---
+
   Widget _buildWelcomeSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
+        // 2. TEXTOS DINÁMICOS
         Text(
           '¡Bienvenido, $_userName!',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52, letterSpacing: -1.5),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Tu asistente inteligente para el monitoreo de cultivos de café. Empieza un nuevo análisis o revisa tu historial.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
       ],
     );
   }
 
-  // --- WIDGET PARA BOTONES DE ACCIÓN ---
   Widget _buildActionButtons() {
     return Wrap(
       spacing: 20,
@@ -227,8 +209,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
   
-  // Widget para un botón de acción individual
   Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -239,17 +223,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Container(
             width: 220,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            // 3. TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: Colors.white, size: 28),
+                Icon(icon, color: theme.textTheme.bodyMedium?.color, size: 28),
                 const SizedBox(height: 12),
-                Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(label, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -258,9 +243,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
-  // --- WIDGET PARA LA TARJETA PRINCIPAL DE ANÁLISIS ---
   Widget _buildMainAnalysisCard() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -268,30 +254,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Container(
           padding: const EdgeInsets.all(40),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       "Detectar Plagas y Enfermedades",
-                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       "Sube una imagen de la hoja de tu planta de café para obtener un diagnóstico instantáneo y recomendaciones de tratamiento.",
-                      style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.5),
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 40),
+              // 4. BOTÓN DE ACENTO
               ElevatedButton.icon(
                 icon: const Icon(Icons.upload_file_outlined, size: 24),
                 label: const Text("Iniciar Nuevo Análisis"),
@@ -301,13 +288,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _fetchRecentAnalyses();
                   }
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-                  textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
-                ),
+                style: AppTheme.accentButtonStyle(context),
               ),
             ],
           ),
@@ -316,25 +297,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGET PARA LA SECCIÓN DE HISTORIAL ---
   Widget _buildRecentHistorySection() {
+    final theme = Theme.of(context);
     final analysesToShow = _recentAnalyses.take(4).toList();
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Mis Análisis Recientes",
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+          style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
         ),
         const SizedBox(height: 24),
         _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
             : _recentAnalyses.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       "Aún no has analizado ningún archivo.",
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                      style: theme.textTheme.bodyMedium,
                     ),
                   )
                 : GridView.builder(
@@ -356,7 +337,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- El resto de tus widgets (_formatPredictionName, _buildAnalysisCard) no necesitan cambios ---
   String _formatPredictionName(String originalName) {
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
@@ -369,6 +349,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
 
@@ -378,9 +360,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -393,20 +375,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     analysis['url_imagen'],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported_outlined,
-                            color: Colors.white70, size: 40),
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      child: Center(
+                        child: Icon(Icons.image_not_supported_outlined, color: isDark ? Colors.white70 : Colors.black54, size: 40),
                       ),
                     ),
                   ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.8)
-                        ],
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0.5, 1.0],
@@ -420,15 +398,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _formatPredictionName(
-                              analysis['resultado_prediccion']),
+                          _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.white, // El texto aquí siempre será blanco por el gradiente
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(blurRadius: 4, color: Colors.black54)
-                            ],
+                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -440,20 +415,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text(
                               fechaFormateada,
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 14),
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
                             ),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(30.0),
                               child: BackdropFilter(
-                                filter:
-                                    ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(30.0),
-                                    border: Border.all(
-                                        color: Colors.white.withOpacity(0.3)),
+                                    border: Border.all(color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
                                     onPressed: () {
@@ -462,16 +434,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
                                             backgroundColor: Colors.transparent,
-                                            child: AnalysisDetailScreen(
-                                                analysis: analysis),
+                                            child: AnalysisDetailScreen(analysis: analysis),
                                           );
                                         },
                                       );
                                     },
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     ),
                                     child: const Text('Más info'),
                                   ),

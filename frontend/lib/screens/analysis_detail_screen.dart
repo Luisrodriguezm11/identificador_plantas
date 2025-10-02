@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:frontend/services/detection_service.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
 
 class AnalysisDetailScreen extends StatefulWidget {
   final Map<String, dynamic> analysis;
@@ -25,7 +26,8 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
   bool _isAdmin = false;
 
-  Color _dominantColor = Colors.black.withOpacity(0.6);
+  // --- ✨ CORRECCIÓN: El color puede ser nulo al inicio ---
+  Color? _dominantColor;
   bool _isColorLoading = true;
   bool _isDetailsLoading = true;
   String _diseaseInfo = '';
@@ -35,7 +37,11 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    // No se llama _loadInitialData aquí directamente para asegurar que el `context` esté disponible.
+    // `didChangeDependencies` es un lugar más seguro para operaciones que dependen del `context` como el tema.
+    _setupImages();
+    _checkAdminStatus();
+    _fetchDiseaseDetails();
 
     _pageController.addListener(() {
       final newPage = _pageController.page?.round();
@@ -47,12 +53,15 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     });
   }
 
-  Future<void> _loadInitialData() async {
-    _setupImages();
-    _updateDominantColor();
-    await _checkAdminStatus();
-    _fetchDiseaseDetails();
+  // --- ✨ CORRECCIÓN: Usamos didChangeDependencies para cargar el color ---
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_dominantColor == null) { // Solo se ejecuta la primera vez
+      _updateDominantColor();
+    }
   }
+
 
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
@@ -82,8 +91,11 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
 
   Future<void> _updateDominantColor() async {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultColor = isDark ? AppColorsDark.surface.withOpacity(0.6) : AppColorsLight.surface.withOpacity(0.8);
+
     if (_imageUrls.isEmpty) {
-      setState(() => _isColorLoading = false);
+      if(mounted) setState(() { _dominantColor = defaultColor; _isColorLoading = false; });
       return;
     }
     try {
@@ -94,16 +106,14 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       );
       if (mounted) {
         setState(() {
-          _dominantColor =
-              (paletteGenerator.dominantColor?.color ?? Colors.black)
-                  .withOpacity(0.6);
+          _dominantColor = (paletteGenerator.dominantColor?.color ?? defaultColor).withOpacity(isDark ? 0.6 : 0.8);
           _isColorLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _dominantColor = Colors.black.withOpacity(0.6);
+          _dominantColor = defaultColor;
           _isColorLoading = false;
         });
       }
@@ -122,6 +132,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
 
   Future<void> _deleteItem() async {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final analysisId = widget.analysis['id_analisis'];
     if (analysisId == null) return;
 
@@ -137,7 +148,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Enviar', style: TextStyle(color: Colors.red)),
+            child: Text('Enviar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)),
           ),
         ],
       ),
@@ -155,9 +166,9 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Análisis enviado a la papelera'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Análisis enviado a la papelera'),
+            backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -167,7 +178,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger,
           ),
         );
       }
@@ -200,6 +211,9 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+    
     final confidenceValue =
         widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
     final double confidence = (confidenceValue as num).toDouble();
@@ -217,42 +231,34 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             width: MediaQuery.of(context).size.width * 0.75,
             height: MediaQuery.of(context).size.height * 0.8,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
             ),
             child: Row(
               children: [
-                // --- COLUMNA DE LA IMAGEN (IZQUIERDA) ---
                 Expanded(
                   flex: 2,
                   child: _buildImageCarousel(),
                 ),
-
-                // --- COLUMNA DE DETALLES (DERECHA) ---
                 Expanded(
                   flex: 3,
                   child: Stack(
                     children: [
-                      AnimatedContainer(
+                      // --- ✨ CORRECCIÓN: Se usa un AnimatedSwitcher para la transición ---
+                      AnimatedSwitcher(
                         duration: const Duration(seconds: 1),
-                        curve: Curves.easeIn,
-                        color: _dominantColor,
-                        child: _buildDetailsSection(prediction, confidence),
-                      ),
-                      
-                      Visibility(
-                        visible: _isColorLoading,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 300),
-                          opacity: _isColorLoading ? 1.0 : 0.0,
-                          child: Container(
-                            color: Colors.black.withOpacity(0.5),
-                            child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
-                            ),
-                          ),
-                        ),
+                        child: _isColorLoading
+                            ? Container( // Estado de carga inicial
+                                key: const ValueKey('loading'),
+                                color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5),
+                                child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+                              )
+                            : Container( // Contenido ya cargado
+                                key: const ValueKey('loaded'),
+                                color: _dominantColor,
+                                child: _buildDetailsSection(prediction, confidence),
+                              ),
                       ),
                     ],
                   ),
@@ -264,8 +270,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       ),
     );
   }
-
-  // --- WIDGETS DE CONSTRUCCIÓN (REFACTORIZADOS PARA MAYOR ORDEN) ---
 
   Widget _buildImageCarousel() {
     return Stack(
@@ -289,7 +293,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         else
           const Center(child: Text("Imagen no disponible", style: TextStyle(color: Colors.white))),
 
-        // Botones y paginación solo si hay más de una imagen
         if (_imageUrls.length > 1) ...[
           Align(
             alignment: Alignment.centerLeft,
@@ -347,6 +350,9 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
   
   Widget _buildDetailsSection(String prediction, double confidence) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return DefaultTabController(
       length: 2,
       child: Padding(
@@ -354,7 +360,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- INICIO: CAMBIOS EN EL HEADER ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,29 +370,21 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                     children: [
                        Text(
                         _formatPredictionName(prediction),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32, // Un poco más grande
-                            fontWeight: FontWeight.bold,
-                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)]),
+                        style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         "Confianza del ${(confidence * 100).toStringAsFixed(1)}%",
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 18, // Un poco más grande
-                            fontWeight: FontWeight.w500),
+                        style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8)),
                       ),
                     ],
                   ),
                 ),
-                // Acciones agrupadas a la derecha
                 Row(
                   children: [
                      _buildActionButton(
                       icon: Icons.delete_outline,
-                      color: Colors.red,
+                      color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
                       tooltip: 'Enviar a la papelera',
                       onPressed: _deleteItem,
                     ),
@@ -402,7 +399,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                 ),
               ],
             ),
-            // --- FIN: CAMBIOS EN EL HEADER ---
             const SizedBox(height: 24),
             const TabBar(
               indicatorColor: Colors.white,
@@ -420,11 +416,11 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
               child: _isDetailsLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : _errorMessage != null
-                      ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent)))
+                      ? Center(child: Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error)))
                       : TabBarView(
                           children: [
                             SingleChildScrollView(
-                              child: Text(_diseaseInfo, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                              child: Text(_diseaseInfo, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white, height: 1.5)),
                             ),
                             _buildRecommendationsTab(),
                           ],
@@ -437,11 +433,12 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
 
   Widget _buildRecommendationsTab() {
+    final theme = Theme.of(context);
     return _recommendationsList.isEmpty
-        ? const Center(
+        ? Center(
             child: Text(
               "No hay tratamientos registrados para esta condición.",
-              style: TextStyle(color: Colors.white70, fontSize: 16)
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
           )
         : ListView.builder(
@@ -454,6 +451,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
 
   Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: ClipRRect(
@@ -472,11 +470,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
               children: [
                 Text(
                   treatment['nombre_comercial'] ?? 'Sin nombre',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
                 ),
                 const Divider(color: Colors.white30, height: 24),
                 _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
@@ -493,12 +487,13 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   }
 
   Widget _buildInfoRow(String label, String? value) {
+    final theme = Theme.of(context);
     if (value == null || value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(color: Colors.white70, fontSize: 15, fontFamily: 'Roboto', height: 1.4),
+          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.4),
           children: [
             TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             TextSpan(text: value),

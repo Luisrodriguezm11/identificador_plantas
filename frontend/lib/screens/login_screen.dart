@@ -2,9 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
-import 'register_screen.dart'; // Importa la pantalla de registro
-import '../services/auth_service.dart'; // Importa el servicio
-import 'dart:ui'; // Necesario para el BackdropFilter
+import 'register_screen.dart';
+import '../services/auth_service.dart';
+import 'dart:ui';
+import '../config/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final AuthService _authService = AuthService(); // Instancia del servicio
+  final AuthService _authService = AuthService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -24,118 +25,89 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
       final result = await _authService.login(
         _emailController.text,
         _passwordController.text,
       );
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (!mounted) return;
 
-      if (mounted) {
-        if (result['success']) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Error: ${result['error']}'),
-                backgroundColor: Colors.red),
-          );
-        }
+      setState(() => _isLoading = false);
+
+      if (result['success']) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      } else {
+        // Usamos los colores del tema para el SnackBar
+        final bool isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${result['error']}'),
+            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Obtenemos el tema actual para decidir qué colores usar
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Imagen de fondo
+          // 1. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(
-                    "assets/background.jpg"), // Asegúrate de tener esta imagen
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // Contenido centrado
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                    maxWidth: 700),
+                constraints: const BoxConstraints(maxWidth: 700),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16.0),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                     child: Container(
+                      // 2. COLORES DE TARJETA ADAPTATIVOS
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(16.0),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                        ),
+                        border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                       ),
                       child: IntrinsicHeight(
                         child: Row(
                           children: [
-                            // --- COLUMNA IZQUIERDA: FORMULARIO (Más ancha) ---
+                            // --- COLUMNA IZQUIERDA: FORMULARIO ---
                             Expanded(
-                              flex: 3, // <-- AQUÍ ESTÁ EL CAMBIO
+                              flex: 3,
                               child: Padding(
-                                padding: const EdgeInsets.all(24.0),
+                                padding: const EdgeInsets.all(32.0),
                                 child: Form(
                                   key: _formKey,
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
+                                      // 3. TEXTOS Y CAMPOS USAN EL TEMA
                                       Text(
                                         "INICIAR SESIÓN",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headlineMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
+                                        style: theme.textTheme.headlineMedium,
                                       ),
                                       const SizedBox(height: 32),
                                       TextFormField(
                                         controller: _emailController,
-                                        style: const TextStyle(
-                                            color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          labelText: "CORREO ELECTRÓNICO",
-                                          labelStyle: TextStyle(
-                                              color: Colors.white70),
-                                          enabledBorder:
-                                              UnderlineInputBorder(
-                                            borderSide: BorderSide(
-                                                color: Colors.white54),
-                                          ),
-                                          focusedBorder:
-                                              UnderlineInputBorder(
-                                            borderSide: BorderSide(
-                                                color: Colors.white),
-                                          ),
-                                        ),
-                                        keyboardType:
-                                            TextInputType.emailAddress,
+                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+                                        decoration: const InputDecoration(labelText: "CORREO ELECTRÓNICO"),
+                                        keyboardType: TextInputType.emailAddress,
                                         validator: (value) {
-                                          if (value == null ||
-                                              value.isEmpty ||
-                                              !value.contains('@')) {
+                                          if (value == null || value.isEmpty || !value.contains('@')) {
                                             return 'Por favor, ingresa un email válido';
                                           }
                                           return null;
@@ -144,27 +116,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                       const SizedBox(height: 16),
                                       TextFormField(
                                         controller: _passwordController,
-                                        style: const TextStyle(
-                                            color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          labelText: "CONTRASEÑA",
-                                          labelStyle: TextStyle(
-                                              color: Colors.white70),
-                                          enabledBorder:
-                                              UnderlineInputBorder(
-                                            borderSide: BorderSide(
-                                                color: Colors.white54),
-                                          ),
-                                          focusedBorder:
-                                              UnderlineInputBorder(
-                                            borderSide: BorderSide(
-                                                color: Colors.white),
-                                          ),
-                                        ),
+                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+                                        decoration: const InputDecoration(labelText: "CONTRASEÑA"),
                                         obscureText: true,
                                         validator: (value) {
-                                          if (value == null ||
-                                              value.isEmpty) {
+                                          if (value == null || value.isEmpty) {
                                             return 'Por favor, ingresa tu contraseña';
                                           }
                                           return null;
@@ -172,34 +128,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                       const SizedBox(height: 32),
                                       _isLoading
-                                          ? const Center(
-                                              child:
-                                                  CircularProgressIndicator())
+                                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                                           : SizedBox(
                                               width: double.infinity,
                                               child: ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.white,
-                                                  foregroundColor: Colors
-                                                      .blue.shade700,
-                                                  padding: const EdgeInsets
-                                                          .symmetric(
-                                                      vertical: 16.0),
-                                                  shape:
-                                                      RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            30.0),
-                                                  ),
-                                                ),
+                                                // 4. BOTÓN DE ACENTO DEL TEMA
+                                                style: AppTheme.accentButtonStyle(context),
                                                 onPressed: _login,
-                                                child: const Text(
-                                                  "INGRESAR",
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold),
-                                                ),
+                                                child: const Text("INGRESAR"),
                                               ),
                                             ),
                                       const SizedBox(height: 24),
@@ -207,15 +143,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                         onPressed: () {
                                           Navigator.push(
                                             context,
-                                            MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const RegisterScreen()),
+                                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
                                           );
                                         },
-                                        child: const Text(
+                                        // El estilo del TextButton también se adapta
+                                        child: Text(
                                           "¿No tienes una cuenta? Regístrate",
-                                          style: TextStyle(
-                                              color: Colors.white),
+                                          style: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.primary),
                                         ),
                                       ),
                                     ],
@@ -223,14 +157,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             ),
-                            // --- COLUMNA DERECHA: IMAGEN (Más estrecha) ---
+                            // --- COLUMNA DERECHA: IMAGEN ---
                             Expanded(
-                              flex: 2, // <-- AQUÍ ESTÁ EL CAMBIO
+                              flex: 2,
                               child: Container(
-                                padding: const EdgeInsets.all(0.0),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.only(
+                                decoration: BoxDecoration(
+                                  color: isDark ? Colors.black.withOpacity(0.2) : Colors.white,
+                                  borderRadius: const BorderRadius.only(
                                     topRight: Radius.circular(16.0),
                                     bottomRight: Radius.circular(16.0),
                                   ),

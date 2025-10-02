@@ -12,6 +12,7 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class UserSpecificAnalysesScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -86,6 +87,8 @@ class _UserSpecificAnalysesScreenState
   }
 
   Future<void> _deleteItem(int analysisId) async {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final bool? confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -97,7 +100,7 @@ class _UserSpecificAnalysesScreenState
               child: const Text('Cancelar')),
           TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Enviar', style: TextStyle(color: Colors.red))),
+              child: Text('Enviar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger))),
         ],
       ),
     );
@@ -108,9 +111,9 @@ class _UserSpecificAnalysesScreenState
       final success = await _detectionService.adminDeleteHistoryItem(analysisId);
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Análisis enviado a la papelera'),
-              backgroundColor: Colors.green),
+          SnackBar(
+              content: const Text('Análisis enviado a la papelera'),
+              backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success),
         );
         _refreshAnalyses();
       }
@@ -119,7 +122,7 @@ class _UserSpecificAnalysesScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red),
+              backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger),
         );
       }
     }
@@ -137,12 +140,9 @@ class _UserSpecificAnalysesScreenState
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                  image: AssetImage("assets/background.jpg"),
-                  fit: BoxFit.cover),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
           SingleChildScrollView(
             child: Padding(
@@ -169,17 +169,14 @@ class _UserSpecificAnalysesScreenState
   }
 
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
+        // 3. TEXTOS DINÁMICOS
         Text(
           'Análisis de ${widget.user['nombre_completo']}',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
@@ -187,7 +184,7 @@ class _UserSpecificAnalysesScreenState
           child: Text(
             'Revisa el historial completo de análisis para este productor. Puedes ver los detalles de cada uno o enviarlos a la papelera.',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
       ],
@@ -195,21 +192,22 @@ class _UserSpecificAnalysesScreenState
   }
 
   Widget _buildAnalysesGrid() {
+    final theme = Theme.of(context);
     return FutureBuilder<List<dynamic>>(
       future: _analysesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return Center(child: CircularProgressIndicator(color: theme.colorScheme.primary));
         }
         if (snapshot.hasError) {
           return Center(
               child: Text('Error: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.redAccent)));
+                  style: TextStyle(color: theme.colorScheme.error)));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
+          return Center(
               child: Text('Este usuario no tiene análisis.',
-                  style: TextStyle(color: Colors.white)));
+                  style: theme.textTheme.bodyMedium));
         }
 
         final analyses = snapshot.data!;
@@ -234,9 +232,9 @@ class _UserSpecificAnalysesScreenState
     );
   }
   
-  // Los widgets _buildAnalysisCard y _buildActionButton no necesitan cambios
   Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
-    // ... (Tu código original de _buildAnalysisCard va aquí, sin cambios)
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final fecha = DateTime.parse(analysis['fecha_analisis']);
     final fechaFormateada = "${fecha.day}/${fecha.month}/${fecha.year}";
 
@@ -245,10 +243,11 @@ class _UserSpecificAnalysesScreenState
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
+          // 4. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -261,9 +260,9 @@ class _UserSpecificAnalysesScreenState
                     analysis['url_imagen'],
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported_outlined, color: Colors.white70, size: 40),
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      child: Center(
+                        child: Icon(Icons.image_not_supported_outlined, color: isDark ? Colors.white70 : Colors.black54, size: 40),
                       ),
                     ),
                   ),
@@ -285,12 +284,7 @@ class _UserSpecificAnalysesScreenState
                       children: [
                         Text(
                           _formatPredictionName(analysis['resultado_prediccion']),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
-                          ),
+                          style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -301,13 +295,14 @@ class _UserSpecificAnalysesScreenState
                           children: [
                             Text(
                               fechaFormateada,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
                             ),
                             Row(
                               children: [
+                                // 5. BOTONES DE ACCIÓN ADAPTATIVOS
                                 _buildActionButton(
                                   icon: Icons.info_outline,
-                                  color: Colors.blue,
+                                  color: isDark ? AppColorsDark.info : AppColorsLight.info,
                                   tooltip: 'Más info',
                                   onPressed: () async {
                                     final result = await showDialog(
@@ -325,7 +320,7 @@ class _UserSpecificAnalysesScreenState
                                 const SizedBox(width: 8),
                                 _buildActionButton(
                                   icon: Icons.delete_outline,
-                                  color: Colors.red,
+                                  color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
                                   tooltip: 'Enviar a la papelera',
                                   onPressed: () => _deleteItem(analysis['id_analisis']),
                                 ),
@@ -346,7 +341,9 @@ class _UserSpecificAnalysesScreenState
   }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
-    // ... (Tu código original de _buildActionButton va aquí, sin cambios)
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(30.0),
       child: BackdropFilter(
@@ -355,14 +352,14 @@ class _UserSpecificAnalysesScreenState
           height: 40,
           width: 40,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
+            color: color.withOpacity(isDark ? 0.3 : 0.2),
             shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.4)),
+            border: Border.all(color: color.withOpacity(isDark ? 0.4 : 0.3)),
           ),
           child: IconButton(
             padding: EdgeInsets.zero,
             onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white, size: 20),
+            icon: Icon(icon, color: isDark ? Colors.white : theme.colorScheme.primary, size: 20),
             tooltip: tooltip,
           ),
         ),

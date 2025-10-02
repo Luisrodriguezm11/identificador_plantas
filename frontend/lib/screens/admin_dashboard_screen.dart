@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:frontend/helpers/custom_route.dart';
-import 'package:frontend/widgets/top_navigation_bar.dart'; // 1. Importa la barra de navegación superior
+import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'manage_recommendations_screen.dart';
@@ -12,6 +12,7 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -23,20 +24,23 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AuthService _authService = AuthService();
 
-  // La navegación ahora se maneja en un solo lugar
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         // Ya estamos en el panel de admin, no hacemos nada.
@@ -56,25 +60,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 2. Usamos el AppBar con la barra de navegación superior
       appBar: TopNavigationBar(
-        selectedIndex: 4, // El índice para "Panel Admin" es 4
-        isAdmin: true, // Siempre es true en esta pantalla
+        selectedIndex: 4,
+        isAdmin: true,
         onItemSelected: _onNavItemTapped,
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/background.jpg"),
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
-          // 3. Estructura de layout consistente con las otras pantallas
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -87,7 +85,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       SizedBox(height: kToolbarHeight + 60),
                       _buildHeaderSection(),
                       const SizedBox(height: 60),
-                      // Las tarjetas de acción ahora están dentro del layout principal
                       _buildAdminCard(
                         context,
                         icon: Icons.spa_outlined,
@@ -117,7 +114,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       const AdminUserListScreen()));
                         },
                       ),
-                       const SizedBox(height: 40),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -129,39 +126,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  // 4. Nuevo Widget para el encabezado de la sección
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        const Text(
+        // 3. TEXTOS DINÁMICOS
+        Text(
           'Panel de Administrador',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Desde aquí puedes gestionar los tratamientos de la plataforma y supervisar la actividad de los productores.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
       ],
     );
   }
-  
-  // 5. El widget de tarjeta se mantiene, ya que su diseño es consistente
+
   Widget _buildAdminCard(BuildContext context,
       {required IconData icon,
       required String title,
       required String subtitle,
       required VoidCallback onTap}) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -170,14 +165,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
             padding: const EdgeInsets.all(32.0),
+            // 4. TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
             ),
             child: Row(
               children: [
-                Icon(icon, color: Colors.white, size: 48),
+                Icon(icon, color: theme.textTheme.headlineMedium?.color, size: 48),
                 const SizedBox(width: 24),
                 Expanded(
                   child: Column(
@@ -185,22 +181,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold),
+                        style: theme.textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 16, height: 1.4),
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 24),
-                const Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                Icon(Icons.arrow_forward_ios, color: theme.textTheme.bodyMedium?.color),
               ],
             ),
           ),

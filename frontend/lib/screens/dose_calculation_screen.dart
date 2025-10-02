@@ -11,6 +11,7 @@ import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/treatment_service.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'dart:ui';
+import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
 
 class DoseCalculationScreen extends StatefulWidget {
   const DoseCalculationScreen({super.key});
@@ -22,13 +23,13 @@ class DoseCalculationScreen extends StatefulWidget {
 class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   final TreatmentService _treatmentService = TreatmentService();
   final AuthService _authService = AuthService();
-  
+
   bool _isAdmin = false;
   List<Enfermedad> _enfermedades = [];
   List<Tratamiento> _tratamientos = [];
   Enfermedad? _selectedEnfermedad;
   Tratamiento? _selectedTratamiento;
-  
+
   bool _isLoadingEnfermedades = true;
   bool _isLoadingTratamientos = false;
   String? _errorMessage;
@@ -38,7 +39,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     super.initState();
     _loadInitialData();
   }
-    
+
   Future<void> _loadInitialData() async {
     await _checkAdminStatus();
     await _fetchEnfermedades();
@@ -80,7 +81,8 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     });
 
     try {
-      final tratamientos = await _treatmentService.getTratamientos(enfermedadId);
+      final tratamientos =
+          await _treatmentService.getTratamientos(enfermedadId);
       if (mounted) {
         setState(() {
           _tratamientos = tratamientos;
@@ -98,22 +100,26 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   }
 
   void _onNavItemTapped(int index) {
-     switch (index) {
+    switch (index) {
       case 0:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
+        Navigator.pushReplacement(
+            context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
         // Ya estamos aquí
         break;
       case 4:
         if (_isAdmin) {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
@@ -130,6 +136,8 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: TopNavigationBar(
         selectedIndex: 3,
@@ -140,13 +148,9 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
+          // 2. FONDO UNIFICADO
           Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage("assets/background.jpg"),
-                fit: BoxFit.cover,
-              ),
-            ),
+            decoration: AppTheme.backgroundDecoration,
           ),
           SingleChildScrollView(
             child: Padding(
@@ -161,7 +165,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
                       _buildHeaderSection(),
                       const SizedBox(height: 60),
                       _isLoadingEnfermedades
-                          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
                           : _buildSelectionCard(),
                       const SizedBox(height: 30),
                       if (_selectedTratamiento != null)
@@ -171,7 +175,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
                           padding: const EdgeInsets.only(top: 20.0),
                           child: Text(
                             _errorMessage!,
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+                            style: TextStyle(color: theme.colorScheme.error, fontSize: 16),
                           ),
                         ),
                       const SizedBox(height: 40),
@@ -185,27 +189,24 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       ),
     );
   }
-  
+
   Widget _buildHeaderSection() {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        const Text(
+        // 3. TEXTOS DINÁMICOS
+        Text(
           'Guía de Tratamientos',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: -1.5,
-          ),
+          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: const Text(
+          child: Text(
             'Selecciona una enfermedad o plaga para ver los tratamientos recomendados, sus componentes y la dosis sugerida.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, color: Colors.white70, height: 1.5),
+            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
           ),
         ),
       ],
@@ -223,46 +224,53 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       ),
     );
   }
-  
+
   Widget _buildGlassCard({required Widget child}) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
           padding: const EdgeInsets.all(32.0),
+          // 4. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: child,
         ),
       ),
     );
   }
-  
+
   Widget _buildEnfermedadesDropdown() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return DropdownButtonFormField<Enfermedad>(
       value: _selectedEnfermedad,
-      hint: const Text('Seleccione una enfermedad o plaga', style: TextStyle(color: Colors.white70)),
+      hint: Text('Seleccione una enfermedad o plaga', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
       isExpanded: true,
-      style: const TextStyle(color: Colors.white, fontSize: 16),
+      style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
+      // 5. ESTILOS DE DROPDOWN ADAPTATIVOS
       decoration: InputDecoration(
         labelText: 'Enfermedad o Plaga',
-        labelStyle: const TextStyle(color: Colors.white),
+        labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+          borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white),
+          borderSide: BorderSide(color: theme.colorScheme.primary),
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
       ),
-      dropdownColor: Colors.grey[850],
+      dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
       items: _enfermedades.map((Enfermedad enfermedad) {
         return DropdownMenuItem<Enfermedad>(
           value: enfermedad,
@@ -281,31 +289,34 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   }
 
   Widget _buildTratamientosDropdown() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return _isLoadingTratamientos
-        ? const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20.0),
-            child: Center(child: CircularProgressIndicator(color: Colors.white)),
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20.0),
+            child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
           )
         : DropdownButtonFormField<Tratamiento>(
             value: _selectedTratamiento,
-            hint: const Text('Seleccione un tratamiento', style: TextStyle(color: Colors.white70)),
+            hint: Text('Seleccione un tratamiento', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
             isExpanded: true,
-             style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
             decoration: InputDecoration(
               labelText: 'Tratamiento Recomendado',
-              labelStyle: const TextStyle(color: Colors.white),
+              labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
+                borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.4)),
               ),
-               focusedBorder: OutlineInputBorder(
+              focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.white),
+                borderSide: BorderSide(color: theme.colorScheme.primary),
               ),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.1),
+              fillColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
             ),
-            dropdownColor: Colors.grey[850],
+            dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
             items: _tratamientos.map((Tratamiento tratamiento) {
               return DropdownMenuItem<Tratamiento>(
                 value: tratamiento,
@@ -319,8 +330,9 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
             },
           );
   }
-  
+
   Widget _buildTratamientoDetailsCard() {
+    final theme = Theme.of(context);
     final tratamiento = _selectedTratamiento!;
     return _buildGlassCard(
       child: Column(
@@ -328,9 +340,9 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
         children: [
           Text(
             tratamiento.nombreComercial,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            style: theme.textTheme.headlineMedium,
           ),
-          const Divider(height: 30, thickness: 1, color: Colors.white30),
+          Divider(height: 30, thickness: 1, color: theme.dividerColor),
           _buildDetailRow('Ingrediente Activo:', tratamiento.ingredienteActivo),
           _buildDetailRow('Tipo de Tratamiento:', tratamiento.tipoTratamiento),
           _buildDetailRow('Dosis Recomendada:', '${tratamiento.dosis} ${tratamiento.unidadMedida}'),
@@ -342,14 +354,15 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   }
 
   Widget _buildDetailRow(String label, String value) {
-    if (value.trim().isEmpty || value.trim() == "0.0" ) return const SizedBox.shrink();
+    if (value.trim().isEmpty || value.trim() == "0.0") return const SizedBox.shrink();
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 16, color: Colors.white70, height: 1.5),
+          style: theme.textTheme.bodyMedium,
           children: <TextSpan>[
-            TextSpan(text: '$label\n', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+            TextSpan(text: '$label\n', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
             TextSpan(text: value),
           ],
         ),
