@@ -64,6 +64,9 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       appBar: TopNavigationBar(
         selectedIndex: 4,
@@ -72,9 +75,11 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
+
+      // --- 👇 CAMBIO: Eliminamos el FloatingActionButton de aquí 👇 ---
+      
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
@@ -97,10 +102,35 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
               ),
             ),
           ),
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Panel de Administrador',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);

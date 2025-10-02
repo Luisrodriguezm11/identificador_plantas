@@ -272,6 +272,9 @@ class _TrashScreenState extends State<TrashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       appBar: TopNavigationBar(
         selectedIndex: 2,
@@ -282,7 +285,6 @@ class _TrashScreenState extends State<TrashScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
@@ -306,50 +308,101 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           ),
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // --- 👇 CAMBIO: NUEVO BOTÓN FLOTANTE PERSONALIZADO 👇 ---
+          if (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
+            Positioned(
+              bottom: 32,
+              right: 32,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _emptyTrash,
+                      borderRadius: BorderRadius.circular(28.0),
+                      child: Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        decoration: BoxDecoration(
+                          color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(28.0),
+                          border: Border.all(color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.delete_sweep_outlined,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              "Vaciar Papelera",
+                              style: TextStyle(
+                                color: isDark ? Colors.white : Colors.black,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
+  // --- 👇 CAMBIO: ELIMINAMOS EL BOTÓN DE ESTA SECCIÓN 👇 ---
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
         Text(
-          'Papelera de Análisis',
+          'Papelera',
           textAlign: TextAlign.center,
-          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
+          style: theme.textTheme.displayMedium,
         ),
         const SizedBox(height: 16),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: Text(
-            'Los análisis eliminados se guardan aquí por 30 días antes de ser borrados permanentemente. Puedes restaurarlos o eliminarlos definitivamente.',
+            'Aquí encontrarás los análisis que has eliminado. Puedes restaurarlos o eliminarlos permanentemente.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
+            style: theme.textTheme.bodyLarge,
           ),
         ),
-        const SizedBox(height: 24),
-        // 4. BOTÓN "VACIAR PAPELERA" ADAPTATIVO
-        if (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
-          TextButton.icon(
-            icon: Icon(Icons.delete_sweep_outlined,
-                size: 18, color: isDark ? AppColorsDark.danger : AppColorsLight.danger),
-            label: Text("Vaciar Papelera",
-                style: TextStyle(
-                    color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
-                    fontWeight: FontWeight.bold)),
-            onPressed: _emptyTrash,
-            style: TextButton.styleFrom(
-                backgroundColor: theme.colorScheme.surface.withOpacity(0.1),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
-          ),
       ],
     );
   }
@@ -389,7 +442,6 @@ class _TrashScreenState extends State<TrashScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          // 5. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
             color: isDark
                 ? Colors.white.withOpacity(0.1)

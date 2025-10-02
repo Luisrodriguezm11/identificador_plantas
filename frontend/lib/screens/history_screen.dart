@@ -188,7 +188,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     }
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -201,28 +201,14 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => const DetectionScreen(),
-          ));
-          if (result == true && mounted) {
-            _fetchHistory();
-          }
-        },
-        // 4. BOTÓN FLOTANTE ADAPTADO AL TEMA
-        backgroundColor: theme.colorScheme.secondary,
-        child: Icon(Icons.add, color: isDark ? AppColorsDark.textPrimary : AppColorsLight.surface),
-        tooltip: 'Nuevo Análisis',
-      ),
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
           SingleChildScrollView(
-            child: Padding(
+            // ... (contenido sin cambios)
+             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
               child: Center(
                 child: ConstrainedBox(
@@ -241,10 +227,86 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               ),
             ),
           ),
+          Positioned(
+            // ... (botón de regreso sin cambios)
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 32,
+            right: 32,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28.0),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () async {
+                      final result = await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const DetectionScreen(),
+                      ));
+                      if (result == true && mounted) {
+                        _fetchHistory();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(28.0),
+                    child: Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondary.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(28.0),
+                        border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // --- 👇 CAMBIO AQUÍ: Blanco/Negro según el tema 👇 ---
+                          Icon(Icons.add, color: isDark ? Colors.white : Colors.black),
+                          const SizedBox(width: 12),
+                          Text(
+                            "Nuevo Análisis",
+                            style: TextStyle(
+                              // --- 👇 Y CAMBIO AQUÍ: Blanco/Negro según el tema 👇 ---
+                              color: isDark ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
@@ -441,7 +503,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     return cardContent;
   }
 
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
+Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
@@ -460,7 +522,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           child: IconButton(
             padding: EdgeInsets.zero,
             onPressed: onPressed,
-            icon: Icon(icon, color: isDark ? Colors.white : theme.colorScheme.primary, size: 20),
+            // --- 👇 CAMBIO AQUÍ: El color del ícono ahora es siempre blanco 👇 ---
+            icon: Icon(icon, color: Colors.white, size: 20),
             tooltip: tooltip,
           ),
         ),

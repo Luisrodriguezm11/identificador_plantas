@@ -1,4 +1,6 @@
 // frontend/lib/widgets/top_navigation_bar.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme_provider.dart'; // <-- 1. IMPORTAMOS EL THEME PROVIDER
@@ -27,11 +29,11 @@ class TopNavigationBar extends StatefulWidget implements PreferredSizeWidget {
 class _TopNavigationBarState extends State<TopNavigationBar> {
   int? _hoveredIndex;
 
-  @override
+@override
   Widget build(BuildContext context) {
-    // 2. OBTENEMOS LA INSTANCIA DEL THEME PROVIDER
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = Theme.of(context); // Obtenemos el tema actual
+    // final isDark = theme.brightness == Brightness.dark; // Ya no es necesario con el tema dinámico
 
     final navItems = [
       {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'index': 0},
@@ -45,10 +47,26 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     }
 
     return AppBar(
-      // El color de fondo y del texto ahora se adaptan al tema
-      backgroundColor: theme.colorScheme.surface.withOpacity(0.1),
-      foregroundColor: theme.colorScheme.onSurface,
+      backgroundColor: Colors.transparent,
       elevation: 0,
+      flexibleSpace: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            decoration: BoxDecoration(
+              // --- 👇 CAMBIO: Usamos el color 'surface' del tema actual 👇 ---
+              color: theme.colorScheme.surface.withOpacity(0.15),
+              border: Border(
+                bottom: BorderSide(
+                  // --- 👇 CAMBIO: Usamos el color 'onSurface' del tema para el borde 👇 ---
+                  color: theme.colorScheme.onSurface.withOpacity(0.1),
+                  width: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: navItems.map((item) => _buildNavItem(
@@ -58,7 +76,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
         )).toList(),
       ),
       actions: [
-        // 3. AÑADIMOS EL BOTÓN PARA CAMBIAR EL TEMA
         IconButton(
           tooltip: 'Cambiar Tema',
           icon: Icon(
@@ -67,7 +84,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
                 : Icons.dark_mode_outlined,
           ),
           onPressed: () {
-            // Llamamos al método del provider para cambiar el tema
             themeProvider.toggleTheme();
           },
         ),
@@ -78,18 +94,30 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
         ),
         const SizedBox(width: 20),
       ],
-      automaticallyImplyLeading: false, // Para que no aparezca el botón de 'atrás'
+      automaticallyImplyLeading: false,
     );
   }
 
-  Widget _buildNavItem({required IconData icon, required String label, required int index}) {
+Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+  }) {
     final theme = Theme.of(context);
-    final bool isSelected = widget.selectedIndex == index;
-    final bool isHovered = _hoveredIndex == index;
-    
-    // 4. LOS COLORES AHORA DEPENDEN DEL TEMA
-    final Color selectedColor = theme.colorScheme.primary;
-    final Color defaultColor = theme.textTheme.bodyMedium?.color ?? Colors.white;
+    final isSelected = widget.selectedIndex == index;
+    final isHovered = _hoveredIndex == index;
+
+    // --- 👇 CAMBIO: Usamos colores del tema que garantizan contraste 👇 ---
+
+    // Color para el item seleccionado. Usamos blanco o negro según el tema.
+    final Color selectedColor = theme.brightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
+    // Color para los items no seleccionados. 
+    // Usamos 'onSurface', que es el color estándar para texto sobre fondos como la barra.
+    // Será claro en tema oscuro y oscuro en tema claro, ¡perfecto para la legibilidad!
+    final Color defaultColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
@@ -99,15 +127,17 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
         onTap: () => widget.onItemSelected(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            // El color de fondo del item seleccionado también depende del tema
+            // El fondo del item seleccionado puede seguir usando el color primario con opacidad.
             color: isSelected ? selectedColor.withOpacity(0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Usamos los nuevos colores aquí
               Icon(icon, color: isSelected ? selectedColor : defaultColor),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
@@ -128,7 +158,11 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
                           const SizedBox(width: 8),
                           Text(
                             label,
-                            style: TextStyle(color: isSelected ? selectedColor : defaultColor),
+                            // Y también aquí
+                            style: TextStyle(
+                              color: isSelected ? selectedColor : defaultColor,
+                              fontWeight: FontWeight.bold, // Añadimos negrita para mejorar la lectura
+                            ),
                           ),
                         ],
                       )
@@ -140,4 +174,4 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
       ),
     );
   }
-}
+} // <-- Fin de la clase _TopNavigationBarState

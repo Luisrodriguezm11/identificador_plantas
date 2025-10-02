@@ -80,7 +80,7 @@ def login():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         # Pedimos la nueva columna 'es_admin' en la consulta
-        cur.execute("SELECT id_usuario, password_hash, es_admin FROM usuarios WHERE email = %s", (email,))
+        cur.execute("SELECT id_usuario, password_hash, es_admin, nombre_completo FROM usuarios WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -91,7 +91,6 @@ def login():
         if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             token = jwt.encode({
                 'user_id': user['id_usuario'],
-                # Incluimos el rol en el token para validarlo después
                 'es_admin': user['es_admin'],
                 'exp': datetime.utcnow() + timedelta(hours=24)
             }, app.config['SECRET_KEY'], algorithm="HS256")
@@ -99,7 +98,8 @@ def login():
             # Devolvemos el token Y el rol de administrador
             return jsonify({
                 "token": token,
-                "es_admin": user['es_admin'] # <-- ¡AÑADIDO!
+                "es_admin": user['es_admin'],
+                "nombre_completo": user['nombre_completo'] # <-- ¡AÑADIDO!
             }), 200
         else:
             return jsonify({"error": "Credenciales inválidas"}), 401

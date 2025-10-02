@@ -57,8 +57,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
+    // --- Añadimos estas dos líneas para obtener el tema ---
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       appBar: TopNavigationBar(
         selectedIndex: 4,
@@ -69,7 +73,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
@@ -121,10 +124,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
           ),
+
+          // --- 👇 AQUÍ ESTÁ EL BOTÓN DE REGRESO AÑADIDO 👇 ---
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);

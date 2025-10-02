@@ -1,4 +1,5 @@
 // frontend/lib/screens/admin_analyses_screen.dart
+//AQUI SE VEN TODOS LOS ANALISIS DE TODOS LOS USUARIOS
 
 import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
@@ -139,6 +140,42 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
           // 2. USAMOS EL FONDO DEL TEMA
           Container(
             decoration: AppTheme.backgroundDecoration,
+          ),
+          // --- Botón de regreso en la esquina superior izquierda ---
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.1)
+                        : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.1),
+                    ),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver a Monitor de Productores',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        NoTransitionRoute(page: const DashboardScreen()),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
           ),
           SingleChildScrollView(
             child: Padding(
@@ -336,7 +373,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
           ),
         ),
       ),
-    );
+      );
   }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {

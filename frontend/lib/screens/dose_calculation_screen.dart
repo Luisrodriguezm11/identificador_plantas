@@ -11,7 +11,7 @@ import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/treatment_service.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'dart:ui';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart';
 
 class DoseCalculationScreen extends StatefulWidget {
   const DoseCalculationScreen({super.key});
@@ -137,6 +137,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: TopNavigationBar(
@@ -148,7 +149,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
@@ -185,6 +185,30 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
               ),
             ),
           ),
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -194,7 +218,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
         Text(
           'Guía de Tratamientos',
           textAlign: TextAlign.center,
@@ -216,11 +239,86 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   Widget _buildSelectionCard() {
     return _buildGlassCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildEnfermedadesDropdown(),
+          _buildGlassDropdown<Enfermedad>(
+            value: _selectedEnfermedad,
+            hintText: 'Seleccione una enfermedad o plaga',
+            items: _enfermedades.map((Enfermedad e) {
+              return DropdownMenuItem<Enfermedad>(
+                value: e,
+                child: Text(e.nombreComun),
+              );
+            }).toList(),
+            onChanged: (Enfermedad? newValue) {
+              setState(() {
+                _selectedEnfermedad = newValue;
+              });
+              if (newValue != null) {
+                _fetchTratamientos(newValue.id);
+              }
+            },
+          ),
           const SizedBox(height: 20),
-          if (_selectedEnfermedad != null) _buildTratamientosDropdown(),
+          if (_selectedEnfermedad != null)
+            _isLoadingTratamientos
+              ? const Center(child: CircularProgressIndicator())
+              : _buildGlassDropdown<Tratamiento>(
+                  value: _selectedTratamiento,
+                  hintText: 'Seleccione un tratamiento',
+                  items: _tratamientos.map((Tratamiento t) {
+                    return DropdownMenuItem<Tratamiento>(
+                      value: t,
+                      child: Text(t.nombreComercial),
+                    );
+                  }).toList(),
+                  onChanged: (Tratamiento? newValue) {
+                    setState(() {
+                      _selectedTratamiento = newValue;
+                    });
+                  },
+                ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGlassDropdown<T>({
+    required String hintText,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<T>(
+              value: value,
+              isExpanded: true,
+              hint: Text(hintText, style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+              onChanged: onChanged,
+              items: items,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
+              dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                border: InputBorder.none,
+              ),
+              icon: Icon(Icons.arrow_drop_down, color: theme.iconTheme.color),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -234,7 +332,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
           padding: const EdgeInsets.all(32.0),
-          // 4. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(24.0),
@@ -245,92 +342,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       ),
     );
   }
-
-  Widget _buildEnfermedadesDropdown() {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-
-    return DropdownButtonFormField<Enfermedad>(
-      value: _selectedEnfermedad,
-      hint: Text('Seleccione una enfermedad o plaga', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
-      isExpanded: true,
-      style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
-      // 5. ESTILOS DE DROPDOWN ADAPTATIVOS
-      decoration: InputDecoration(
-        labelText: 'Enfermedad o Plaga',
-        labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.4)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.colorScheme.primary),
-        ),
-        filled: true,
-        fillColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-      ),
-      dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
-      items: _enfermedades.map((Enfermedad enfermedad) {
-        return DropdownMenuItem<Enfermedad>(
-          value: enfermedad,
-          child: Text(enfermedad.nombreComun),
-        );
-      }).toList(),
-      onChanged: (Enfermedad? newValue) {
-        setState(() {
-          _selectedEnfermedad = newValue;
-        });
-        if (newValue != null) {
-          _fetchTratamientos(newValue.id);
-        }
-      },
-    );
-  }
-
-  Widget _buildTratamientosDropdown() {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-
-    return _isLoadingTratamientos
-        ? Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20.0),
-            child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
-          )
-        : DropdownButtonFormField<Tratamiento>(
-            value: _selectedTratamiento,
-            hint: Text('Seleccione un tratamiento', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
-            isExpanded: true,
-            style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
-            decoration: InputDecoration(
-              labelText: 'Tratamiento Recomendado',
-              labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.5) : Colors.black.withOpacity(0.4)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.colorScheme.primary),
-              ),
-              filled: true,
-              fillColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-            ),
-            dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
-            items: _tratamientos.map((Tratamiento tratamiento) {
-              return DropdownMenuItem<Tratamiento>(
-                value: tratamiento,
-                child: Text(tratamiento.nombreComercial),
-              );
-            }).toList(),
-            onChanged: (Tratamiento? newValue) {
-              setState(() {
-                _selectedTratamiento = newValue;
-              });
-            },
-          );
-  }
-
+  
   Widget _buildTratamientoDetailsCard() {
     final theme = Theme.of(context);
     final tratamiento = _selectedTratamiento!;

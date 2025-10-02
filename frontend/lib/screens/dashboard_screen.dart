@@ -45,10 +45,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchUserName() async {
-    final name = await _authService.getUserName();
-    if (mounted) {
+    final fullName = await _authService.getUserName();
+    if (mounted && fullName != null && fullName.isNotEmpty) {
+      final nameParts = fullName.split(' ');
+      String displayName = nameParts.first; // Empieza con el primer nombre
+
+      // Si hay al menos un apellido, lo añade
+      if (nameParts.length > 2) {
+        displayName += ' ${nameParts[2]}'; // <-- ¡AQUÍ ESTÁ LA MAGIA!
+      }
+      
       setState(() {
-        _userName = name ?? 'Usuario';
+        _userName = displayName;
+      });
+    } else if (mounted) {
+      setState(() {
+        _userName = 'Usuario';
       });
     }
   }
@@ -114,7 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TopNavigationBar(
@@ -126,7 +138,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 1. FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
@@ -139,13 +150,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SizedBox(height: kToolbarHeight + 60),
+                      // --- 👇 CAMBIO: Menos espacio arriba ---
+                      SizedBox(height: kToolbarHeight + 30), // Antes era + 60
                       _buildWelcomeSection(),
-                      const SizedBox(height: 40),
+                      // --- 👇 CAMBIO: Menos espacio aquí ---
+                      const SizedBox(height: 30), // Antes era 40
                       _buildActionButtons(),
-                      const SizedBox(height: 60),
+                      // --- 👇 CAMBIO: Menos espacio aquí ---
+                      const SizedBox(height: 40), // Antes era 60
                       _buildMainAnalysisCard(),
-                      const SizedBox(height: 60),
+                      // --- 👇 CAMBIO: Menos espacio aquí ---
+                      const SizedBox(height: 40), // Antes era 60
                       _buildRecentHistorySection(),
                       const SizedBox(height: 40),
                     ],
@@ -165,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 2. TEXTOS DINÁMICOS
+        // <--- CAMBIO: Usa la variable _userName ---
         Text(
           '¡Bienvenido, $_userName!',
           textAlign: TextAlign.center,
@@ -297,18 +312,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+// --- 👇 PASO 1: REEMPLAZA ESTA FUNCIÓN COMPLETA 👇 ---
   Widget _buildRecentHistorySection() {
     final theme = Theme.of(context);
+    // Tomamos los primeros 4 análisis para mostrar
     final analysesToShow = _recentAnalyses.take(4).toList();
-    
+    // Verificamos si hay más de 4 para decidir si mostramos la tarjeta extra
+    final bool showViewAllCard = _recentAnalyses.length > 4;
+    // El número de items en el grid será 4, o 5 si hay más análisis
+    final int itemCount = showViewAllCard ? analysesToShow.length + 1 : analysesToShow.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "Mis Análisis Recientes",
-          style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontSize: 28,
+            height: 0.1, // Mantenemos el ajuste de altura
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16), // Espacio ajustado
         _isLoading
             ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
             : _recentAnalyses.isEmpty
@@ -327,13 +351,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisSpacing: 20,
                       mainAxisSpacing: 20,
                     ),
-                    itemCount: analysesToShow.length,
+                    itemCount: itemCount, // <-- Usamos el nuevo contador de items
                     itemBuilder: (context, index) {
+                      // Si debemos mostrar la tarjeta extra Y este es el último item...
+                      if (showViewAllCard && index == analysesToShow.length) {
+                        // ...construimos la tarjeta "Ver Todo".
+                        return _buildViewAllCard();
+                      }
+                      // De lo contrario, mostramos la tarjeta de análisis normal.
                       final analysis = analysesToShow[index];
                       return _buildAnalysisCard(analysis);
                     },
                   ),
       ],
+    );
+  }
+
+  // --- 👇 PASO 2: AÑADE ESTA NUEVA FUNCIÓN A TU CLASE 👇 ---
+  Widget _buildViewAllCard() {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return GestureDetector(
+      // Navegación a la pantalla de historial
+      onTap: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen())),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(24.0),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_circle_outline, size: 60, color: theme.colorScheme.primary),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    "Ver Historial Completo",
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
