@@ -43,6 +43,7 @@ dependencies:
   desktop_drop: ^0.4.4 # <-- AÑADE ESTA LÍNEA
   image: ^4.2.0
   lottie: ^3.1.2
+  dotted_border: ^2.1.0
 
   provider: ^6.1.2             # <-- AÑADE ESTA LÍNEA
   shared_preferences: ^2.2.3

@@ -69,7 +69,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
 
 @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
 
     return Scaffold(
       appBar: TopNavigationBar(

@@ -14,7 +14,6 @@ import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/config/app_theme.dart'; 
-import 'admin_user_list_screen.dart';
 
 class AdminAnalysesScreen extends StatefulWidget {
   const AdminAnalysesScreen({super.key});

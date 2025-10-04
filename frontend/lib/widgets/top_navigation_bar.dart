@@ -3,7 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../config/theme_provider.dart'; // <-- 1. IMPORTAMOS EL THEME PROVIDER
+import '../config/theme_provider.dart';
+import '../screens/detection_screen.dart';
 
 class TopNavigationBar extends StatefulWidget implements PreferredSizeWidget {
   final int selectedIndex;
@@ -29,15 +30,17 @@ class TopNavigationBar extends StatefulWidget implements PreferredSizeWidget {
 class _TopNavigationBarState extends State<TopNavigationBar> {
   int? _hoveredIndex;
 
-@override
+  @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final theme = Theme.of(context); // Obtenemos el tema actual
-    // final isDark = theme.brightness == Brightness.dark; // Ya no es necesario con el tema dinámico
+    final theme = Theme.of(context);
 
+    // --- CAMBIO 1: "Nuevo Análisis" ahora es parte de la lista principal ---
+    // Le asignamos un índice único (5) para identificarlo.
     final navItems = [
       {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'index': 0},
       {'icon': Icons.history_outlined, 'label': 'Historial', 'index': 1},
+      {'icon': Icons.add_circle_outline, 'label': 'Nuevo Análisis', 'index': 5},
       {'icon': Icons.delete_sweep_outlined, 'label': 'Papelera', 'index': 2},
       {'icon': Icons.calculate_outlined, 'label': 'Tratamientos', 'index': 3},
     ];
@@ -54,11 +57,9 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             decoration: BoxDecoration(
-              // --- 👇 CAMBIO: Usamos el color 'surface' del tema actual 👇 ---
               color: theme.colorScheme.surface.withOpacity(0.15),
               border: Border(
                 bottom: BorderSide(
-                  // --- 👇 CAMBIO: Usamos el color 'onSurface' del tema para el borde 👇 ---
                   color: theme.colorScheme.onSurface.withOpacity(0.1),
                   width: 1.5,
                 ),
@@ -67,6 +68,7 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           ),
         ),
       ),
+      // El Row ahora construye todos los botones de la misma manera, sin inserciones manuales.
       title: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: navItems.map((item) => _buildNavItem(
@@ -98,7 +100,9 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     );
   }
 
-Widget _buildNavItem({
+  // --- La función `_buildNewAnalysisButton` ha sido eliminada por completo ---
+
+  Widget _buildNavItem({
     required IconData icon,
     required String label,
     required int index,
@@ -107,16 +111,10 @@ Widget _buildNavItem({
     final isSelected = widget.selectedIndex == index;
     final isHovered = _hoveredIndex == index;
 
-    // --- 👇 CAMBIO: Usamos colores del tema que garantizan contraste 👇 ---
-
-    // Color para el item seleccionado. Usamos blanco o negro según el tema.
     final Color selectedColor = theme.brightness == Brightness.dark
         ? Colors.white
         : Colors.black;
-
-    // Color para los items no seleccionados. 
-    // Usamos 'onSurface', que es el color estándar para texto sobre fondos como la barra.
-    // Será claro en tema oscuro y oscuro en tema claro, ¡perfecto para la legibilidad!
+    
     final Color defaultColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
     return MouseRegion(
@@ -124,20 +122,28 @@ Widget _buildNavItem({
       onExit: (_) => setState(() => _hoveredIndex = null),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () => widget.onItemSelected(index),
+        // --- CAMBIO 2: La lógica de clic ahora es inteligente ---
+        onTap: () {
+          // Si el índice es 5 ("Nuevo Análisis"), navega a la pantalla de detección.
+          if (index == 5) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const DetectionScreen()));
+          } 
+          // Para todos los demás, ejecuta la acción normal de cambio de pestaña.
+          else {
+            widget.onItemSelected(index);
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            // El fondo del item seleccionado puede seguir usando el color primario con opacidad.
             color: isSelected ? selectedColor.withOpacity(0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Usamos los nuevos colores aquí
               Icon(icon, color: isSelected ? selectedColor : defaultColor),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
@@ -158,10 +164,9 @@ Widget _buildNavItem({
                           const SizedBox(width: 8),
                           Text(
                             label,
-                            // Y también aquí
                             style: TextStyle(
                               color: isSelected ? selectedColor : defaultColor,
-                              fontWeight: FontWeight.bold, // Añadimos negrita para mejorar la lectura
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -174,4 +179,4 @@ Widget _buildNavItem({
       ),
     );
   }
-} // <-- Fin de la clase _TopNavigationBarState
+}
