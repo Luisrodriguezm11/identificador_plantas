@@ -200,55 +200,122 @@ class _EditRecommendationsScreenState extends State<EditRecommendationsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
+@override
+Widget build(BuildContext context) {
+  final theme = Theme.of(context);
+  final bool isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: TopNavigationBar(
-        selectedIndex: 4,
-        isAdmin: true,
-        onItemSelected: _onNavItemTapped,
-        onLogout: () => _logout(context),
-      ),
-      extendBodyBehindAppBar: true,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditDialog(),
-        tooltip: 'Añadir Tratamiento',
-        // 5. COLOR DEL FAB ADAPTADO AL TEMA
-        backgroundColor: theme.colorScheme.secondary,
-        child: Icon(Icons.add, color: isDark ? AppColorsDark.textPrimary : AppColorsLight.surface),
-      ),
-      body: Stack(
-        children: [
-          // 2. FONDO ADAPTADO AL TEMA
-          Container(
-            decoration: AppTheme.backgroundDecoration,
+  return Scaffold(
+    appBar: TopNavigationBar(
+      selectedIndex: 4,
+      isAdmin: true,
+      onItemSelected: _onNavItemTapped,
+      onLogout: () => _logout(context),
+    ),
+    extendBodyBehindAppBar: true,
+    // --- El FloatingActionButton ha sido eliminado de aquí ---
+    body: Stack(
+      children: [
+        // 1. FONDO ADAPTADO AL TEMA
+        Container(
+          decoration: AppTheme.backgroundDecoration,
+        ),
+
+        // 2. CONTENIDO PRINCIPAL
+        SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48.0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Column(
+                  children: [
+                    SizedBox(height: kToolbarHeight + 60),
+                    _buildHeaderSection(),
+                    const SizedBox(height: 60),
+                    _buildTreatmentsList(),
+                    // Añadimos un espacio extra al final para que el botón no tape el último elemento
+                    const SizedBox(height: 100), 
+                  ],
+                ),
+              ),
+            ),
           ),
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    children: [
-                      SizedBox(height: kToolbarHeight + 60),
-                      _buildHeaderSection(),
-                      const SizedBox(height: 60),
-                      _buildTreatmentsList(),
-                      const SizedBox(height: 40),
-                    ],
+        ),
+
+        // 3. BOTÓN DE REGRESO
+        Positioned(
+          top: kToolbarHeight + 10,
+          left: 20,
+          child: ClipRRect(
+            // ... (el código del botón de regreso se mantiene igual)
+            borderRadius: BorderRadius.circular(50),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                ),
+                child: IconButton(
+                  tooltip: 'Volver a Gestionar Tratamientos',
+                  icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // --- 👇 ¡AQUÍ ESTÁ EL NUEVO BOTÓN PERSONALIZADO! 👇 ---
+        Positioned(
+          bottom: 32,
+          right: 32,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28.0),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _showEditDialog(),
+                  borderRadius: BorderRadius.circular(28.0),
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondary.withOpacity(isDark ? 0.3 : 0.4),
+                      borderRadius: BorderRadius.circular(28.0),
+                      border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, color: isDark ? Colors.white : Colors.black),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Añadir Tratamiento",
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          )
-        ],
-      ),
-    );
-  }
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);

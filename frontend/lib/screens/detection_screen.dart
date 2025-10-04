@@ -278,7 +278,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -293,10 +293,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
+          // FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
+
+          // CONTENIDO PRINCIPAL
           Center(
             child: Padding(
               padding: const EdgeInsets.all(32.0),
@@ -327,6 +329,34 @@ class _DetectionScreenState extends State<DetectionScreen> {
               ),
             ),
           ),
+
+          // --- 👇 ¡AQUÍ ESTÁ EL BOTÓN AÑADIDO! 👇 ---
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // CAPA DE CARGA (se mantiene al final para que cubra todo)
           if (_isLoading)
             Positioned.fill(
               child: BackdropFilter(
@@ -362,7 +392,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
       ),
     );
   }
-
   Widget _buildRecommendationsCarousel() {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;

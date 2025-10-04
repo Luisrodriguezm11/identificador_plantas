@@ -13,7 +13,8 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart'; 
+import 'admin_user_list_screen.dart';
 
 class AdminAnalysesScreen extends StatefulWidget {
   const AdminAnalysesScreen({super.key});
@@ -125,7 +126,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TopNavigationBar(
@@ -137,11 +138,34 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. USAMOS EL FONDO DEL TEMA
+          // 1. EL FONDO (se queda al principio, en la capa más profunda)
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
-          // --- Botón de regreso en la esquina superior izquierda ---
+
+          // 2. EL CONTENIDO PRINCIPAL (ahora está antes del botón)
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Column(
+                    children: [
+                      SizedBox(height: kToolbarHeight + 60),
+                      _buildHeaderSection(),
+                      const SizedBox(height: 60),
+                      _buildAnalysesGrid(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // --- 👇 ¡CORRECCIÓN APLICADA AQUÍ! 👇 ---
+          // 3. EL BOTÓN (ahora es el último, por lo tanto queda encima de todo)
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -167,30 +191,12 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                     tooltip: 'Volver a Monitor de Productores',
                     icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
                     onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        NoTransitionRoute(page: const DashboardScreen()),
-                      );
+                      // Mensaje para verificar que el clic funciona.
+                      print('DEBUG: Botón de regreso SÍ fue presionado.');
+
+                      // Lógica para regresar.
+                      Navigator.pop(context);
                     },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: Column(
-                    children: [
-                      SizedBox(height: kToolbarHeight + 60),
-                      _buildHeaderSection(),
-                      const SizedBox(height: 60),
-                      _buildAnalysesGrid(),
-                      const SizedBox(height: 40),
-                    ],
                   ),
                 ),
               ),

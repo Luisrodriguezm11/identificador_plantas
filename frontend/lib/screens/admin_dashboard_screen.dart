@@ -141,11 +141,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                   ),
-                  child: IconButton(
-                    tooltip: 'Volver al Dashboard',
-                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
-                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
-                  ),
+child: IconButton(
+  tooltip: 'Volver al Dashboard',
+  icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+  // 👇 CAMBIO AQUÍ 👇
+  onPressed: () => Navigator.pop(context),
+),
                 ),
               ),
             ),

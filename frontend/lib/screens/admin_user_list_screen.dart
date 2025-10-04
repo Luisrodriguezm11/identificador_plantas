@@ -1,4 +1,5 @@
 // frontend/lib/screens/admin_user_list_screen.dart
+//LISTA DE PRODUCTORES (ADMIN)
 
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
@@ -66,7 +67,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -80,10 +81,12 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
+          // 1. EL FONDO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
+
+          // 2. EL CONTENIDO
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -98,6 +101,42 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
                       _buildUsersGrid(),
                       const SizedBox(height: 40),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // --- 👇 ¡AQUÍ ESTÁ EL BOTÓN AÑADIDO! 👇 ---
+          // 3. EL BOTÓN (último en la lista para que quede encima)
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.1)
+                        : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.1),
+                    ),
+                  ),
+                  child: IconButton(
+                    // Cambiamos el tooltip para que sea más específico
+                    tooltip: 'Volver al Panel de Administrador',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
                 ),
               ),
@@ -128,15 +167,18 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        _buildGlassButton(
-          context,
-          icon: Icons.grid_view_rounded,
-          label: 'Ver todos los análisis juntos',
-          onPressed: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()));
-          },
-        ),
+_buildGlassButton(
+  context,
+  icon: Icons.analytics_outlined, // o Icons.grid_view_rounded
+  label: 'Ver todos los análisis', // o 'Ver todos los análisis juntos'
+  onPressed: () {
+    // 👇 ESTO ES CORRECTO: Usa push, no pushReplacement 👇
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()),
+    );
+  },
+),
       ],
     );
   }

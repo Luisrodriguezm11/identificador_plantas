@@ -192,63 +192,68 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
     );
   }
 
-  Widget _buildDiseaseCard(Map<String, dynamic> disease) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
+Widget _buildDiseaseCard(Map<String, dynamic> disease) {
+  final theme = Theme.of(context);
+  final bool isDark = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EditRecommendationsScreen(disease: disease),
-          ),
-        ).then((_) {
-          setState(() {
-            _diseasesFuture = _detectionService.getAdminAllDiseases();
-          });
+  return GestureDetector(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EditRecommendationsScreen(disease: disease),
+        ),
+      ).then((_) {
+        setState(() {
+          _diseasesFuture = _detectionService.getAdminAllDiseases();
         });
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-            // 4. TARJETAS ADAPTATIVAS
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.biotech_outlined, color: theme.textTheme.bodyMedium?.color, size: 40),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        disease['nombre_comun'] ?? 'Nombre no disponible',
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+      });
+    },
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(24.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Reducimos un poco el padding vertical
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.biotech_outlined, color: theme.textTheme.bodyMedium?.color, size: 40),
+              const SizedBox(width: 20),
+              Expanded(
+                // --- 👇 ¡AQUÍ ESTÁ LA CORRECCIÓN COMPLETA! 👇 ---
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  // mainAxisAlignment: MainAxisAlignment.center, // <-- 1. Eliminamos el centrado que causa conflictos.
+                  children: [
+                    // 2. Hacemos que el título ocupe el espacio disponible y pueda hacer scroll.
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          disease['nombre_comun'] ?? 'Nombre no disponible',
+                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Clase: ${disease['roboflow_class']}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 4), // 3. Reducimos el espaciado para ganar unos pixeles.
+                    Text(
+                      'Clase: ${disease['roboflow_class']}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 20),
-                Icon(Icons.edit_note, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
-              ],
-            ),
+              ),
+              const SizedBox(width: 20),
+              Icon(Icons.edit_note, color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

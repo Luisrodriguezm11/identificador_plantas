@@ -128,7 +128,7 @@ class _UserSpecificAnalysesScreenState
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: TopNavigationBar(
@@ -140,10 +140,12 @@ class _UserSpecificAnalysesScreenState
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
+          // FONDO UNIFICADO
           Container(
             decoration: AppTheme.backgroundDecoration,
           ),
+
+          // CONTENIDO PRINCIPAL
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -158,6 +160,40 @@ class _UserSpecificAnalysesScreenState
                       _buildAnalysesGrid(),
                       const SizedBox(height: 40),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // BOTÓN DE REGRESO AÑADIDO
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.1)
+                        : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.1),
+                    ),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver a Monitor de Productores',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
                 ),
               ),
