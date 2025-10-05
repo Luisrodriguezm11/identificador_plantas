@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:frontend/helpers/custom_route.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/screens/login_screen.dart';
@@ -64,6 +65,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 4,
         isAdmin: true,
@@ -73,9 +75,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

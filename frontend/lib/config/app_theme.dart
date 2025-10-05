@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 // --- PALETA DE COLORES PARA TEMA OSCURO ---
 class AppColorsDark {
   static const Color primary = Color(0xFF5E35B1); // Un morado elegante
-  static const Color accent = Color(0xFF00E676); // Verde brillante para acentos
+  static const Color accent = Color(0xFF005a8d); // Verde brillante para acentos
   static const Color background = Color(0xFF121212);
   static const Color surface = Color(0xFF1E1E1E);
   static const Color textPrimary = Colors.white;
@@ -18,7 +18,7 @@ class AppColorsDark {
 // --- PALETA DE COLORES PARA TEMA CLARO ---
 class AppColorsLight {
   static const Color primary = Color(0xFF673AB7); // Mantenemos el morado
-  static const Color accent = Color(0xFF00C853); // Un verde un poco más oscuro
+  static const Color accent = Color(0xFF005a8d); // Un verde un poco más oscuro
   static const Color background = Color(0xFFF5F5F5); // Un gris muy claro
   static const Color surface = Colors.white;
   static const Color textPrimary = Colors.black87;

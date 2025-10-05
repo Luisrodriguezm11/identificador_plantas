@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import 'dart:ui';
 import '../config/app_theme.dart';
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -60,12 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
+          
           // 1. FONDO UNIFICADO
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),

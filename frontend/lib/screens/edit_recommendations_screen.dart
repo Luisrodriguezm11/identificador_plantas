@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'dart:ui';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
@@ -206,6 +207,7 @@ Widget build(BuildContext context) {
   final bool isDark = theme.brightness == Brightness.dark;
 
   return Scaffold(
+    backgroundColor: Colors.transparent,
     appBar: TopNavigationBar(
       selectedIndex: 4,
       isAdmin: true,
@@ -216,12 +218,13 @@ Widget build(BuildContext context) {
     // --- El FloatingActionButton ha sido eliminado de aquí ---
     body: Stack(
       children: [
-        // 1. FONDO ADAPTADO AL TEMA
-        Container(
-          decoration: AppTheme.backgroundDecoration,
-        ),
+ 
+        //Container(
+          //decoration: AppTheme.backgroundDecoration,
+        //),
+        //const AnimatedBubbleBackground(),
 
-        // 2. CONTENIDO PRINCIPAL
+
         SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48.0),

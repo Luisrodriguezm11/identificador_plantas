@@ -8,6 +8,7 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/detection_service.dart';
 import 'trash_screen.dart';
@@ -188,12 +189,13 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     }
   }
 
- @override
+@override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 1,
         isAdmin: _isAdmin,
@@ -203,12 +205,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
           SingleChildScrollView(
-            // ... (contenido sin cambios)
-             child: Padding(
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
               child: Center(
                 child: ConstrainedBox(
@@ -252,57 +250,54 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               ),
             ),
           ),
-          Positioned(
-            bottom: 32,
-            right: 32,
-            child: ClipRRect(
+          // El botón "+ Nuevo Análisis" se ha eliminado de aquí.
+        ],
+      ),
+
+      // --- 👇 AQUÍ ESTÁ EL NUEVO BOTÓN INTEGRADO ---
+      floatingActionButton: ClipRRect(
+        borderRadius: BorderRadius.circular(28.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
+                final result = await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => const DetectionScreen(),
+                ));
+                if (result == true && mounted) {
+                  _fetchHistory();
+                }
+              },
               borderRadius: BorderRadius.circular(28.0),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () async {
-                      final result = await Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => const DetectionScreen(),
-                      ));
-                      if (result == true && mounted) {
-                        _fetchHistory();
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(28.0),
-                    child: Container(
-                      height: 56,
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondary.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(28.0),
-                        border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // --- 👇 CAMBIO AQUÍ: Blanco/Negro según el tema 👇 ---
-                          Icon(Icons.add, color: isDark ? Colors.white : Colors.black),
-                          const SizedBox(width: 12),
-                          Text(
-                            "Nuevo Análisis",
-                            style: TextStyle(
-                              // --- 👇 Y CAMBIO AQUÍ: Blanco/Negro según el tema 👇 ---
-                              color: isDark ? Colors.white : Colors.black,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+              child: Container(
+                height: 56,
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondary.withOpacity(isDark ? 0.3 : 0.4),
+                  borderRadius: BorderRadius.circular(28.0),
+                  border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, color: isDark ? Colors.white : Colors.black),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Nuevo Análisis",
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

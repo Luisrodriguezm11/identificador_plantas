@@ -8,6 +8,7 @@ import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/detection_service.dart';
 import 'dart:ui';
@@ -270,12 +271,13 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 2,
         isAdmin: _isAdmin,
@@ -285,9 +287,6 @@ class _TrashScreenState extends State<TrashScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -332,55 +331,53 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           ),
+          // El botón "Vaciar Papelera" se eliminó de aquí
+        ],
+      ),
 
-          // --- 👇 CAMBIO: NUEVO BOTÓN FLOTANTE PERSONALIZADO 👇 ---
-          if (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
-            Positioned(
-              bottom: 32,
-              right: 32,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(28.0),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _emptyTrash,
+      // --- 👇 AQUÍ ESTÁ EL BOTÓN INTEGRADO EN SU NUEVO LUGAR 👇 ---
+      floatingActionButton: (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(28.0),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _emptyTrash,
+                  borderRadius: BorderRadius.circular(28.0),
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    decoration: BoxDecoration(
+                      color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.3),
                       borderRadius: BorderRadius.circular(28.0),
-                      child: Container(
-                        height: 56,
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        decoration: BoxDecoration(
-                          color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(28.0),
-                          border: Border.all(color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.5)),
+                      border: Border.all(color: (isDark ? AppColorsDark.danger : AppColorsLight.danger).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.delete_sweep_outlined,
+                          color: isDark ? Colors.white : Colors.black,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.delete_sweep_outlined,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              "Vaciar Papelera",
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Text(
+                          "Vaciar Papelera",
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-        ],
-      ),
+          )
+        : null, // Si no hay nada que vaciar, no se muestra el botón
     );
   }
 

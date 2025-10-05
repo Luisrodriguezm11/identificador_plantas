@@ -14,6 +14,7 @@ import 'history_screen.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
 import 'admin_dashboard_screen.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -129,6 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 0,
         isAdmin: _isAdmin,
@@ -138,9 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+        //const AnimatedBubbleBackground(),
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

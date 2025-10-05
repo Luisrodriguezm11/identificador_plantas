@@ -1,6 +1,7 @@
 // frontend/lib/screens/register_screen.dart
 
 import 'package:flutter/material.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import '../services/auth_service.dart';
 import 'dart:ui';
 import '../config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
@@ -63,12 +64,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 2. FONDO UNIFICADO
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+          
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+          
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),

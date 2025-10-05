@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/services/detection_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'dart:ui';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:frontend/services/auth_service.dart';
@@ -72,6 +73,7 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     Theme.of(context);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 4,
         isAdmin: true,
@@ -81,12 +83,12 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // 1. EL FONDO
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
 
-          // 2. EL CONTENIDO
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

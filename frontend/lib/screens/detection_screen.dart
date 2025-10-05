@@ -15,6 +15,7 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/auth_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -245,8 +246,9 @@ class _DetectionScreenState extends State<DetectionScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
-        selectedIndex: -1,
+        selectedIndex: 5,
         isAdmin: _isAdmin,
         onItemSelected: _onNavItemTapped,
         onLogout: () => _logout(context),
@@ -254,10 +256,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
-          // Usamos SingleChildScrollView para que el contenido no se desborde en pantallas pequeñas
+
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+  
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

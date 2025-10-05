@@ -1,7 +1,8 @@
 // frontend/lib/screens/auth_check_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
+//import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:lottie/lottie.dart'; // <-- 2. IMPORTAMOS LOTTIE PARA ANIMACIONES
 import '../services/auth_service.dart';
 import 'dashboard_screen.dart';
@@ -46,12 +47,15 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 3. APLICAMOS EL FONDO UNIFICADO
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+          
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

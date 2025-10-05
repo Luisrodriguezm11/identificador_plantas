@@ -9,6 +9,7 @@ import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/treatment_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'dart:ui';
 import 'package:frontend/config/app_theme.dart';
@@ -140,6 +141,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     final bool isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 3,
         isAdmin: _isAdmin,
@@ -149,9 +151,12 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
+
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

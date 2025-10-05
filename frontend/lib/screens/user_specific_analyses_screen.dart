@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
+//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
@@ -131,6 +132,7 @@ class _UserSpecificAnalysesScreenState
 @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
         selectedIndex: 4,
         isAdmin: true,
@@ -140,12 +142,13 @@ class _UserSpecificAnalysesScreenState
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // FONDO UNIFICADO
-          Container(
-            decoration: AppTheme.backgroundDecoration,
-          ),
+          
+          //Container(
+            //decoration: AppTheme.backgroundDecoration,
+          //),
+          //const AnimatedBubbleBackground(),
 
-          // CONTENIDO PRINCIPAL
+
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),

@@ -1,6 +1,5 @@
 // frontend/lib/widgets/top_navigation_bar.dart
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme_provider.dart';
@@ -35,8 +34,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = Theme.of(context);
 
-    // --- CAMBIO 1: "Nuevo Análisis" ahora es parte de la lista principal ---
-    // Le asignamos un índice único (5) para identificarlo.
     final navItems = [
       {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'index': 0},
       {'icon': Icons.history_outlined, 'label': 'Historial', 'index': 1},
@@ -52,6 +49,8 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
+      automaticallyImplyLeading: false,
+      // Usamos flexibleSpace para el fondo, ya que nos da un lienzo completo.
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -68,39 +67,50 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           ),
         ),
       ),
-      // El Row ahora construye todos los botones de la misma manera, sin inserciones manuales.
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: navItems.map((item) => _buildNavItem(
-          icon: item['icon'] as IconData,
-          label: item['label'] as String,
-          index: item['index'] as int,
-        )).toList(),
-      ),
-      actions: [
-        IconButton(
-          tooltip: 'Cambiar Tema',
-          icon: Icon(
-            themeProvider.themeMode == ThemeMode.dark
-                ? Icons.light_mode_outlined
-                : Icons.dark_mode_outlined,
+      // --- 👇 AQUÍ OCURRE TODA LA MAGIA DEL CENTRADO 👇 ---
+      title: Stack(
+        children: [
+          // 1. Elementos de navegación, centrados en la pantalla.
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: navItems.map((item) => _buildNavItem(
+                icon: item['icon'] as IconData,
+                label: item['label'] as String,
+                index: item['index'] as int,
+              )).toList(),
+            ),
           ),
-          onPressed: () {
-            themeProvider.toggleTheme();
-          },
-        ),
-        IconButton(
-          tooltip: 'Cerrar Sesión',
-          icon: const Icon(Icons.logout),
-          onPressed: widget.onLogout,
-        ),
-        const SizedBox(width: 20),
-      ],
-      automaticallyImplyLeading: false,
+          // 2. Botones de acción, alineados a la derecha.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Cambiar Tema',
+                  icon: Icon(
+                    themeProvider.themeMode == ThemeMode.dark
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                  ),
+                  onPressed: () {
+                    themeProvider.toggleTheme();
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Cerrar Sesión',
+                  icon: const Icon(Icons.logout),
+                  onPressed: widget.onLogout,
+                ),
+                const SizedBox(width: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
-
-  // --- La función `_buildNewAnalysisButton` ha sido eliminada por completo ---
 
   Widget _buildNavItem({
     required IconData icon,
@@ -117,19 +127,17 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     
     final Color defaultColor = theme.colorScheme.onSurface.withOpacity(0.7);
 
+    final bool showText = isHovered || isSelected;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
       onExit: (_) => setState(() => _hoveredIndex = null),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        // --- CAMBIO 2: La lógica de clic ahora es inteligente ---
         onTap: () {
-          // Si el índice es 5 ("Nuevo Análisis"), navega a la pantalla de detección.
           if (index == 5) {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const DetectionScreen()));
-          } 
-          // Para todos los demás, ejecuta la acción normal de cambio de pestaña.
-          else {
+          } else {
             widget.onItemSelected(index);
           }
         },
@@ -157,7 +165,7 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
                     ),
                   );
                 },
-                child: isHovered || isSelected
+                child: showText
                     ? Row(
                         key: ValueKey('text_$label'),
                         children: [
