@@ -23,7 +23,7 @@ class AuthService {
   Future<void> deleteToken() async {
     await _storage.delete(key: 'jwt_token');
     await _storage.delete(key: 'is_admin');
-    await _storage.delete(key: 'user_name'); // <--- CAMBIO: Asegurarse de borrar el nombre también
+    await _storage.delete(key: 'user_name');
   }
 
   // --- Métodos de estado de Admin ---
@@ -36,75 +36,160 @@ class AuthService {
     final isAdminString = await _storage.read(key: 'is_admin');
     return isAdminString == 'true';
   }
-  
-  // --- MÉTODOS NUEVOS PARA EL NOMBRE DE USUARIO ---
 
-  // <--- CAMBIO: Nuevo método para guardar el nombre del usuario ---
+  // --- MÉTODOS PARA EL NOMBRE DE USUARIO ---
+
   Future<void> saveUserName(String userName) async {
     await _storage.write(key: 'user_name', value: userName);
   }
 
-  // <--- CAMBIO: Nuevo método para leer el nombre del usuario ---
   Future<String?> getUserName() async {
     return await _storage.read(key: 'user_name');
   }
 
-
   // --- MÉTODOS DE API ---
 
-  Future<Map<String, dynamic>> register(String nombreCompleto, String email, String password, String? ong) async {
+  Future<Map<String, dynamic>> register(String nombreCompleto, String email,
+      String password, String? ong, {String? profileImageUrl}) async {
     try {
-        final response = await http.post(
-          Uri.parse('$_baseUrl/register'),
-          headers: <String, String>{
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-          body: jsonEncode(<String, String?>{
-            'nombre_completo': nombreCompleto,
-            'email': email,
-            'password': password,
-            'ong': ong,
-          }),
-        ).timeout(const Duration(seconds: 10));
-        return _handleResponse(response);
-      } catch (e) {
-        return {'success': false, 'error': 'No se pudo conectar al servidor.'};
-      }
-  }
-
-Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-        final response = await http.post(
-          Uri.parse('$_baseUrl/login'),
-          headers: <String, String>{
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-          body: jsonEncode(<String, String>{
-            'email': email,
-            'password': password,
-          }),
-        ).timeout(const Duration(seconds: 10));
-
-        final handledResponse = _handleResponse(response);
-        if(handledResponse['success']){
-            // Si el login es exitoso, guarda cada dato con su método correspondiente
-            await saveToken(handledResponse['data']['token']);
-            await saveAdminStatus(handledResponse['data']['es_admin'] ?? false);
-            // <--- CAMBIO: Guarda el nombre del usuario al iniciar sesión
-            await saveUserName(handledResponse['data']['nombre_completo'] ?? 'Usuario'); 
-        }
-        return handledResponse;
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/register'),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, String?>{
+              'nombre_completo': nombreCompleto,
+              'email': email,
+              'password': password,
+              'ong': ong,
+              'profile_image_url': profileImageUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
     } catch (e) {
-        return {'success': false, 'error': 'No se pudo conectar al servidor.'};
+      return {'success': false, 'error': 'No se pudo conectar al servidor.'};
     }
   }
 
-  Map<String, dynamic> _handleResponse(http.Response response) {
-     final Map<String, dynamic> body = json.decode(response.body);
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return {'success': true, 'data': body};
-    } else {
-      return {'success': false, 'error': body['error'] ?? 'Ocurrió un error desconocido'};
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/login'),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, String>{
+              'email': email,
+              'password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final handledResponse = _handleResponse(response);
+      if (handledResponse['success']) {
+        await saveToken(handledResponse['data']['token']);
+        await saveAdminStatus(handledResponse['data']['es_admin'] ?? false);
+        await saveUserName(
+            handledResponse['data']['nombre_completo'] ?? 'Usuario');
+      }
+      return handledResponse;
+    } catch (e) {
+      return {'success': false, 'error': 'No se pudo conectar al servidor.'};
+    }
+  }
+
+  // --- 👇 CORRECCIONES CON TIMEOUT AQUÍ 👇 ---
+
+  Future<Map<String, dynamic>> getUserProfile() async {
+  final token = await readToken();
+  if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+  // --- PUNTO DE CONTROL 2 ---
+  print('[DEBUG] 2. AuthService: Intentando llamar a /profile con el token: $token');
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+      ).timeout(const Duration(seconds: 15)); // <-- TIMEOUT AÑADIDO
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile(
+      {String? nombreCompleto, String? profileImageUrl}) async {
+    final token = await readToken();
+    if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+    final body = <String, String?>{
+      'nombre_completo': nombreCompleto,
+      'profile_image_url': profileImageUrl,
+    };
+    body.removeWhere((key, value) => value == null);
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/profile/update'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 15)); // <-- TIMEOUT AÑADIDO
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión'};
+    }
+  }
+
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final token = await readToken();
+    if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/profile/change-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: jsonEncode({
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 15)); // <-- TIMEOUT AÑADIDO
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión'};
+    }
+  }
+  
+  // --- FIN DE LAS CORRECCIONES ---
+
+Map<String, dynamic> _handleResponse(http.Response response) {
+  // --- PUNTO DE CONTROL 3 ---
+  print('[DEBUG] 3. AuthService: Respuesta del servidor (Status Code: ${response.statusCode})');
+  print('[DEBUG] 3.1. AuthService: Cuerpo de la respuesta: ${response.body}');
+
+  final Map<String, dynamic> body = json.decode(response.body);
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    return {'success': true, 'data': body};
+  } else {
+      return {
+        'success': false,
+        'error': body['error'] ?? 'Ocurrió un error desconocido'
+      };
     }
   }
 }

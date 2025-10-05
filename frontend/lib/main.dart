@@ -13,21 +13,29 @@ import 'package:frontend/screens/manage_recommendations_screen.dart';
 import 'package:frontend/screens/register_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:provider/provider.dart';
-//import 'screens/auth_check_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'config/app_theme.dart';
-import 'package:frontend/widgets/main_layout.dart'; 
+import 'package:frontend/widgets/main_layout.dart';
+// --> 1. AÑADE LA IMPORTACIÓN DE TU SERVICIO
+import 'package:frontend/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // Envolvemos la app con el ChangeNotifierProvider para que el tema esté disponible en todos los widgets.
+  
+  // --> 2. ENVUELVE LA APP CON MULTIPROVIDER
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        // Tu provider de tema que ya tenías
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        
+        // El provider que faltaba para AuthService
+        Provider<AuthService>(create: (context) => AuthService()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -38,35 +46,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Usamos un Consumer para que MaterialApp se redibuje cuando cambie el tema.
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
        return MaterialApp(
-    title: 'Identificador de Plantas',
-
+          title: 'Identificador de Plantas',
           debugShowCheckedModeBanner: false,
-
-          // --- 1. AÑADIMOS DE NUEVO ESTAS LÍNEAS ---
-          theme: AppTheme.lightTheme,       // Asignamos el tema claro
-          darkTheme: AppTheme.darkTheme,    // Asignamos el tema oscuro
-          themeMode: themeProvider.themeMode, // El provider vuelve a decidir cuál mostrar
-
-
-    home: const MainLayout(), // <-- AQUÍ ESTÁ EL CAMBIO
-    // Tus rutas se quedan como están, MaterialApp es suficientemente
-    // inteligente para usarlas con el nuevo Navigator.
-    routes: {
-      '/login': (context) => const LoginScreen(),
-      '/register': (context) => const RegisterScreen(),
-      '/dashboard': (context) => const DashboardScreen(),
-      '/history': (context) => const HistoryScreen(),
-      '/trash': (context) => const TrashScreen(),
-      '/detection': (context) => const DetectionScreen(),
-      '/dose-calculation': (context) => const DoseCalculationScreen(),
-      '/admin-dashboard': (context) => const AdminDashboardScreen(),
-      '/admin-users': (context) => const AdminUserListScreen(),
-      '/manage-recommendations': (context) => const ManageRecommendationsScreen(),
-    },
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
+          home: const MainLayout(),
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/register': (context) => const RegisterScreen(),
+            '/dashboard': (context) => const DashboardScreen(),
+            '/history': (context) => const HistoryScreen(),
+            '/trash': (context) => const TrashScreen(),
+            '/detection': (context) => const DetectionScreen(),
+            '/dose-calculation': (context) => const DoseCalculationScreen(),
+            '/admin-dashboard': (context) => const AdminDashboardScreen(),
+            '/admin-users': (context) => const AdminUserListScreen(),
+            '/manage-recommendations': (context) => const ManageRecommendationsScreen(),
+          },
        );
       },
     );

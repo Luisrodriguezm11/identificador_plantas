@@ -1,6 +1,11 @@
 // frontend/lib/screens/register_screen.dart
 
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/services/storage_service.dart';
+import 'package:image_picker/image_picker.dart';
 //import 'package:frontend/widgets/animated_bubble_background.dart';
 import '../services/auth_service.dart';
 import 'dart:ui';
@@ -21,21 +26,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _ongController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  XFile? _profileImageFile; // Para guardar la imagen seleccionada
 
   bool _isLoading = false;
 
-  Future<void> _register() async {
+  Future<void> _pickProfileImage() async {
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _profileImageFile = pickedFile;
+      });
+    }
+  }
+
+Future<void> _register() async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
+      String? imageUrl;
+      // 1. Subir la imagen si existe
+      if (_profileImageFile != null) {
+        // Usamos el StorageService que modificamos
+        final storageService = StorageService();
+        imageUrl = await storageService.uploadProfileImage(_profileImageFile!);
+      }
+
+      // 2. Registrar al usuario con la URL de la imagen (o sin ella)
       final result = await _authService.register(
         _nombreController.text,
         _emailController.text,
         _passwordController.text,
         _ongController.text.isNotEmpty ? _ongController.text : "De la Gente",
+        profileImageUrl: imageUrl, // Pasamos la URL obtenida
       );
 
       if (!mounted) return;
@@ -98,15 +124,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 padding: const EdgeInsets.all(24.0),
                                 child: Form(
                                   key: _formKey,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      // 4. TEXTOS Y CAMPOS USAN EL TEMA
-                                      Text(
-                                        "REGISTRO",
-                                        style: theme.textTheme.headlineMedium,
-                                      ),
-                                      const SizedBox(height: 24),
+child: Column(
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    Text(
+      "REGISTRO",
+      style: theme.textTheme.headlineMedium,
+    ),
+    const SizedBox(height: 24),
+
+    // --- 👇 AÑADE ESTE BLOQUE COMPLETO 👇 ---
+    GestureDetector(
+      onTap: _pickProfileImage,
+      child: CircleAvatar(
+        radius: 50,
+        backgroundColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+        backgroundImage: _profileImageFile != null
+            ? (kIsWeb
+                ? NetworkImage(_profileImageFile!.path)
+                : FileImage(File(_profileImageFile!.path))) as ImageProvider
+            : null,
+        child: _profileImageFile == null
+            ? Icon(
+                Icons.camera_alt,
+                color: isDark ? Colors.white70 : Colors.black54,
+                size: 40,
+              )
+            : null,
+      ),
+    ),
+    const SizedBox(height: 8),
+    Text(
+      'Añadir foto de perfil',
+      style: theme.textTheme.bodyMedium,
+    ),
+    const SizedBox(height: 24),
+  
+
                                       TextFormField(
                                         controller: _nombreController,
                                         style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),

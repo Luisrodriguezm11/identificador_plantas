@@ -9,8 +9,36 @@ import 'package:uuid/uuid.dart';
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // --- ✨ MODIFICACIÓN PRINCIPAL AQUÍ ---
-  // Ahora el método acepta un ValueNotifier para saber si se canceló.
+  // --- 👇 FUNCIÓN AÑADIDA 👇 ---
+  Future<String?> uploadProfileImage(XFile imageFile) async {
+    try {
+      final String originalFileName = imageFile.name;
+      final String fileExtension = originalFileName.split('.').last.toLowerCase();
+      final String uniqueFileName = '${const Uuid().v4()}.$fileExtension';
+
+      final metadata = SettableMetadata(
+        contentType: 'image/$fileExtension',
+      );
+
+      final Reference storageRef = _storage.ref().child('profile_pictures/$uniqueFileName');
+
+      if (kIsWeb) {
+        final Uint8List bytes = await imageFile.readAsBytes();
+        await storageRef.putData(bytes, metadata);
+      } else {
+        await storageRef.putFile(File(imageFile.path), metadata);
+      }
+
+      final String downloadUrl = await storageRef.getDownloadURL();
+      return downloadUrl;
+
+    } catch (e) {
+      debugPrint("Error en el servicio de storage al subir foto de perfil: $e");
+      return null;
+    }
+  }
+
+  // --- El resto de tu clase StorageService ---
   Future<String?> uploadOriginalImage(XFile imageFile, {ValueNotifier<bool>? cancellationNotifier}) async {
     try {
       final String originalFileName = imageFile.name;
@@ -23,7 +51,6 @@ class StorageService {
 
       final Reference storageRef = _storage.ref().child('analisis/$uniqueFileName');
 
-      // --- Verificación de cancelación ANTES de subir ---
       if (cancellationNotifier?.value == true) {
         debugPrint("Subida cancelada antes de iniciar.");
         return null;
@@ -36,14 +63,11 @@ class StorageService {
         await storageRef.putFile(File(imageFile.path), metadata);
       }
       
-      // --- Verificación de cancelación DESPUÉS de subir (antes de buscar la redimensionada) ---
       if (cancellationNotifier?.value == true) {
-        // Si se canceló, borramos el archivo que acabamos de subir
         debugPrint("Subida cancelada. Eliminando archivo original de Firebase...");
         await storageRef.delete();
         return null;
       }
-
 
       final String resizedFileName = uniqueFileName.replaceFirst(
         '.$fileExtension',
@@ -55,10 +79,9 @@ class StorageService {
       String downloadUrl;
       int attempts = 0;
       while (true) {
-        // Verificamos en cada intento si se ha cancelado
         if (cancellationNotifier?.value == true) {
           debugPrint("Búsqueda de imagen redimensionada cancelada. Eliminando archivo original...");
-          await storageRef.delete(); // Borramos el original si ya se había subido
+          await storageRef.delete();
           return null;
         }
 

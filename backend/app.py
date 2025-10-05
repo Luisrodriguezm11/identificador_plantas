@@ -37,14 +37,17 @@ def get_db_connection():
     return conn
 
 # --- Rutas de Autenticación (sin cambios) ---
+# backend/app.py
+
 @app.route('/register', methods=['POST'])
 def register():
-    # ... (código sin cambios)
     data = request.get_json()
     nombre_completo = data.get('nombre_completo')
     email = data.get('email')
     password = data.get('password')
     ong = data.get('ong')
+    # --- 👇 NUEVA LÍNEA ---
+    profile_image_url = data.get('profile_image_url') # Puede ser nulo si no suben foto
 
     if not all([nombre_completo, email, password]):
         return jsonify({"error": "Faltan datos requeridos"}), 400
@@ -54,9 +57,10 @@ def register():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        # --- 👇 MODIFICACIÓN EN LA CONSULTA SQL ---
         cur.execute(
-            "INSERT INTO usuarios (nombre_completo, email, password_hash, ong) VALUES (%s, %s, %s, %s)",
-            (nombre_completo, email, hashed_password.decode('utf-8'), ong)
+            "INSERT INTO usuarios (nombre_completo, email, password_hash, ong, profile_image_url) VALUES (%s, %s, %s, %s, %s)",
+            (nombre_completo, email, hashed_password.decode('utf-8'), ong, profile_image_url)
         )
         conn.commit()
         cur.close()
@@ -838,21 +842,19 @@ def get_all_analyses(current_user_id):
         return jsonify({"error": str(e)}), 500
     
 
-# --- NUEVO: Endpoint para obtener una lista de usuarios con análisis ---
 @app.route('/admin/users_with_analyses', methods=['GET'])
 @admin_required
 def get_users_with_analyses(current_user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Seleccionamos de forma única los usuarios que aparecen en la tabla de análisis
+        # --- 👇 MODIFICACIÓN AQUÍ: Añadimos u.profile_image_url a la consulta 👇 ---
         cur.execute(
             """
-            SELECT DISTINCT ON (u.id_usuario) u.id_usuario, u.nombre_completo, u.email,
+            SELECT DISTINCT ON (u.id_usuario) u.id_usuario, u.nombre_completo, u.email, u.profile_image_url,
             (SELECT COUNT(*) FROM analisis a WHERE a.id_usuario = u.id_usuario AND a.fecha_eliminado IS NULL) as analysis_count
             FROM usuarios u
-            JOIN analisis a ON u.id_usuario = a.id_usuario
-            WHERE a.fecha_eliminado IS NULL
+            LEFT JOIN analisis a ON u.id_usuario = a.id_usuario
             ORDER BY u.id_usuario;
             """
         )
@@ -955,8 +957,111 @@ def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id):
     except Exception as e:
         print(f"Error al obtener tratamientos: {e}")
         return jsonify({'error': 'Error interno al obtener los tratamientos.'}), 500
+    
+    
+@app.route('/profile', methods=['GET'])
+@token_required
+def get_profile(current_user_id):
+    """Obtiene los datos del perfil del usuario logueado."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(
+            "SELECT nombre_completo, email, ong, profile_image_url FROM usuarios WHERE id_usuario = %s",
+            (current_user_id,)
+        )
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if user is None:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        return jsonify(dict(user))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
+@app.route('/profile/update', methods=['PUT'])
+@token_required
+def update_profile(current_user_id):
+    """Actualiza el nombre y/o la foto de perfil del usuario."""
+    data = request.get_json()
+    nombre_completo = data.get('nombre_completo')
+    profile_image_url = data.get('profile_image_url')
+
+    if not nombre_completo and not profile_image_url:
+        return jsonify({"error": "No hay datos para actualizar"}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Usamos un marcador de posición para construir la consulta dinámicamente
+        query_parts = []
+        params = []
+        if nombre_completo:
+            query_parts.append("nombre_completo = %s")
+            params.append(nombre_completo)
+        
+        if profile_image_url:
+            query_parts.append("profile_image_url = %s")
+            params.append(profile_image_url)
+
+        params.append(current_user_id)
+        
+        # Unimos las partes de la consulta
+        query = f"UPDATE usuarios SET {', '.join(query_parts)} WHERE id_usuario = %s"
+        
+        cur.execute(query, tuple(params))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": "Perfil actualizado exitosamente"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/profile/change-password', methods=['POST'])
+@token_required
+def change_password(current_user_id):
+    """Cambia la contraseña del usuario."""
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Faltan datos"}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("SELECT password_hash FROM usuarios WHERE id_usuario = %s", (current_user_id,))
+        user = cur.fetchone()
+        
+        if not user:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Usuario no encontrado"}), 404
+            
+        if not bcrypt.checkpw(current_password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            cur.close()
+            conn.close()
+            return jsonify({"error": "La contraseña actual es incorrecta"}), 401
+        
+        new_hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        cur.execute(
+            "UPDATE usuarios SET password_hash = %s WHERE id_usuario = %s",
+            (new_hashed_password.decode('utf-8'), current_user_id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Contraseña actualizada exitosamente"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

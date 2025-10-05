@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme_provider.dart';
 import '../screens/detection_screen.dart';
+// --- 👇 1. AÑADE LA IMPORTACIÓN DE LA NUEVA PANTALLA 👇 ---
+import '../screens/edit_profile_screen.dart';
 
 class TopNavigationBar extends StatefulWidget implements PreferredSizeWidget {
   final int selectedIndex;
@@ -50,7 +52,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       automaticallyImplyLeading: false,
-      // Usamos flexibleSpace para el fondo, ya que nos da un lienzo completo.
       flexibleSpace: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
@@ -67,10 +68,8 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           ),
         ),
       ),
-      // --- 👇 AQUÍ OCURRE TODA LA MAGIA DEL CENTRADO 👇 ---
       title: Stack(
         children: [
-          // 1. Elementos de navegación, centrados en la pantalla.
           Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -81,7 +80,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
               )).toList(),
             ),
           ),
-          // 2. Botones de acción, alineados a la derecha.
           Align(
             alignment: Alignment.centerRight,
             child: Row(
@@ -98,6 +96,18 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
                     themeProvider.toggleTheme();
                   },
                 ),
+                
+                // --- 👇 2. AQUÍ ESTÁ EL NUEVO BOTÓN INTEGRADO 👇 ---
+                IconButton(
+                  tooltip: 'Editar Perfil',
+                  icon: const Icon(Icons.person_outline),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                    );
+                  },
+                ),
+                
                 IconButton(
                   tooltip: 'Cerrar Sesión',
                   icon: const Icon(Icons.logout),
