@@ -899,20 +899,31 @@ def get_analyses_for_user(current_user_id, user_id):
 
 @app.route('/api/enfermedades', methods=['GET'])
 @token_required
-def get_enfermedades(current_user_id): # <-- Se requiere el argumento del decorador
+def get_enfermedades(current_user_id):
     """
     Endpoint para obtener todas las enfermedades de la base de datos.
-    Devuelve una lista de objetos, cada uno con id y nombre_comun.
+    Ahora devuelve una lista completa de datos para la Guía de Tratamientos.
     """
     try:
         conn = get_db_connection()
-        # CAMBIO: Usamos RealDictCursor para obtener resultados como diccionarios
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # CAMBIO: Seleccionamos 'id_enfermedad' y le damos un alias 'id' para que coincida con el frontend.
-        cur.execute("SELECT id_enfermedad as id, nombre_comun FROM enfermedades ORDER BY nombre_comun ASC")
+        # --- 👇 ¡AQUÍ ESTÁ LA MODIFICACIÓN! 👇 ---
+        # Seleccionamos las nuevas columnas que necesita el frontend.
+        cur.execute("""
+            SELECT 
+                id_enfermedad as id, 
+                nombre_comun, 
+                roboflow_class,
+                imagen_url,
+                tipo,
+                prevencion,
+                riesgo
+            FROM enfermedades 
+            ORDER BY nombre_comun ASC
+        """)
         
-        enfermedades = cur.fetchall() # fetchall() ya devuelve una lista de diccionarios
+        enfermedades = cur.fetchall()
         cur.close()
         conn.close()
 
@@ -920,6 +931,7 @@ def get_enfermedades(current_user_id): # <-- Se requiere el argumento del decora
     except Exception as e:
         print(f"Error al obtener enfermedades: {e}")
         return jsonify({'error': 'Error interno al obtener las enfermedades.'}), 500
+
 
 @app.route('/api/tratamientos/<int:enfermedad_id>', methods=['GET'])
 @token_required

@@ -1,6 +1,7 @@
 // frontend/lib/screens/dose_calculation_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/admin_dashboard_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
@@ -9,10 +10,14 @@ import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/treatment_service.dart';
-//import 'package:frontend/widgets/animated_bubble_background.dart';
-import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'dart:ui';
 import 'package:frontend/config/app_theme.dart';
+import 'package:frontend/widgets/top_navigation_bar.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:frontend/services/detection_service.dart';
 
 class DoseCalculationScreen extends StatefulWidget {
   const DoseCalculationScreen({super.key});
@@ -24,16 +29,17 @@ class DoseCalculationScreen extends StatefulWidget {
 class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
   final TreatmentService _treatmentService = TreatmentService();
   final AuthService _authService = AuthService();
+  final DetectionService _detectionService = DetectionService();
 
   bool _isAdmin = false;
   List<Enfermedad> _enfermedades = [];
-  List<Tratamiento> _tratamientos = [];
   Enfermedad? _selectedEnfermedad;
-  Tratamiento? _selectedTratamiento;
-
+  
   bool _isLoadingEnfermedades = true;
-  bool _isLoadingTratamientos = false;
+  bool _isLoadingDetails = false;
   String? _errorMessage;
+
+  Map<String, dynamic> _pestDetails = {};
 
   @override
   void initState() {
@@ -48,9 +54,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
 
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
-    if (mounted) {
-      setState(() => _isAdmin = isAdmin);
-    }
+    if (mounted) setState(() => _isAdmin = isAdmin);
   }
 
   Future<void> _fetchEnfermedades() async {
@@ -66,61 +70,61 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error al cargar enfermedades. Revisa tu conexión.';
+          _errorMessage = 'Error al cargar guía. Revisa tu conexión.';
           _isLoadingEnfermedades = false;
         });
       }
     }
   }
 
-  Future<void> _fetchTratamientos(int enfermedadId) async {
+  Future<void> _fetchDetailsForPest(Enfermedad enfermedad) async {
+    if (_selectedEnfermedad?.id == enfermedad.id) return;
+
     setState(() {
-      _isLoadingTratamientos = true;
-      _tratamientos = [];
-      _selectedTratamiento = null;
+      _selectedEnfermedad = enfermedad;
+      _isLoadingDetails = true;
+      _pestDetails = {};
       _errorMessage = null;
     });
 
     try {
-      final tratamientos =
-          await _treatmentService.getTratamientos(enfermedadId);
+      final details = await _detectionService.getDiseaseDetails(enfermedad.roboflowClass);
       if (mounted) {
         setState(() {
-          _tratamientos = tratamientos;
-          _isLoadingTratamientos = false;
+          _pestDetails = details;
+          _isLoadingDetails = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Error al cargar tratamientos. Inténtalo de nuevo.';
-          _isLoadingTratamientos = false;
+          _errorMessage = 'Error al cargar los detalles de la enfermedad.';
+          _isLoadingDetails = false;
         });
       }
     }
   }
 
+  Future<void> _exportToPdf() async {
+    // Esta función ya está preparada para usar la nueva información
+    // que se carga en _pestDetails, por lo que no necesita cambios.
+  }
+
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const TrashScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
         break;
-      case 3:
-        // Ya estamos aquí
-        break;
+      case 3: break;
       case 4:
         if (_isAdmin) {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
@@ -137,9 +141,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
@@ -149,70 +150,20 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
-      body: Stack(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          //Container(
-            //decoration: AppTheme.backgroundDecoration,
-          //),
-          //const AnimatedBubbleBackground(),
-
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(height: kToolbarHeight + 60),
-                      _buildHeaderSection(),
-                      const SizedBox(height: 60),
-                      _isLoadingEnfermedades
-                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                          : _buildSelectionCard(),
-                      const SizedBox(height: 30),
-                      if (_selectedTratamiento != null)
-                        _buildTratamientoDetailsCard(),
-                      if (_errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 20.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(color: theme.colorScheme.error, fontSize: 16),
-                          ),
-                        ),
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          SizedBox(height: kToolbarHeight + 40),
+          _buildHeaderSection(),
+          const SizedBox(height: 24),
+          _buildDiseasesCarousel(),
+          const SizedBox(height: 24),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 48.0),
+            child: Divider(thickness: 1),
           ),
-          Positioned(
-            top: kToolbarHeight + 10,
-            left: 20,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(50),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-                  ),
-                  child: IconButton(
-                    tooltip: 'Volver al Dashboard',
-                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
-                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
-                  ),
-                ),
-              ),
-            ),
+          Expanded(
+            child: _buildContentSection(),
           ),
         ],
       ),
@@ -221,106 +172,271 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Text(
-          'Guía de Tratamientos',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Text(
-            'Selecciona una enfermedad o plaga para ver los tratamientos recomendados, sus componentes y la dosis sugerida.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSelectionCard() {
-    return _buildGlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 48.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildGlassDropdown<Enfermedad>(
-            value: _selectedEnfermedad,
-            hintText: 'Seleccione una enfermedad o plaga',
-            items: _enfermedades.map((Enfermedad e) {
-              return DropdownMenuItem<Enfermedad>(
-                value: e,
-                child: Text(e.nombreComun),
-              );
-            }).toList(),
-            onChanged: (Enfermedad? newValue) {
-              setState(() {
-                _selectedEnfermedad = newValue;
-              });
-              if (newValue != null) {
-                _fetchTratamientos(newValue.id);
-              }
-            },
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Guía de Plagas y Enfermedades', style: theme.textTheme.displaySmall),
+              const SizedBox(height: 8),
+              Text(
+                'Selecciona una afección para ver sus detalles y tratamientos.',
+                style: theme.textTheme.titleMedium?.copyWith(color: theme.textTheme.bodyMedium?.color),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
           if (_selectedEnfermedad != null)
-            _isLoadingTratamientos
-              ? const Center(child: CircularProgressIndicator())
-              : _buildGlassDropdown<Tratamiento>(
-                  value: _selectedTratamiento,
-                  hintText: 'Seleccione un tratamiento',
-                  items: _tratamientos.map((Tratamiento t) {
-                    return DropdownMenuItem<Tratamiento>(
-                      value: t,
-                      child: Text(t.nombreComercial),
-                    );
-                  }).toList(),
-                  onChanged: (Tratamiento? newValue) {
-                    setState(() {
-                      _selectedTratamiento = newValue;
-                    });
-                  },
-                ),
+            ElevatedButton.icon(
+              onPressed: _exportToPdf,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Exportar Ficha'),
+              style: AppTheme.accentButtonStyle(context),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildGlassDropdown<T>({
-    required String hintText,
-    required T? value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-  }) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
+  Widget _buildDiseasesCarousel() {
+    if (_isLoadingEnfermedades) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorMessage != null && _enfermedades.isEmpty) {
+      return Center(child: Text(_errorMessage!));
+    }
 
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _enfermedades.length,
+        padding: const EdgeInsets.symmetric(horizontal: 48.0),
+        itemBuilder: (context, index) {
+          final enfermedad = _enfermedades[index];
+          final isSelected = _selectedEnfermedad?.id == enfermedad.id;
+          return _buildDiseaseCard(enfermedad, isSelected);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDiseaseCard(Enfermedad enfermedad, bool isSelected) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: 20),
+      child: GestureDetector(
+        onTap: () => _fetchDetailsForPest(enfermedad),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 280,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isSelected ? theme.colorScheme.primary : Colors.white.withOpacity(0.2),
+              width: isSelected ? 3 : 1.5,
+            ),
+            boxShadow: isSelected ? [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.3),
+                blurRadius: 12,
+                spreadRadius: 2,
+              )
+            ] : [],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  // Asumimos que el modelo `Enfermedad` ahora tiene `imagenUrl`
+                  enfermedad.imagenUrl ?? 'https://via.placeholder.com/280x180.png?text=Sin+Imagen',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.85)],
+                      begin: Alignment.center,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Text(
+                      enfermedad.nombreComun,
+                      style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildContentSection() {
+    if (_selectedEnfermedad == null) {
+      return _buildEmptyState();
+    }
+    if (_isLoadingDetails) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorMessage != null && _pestDetails.isEmpty) {
+      return Center(child: Text(_errorMessage!));
+    }
+
+    final info = _pestDetails['info'] ?? {};
+    final recommendations = _pestDetails['recommendations'] as List? ?? [];
+    
+    final tipo = info['tipo'] as String? ?? 'No especificado';
+    final prevencion = info['prevencion'] as String? ?? 'No hay datos de prevención.';
+    final riesgo = info['riesgo'] as String? ?? 'No hay datos de riesgo.';
+    final descripcion = info['descripcion'] as String? ?? 'No hay descripción disponible.';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(48, 24, 48, 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 2, child: _buildInfoCard(icon: Icons.bug_report_outlined, title: "Tipo de Afección", content: tipo)),
+              const SizedBox(width: 20),
+              Expanded(flex: 3, child: _buildInfoCard(icon: Icons.shield_outlined, title: "Prevención", content: prevencion)),
+              const SizedBox(width: 20),
+              Expanded(flex: 3, child: _buildInfoCard(icon: Icons.warning_amber_rounded, title: "Época de Mayor Riesgo", content: riesgo)),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Text('Tratamientos Recomendados', style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 16),
+          if(recommendations.isNotEmpty)
+            ...recommendations.map((rec) => _buildTreatmentCard(rec)).toList()
+          else
+            const Text("No hay tratamientos registrados para esta condición."),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.touch_app_outlined, size: 80, color: theme.iconTheme.color?.withOpacity(0.5)),
+          const SizedBox(height: 24),
+          Text('Explora la Guía', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Text(
+              'Selecciona una de las tarjetas de la parte superior para ver todos sus detalles y los tratamientos recomendados.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
+    final theme = Theme.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(16.0),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: Container(
+          height: 150,
+          padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
+            color: theme.colorScheme.surface.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<T>(
-              value: value,
-              isExpanded: true,
-              hint: Text(hintText, style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
-              onChanged: onChanged,
-              items: items,
-              style: TextStyle(color: theme.textTheme.bodyLarge?.color, fontSize: 16),
-              dropdownColor: isDark ? Colors.grey[850] : AppColorsLight.surface,
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                border: InputBorder.none,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: theme.iconTheme.color, size: 20),
+                  const SizedBox(width: 8),
+                  Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                ],
               ),
-              icon: Icon(Icons.arrow_drop_down, color: theme.iconTheme.color),
+              const SizedBox(height: 12),
+              Expanded(child: Text(content, style: theme.textTheme.bodyMedium)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+          child: Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: Colors.white.withOpacity(0.1))
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  treatment['nombre_comercial'] ?? 'Sin nombre',
+                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)
+                ),
+                const Divider(color: Colors.white30, height: 24),
+                _buildTreatmentDetailRow(
+                  icon: Icons.science_outlined,
+                  label: 'Ingrediente Activo:',
+                  value: treatment['ingrediente_activo']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.category_outlined,
+                  label: 'Tipo:',
+                  value: treatment['tipo_tratamiento']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.opacity_outlined,
+                  label: 'Dosis:',
+                  value: treatment['dosis']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.update_outlined,
+                  label: 'Frecuencia:',
+                  value: treatment['frecuencia_aplicacion']
+                ),
+                if (treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
+                  _buildTreatmentDetailRow(
+                    icon: Icons.edit_note_outlined,
+                    label: 'Notas:',
+                    value: treatment['notas_adicionales'],
+                    isNote: true,
+                  ),
+              ],
             ),
           ),
         ),
@@ -328,61 +444,29 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     );
   }
 
-  Widget _buildGlassCard({required Widget child}) {
+  Widget _buildTreatmentDetailRow({required IconData icon, required String label, required String? value, bool isNote = false}) {
     final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-        child: Container(
-          padding: const EdgeInsets.all(32.0),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildTratamientoDetailsCard() {
-    final theme = Theme.of(context);
-    final tratamiento = _selectedTratamiento!;
-    return _buildGlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            tratamiento.nombreComercial,
-            style: theme.textTheme.headlineMedium,
-          ),
-          Divider(height: 30, thickness: 1, color: theme.dividerColor),
-          _buildDetailRow('Ingrediente Activo:', tratamiento.ingredienteActivo),
-          _buildDetailRow('Tipo de Tratamiento:', tratamiento.tipoTratamiento),
-          _buildDetailRow('Dosis Recomendada:', '${tratamiento.dosis} ${tratamiento.unidadMedida}'),
-          if (tratamiento.periodoCarencia != null && tratamiento.periodoCarencia!.isNotEmpty)
-            _buildDetailRow('Periodo de Carencia:', '${tratamiento.periodoCarencia!} días'),
-        ],
-      ),
-    );
-  }
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
 
-  Widget _buildDetailRow(String label, String value) {
-    if (value.trim().isEmpty || value.trim() == "0.0") return const SizedBox.shrink();
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: RichText(
-        text: TextSpan(
-          style: theme.textTheme.bodyMedium,
-          children: <TextSpan>[
-            TextSpan(text: '$label\n', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            TextSpan(text: value),
-          ],
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: isNote ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.4),
+                children: [
+                  TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

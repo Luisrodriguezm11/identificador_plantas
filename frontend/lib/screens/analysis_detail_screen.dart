@@ -2,10 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter/services.dart'; // <-- IMPORTANTE: Para cargar fuentes en el PDF
 import 'package:frontend/services/detection_service.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
+import 'package:frontend/config/app_theme.dart';
+import 'package:http/http.dart' as http;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
 
 class AnalysisDetailScreen extends StatefulWidget {
   final Map<String, dynamic> analysis;
@@ -25,20 +31,17 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   int _currentPage = 0;
 
   bool _isAdmin = false;
-
-  // --- ✨ CORRECCIÓN: El color puede ser nulo al inicio ---
   Color? _dominantColor;
   bool _isColorLoading = true;
   bool _isDetailsLoading = true;
-  String _diseaseInfo = '';
+  
+  Map<String, dynamic> _diseaseInfo = {}; 
   List<dynamic> _recommendationsList = [];
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // No se llama _loadInitialData aquí directamente para asegurar que el `context` esté disponible.
-    // `didChangeDependencies` es un lugar más seguro para operaciones que dependen del `context` como el tema.
     _setupImages();
     _checkAdminStatus();
     _fetchDiseaseDetails();
@@ -46,29 +49,16 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     _pageController.addListener(() {
       final newPage = _pageController.page?.round();
       if (newPage != null && newPage != _currentPage) {
-        setState(() {
-          _currentPage = newPage;
-        });
+        setState(() => _currentPage = newPage);
       }
     });
   }
 
-  // --- ✨ CORRECCIÓN: Usamos didChangeDependencies para cargar el color ---
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_dominantColor == null) { // Solo se ejecuta la primera vez
+    if (_dominantColor == null) {
       _updateDominantColor();
-    }
-  }
-
-
-  Future<void> _checkAdminStatus() async {
-    final isAdmin = await _authService.isAdmin();
-    if (mounted) {
-      setState(() {
-        _isAdmin = isAdmin;
-      });
     }
   }
 
@@ -78,32 +68,217 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     super.dispose();
   }
 
+  // --- 👇 FUNCIÓN DE PDF COMPLETAMENTE ACTUALIZADA 👇 ---
+  Future<void> _exportToPdf() async {
+    final pdf = pw.Document();
+    final imageUrl = _imageUrls.first;
+
+    // --- Carga de recursos (imagen y fuentes) ---
+    final imageResponse = await http.get(Uri.parse(imageUrl));
+    final imageBytes = imageResponse.bodyBytes;
+    final image = pw.MemoryImage(imageBytes);
+
+    final font = pw.Font.ttf(await rootBundle.load("assets/fonts/Lato-Regular.ttf"));
+    final boldFont = pw.Font.ttf(await rootBundle.load("assets/fonts/Lato-Bold.ttf"));
+    
+    final theme = pw.ThemeData.withFont(base: font, bold: boldFont);
+
+    // --- Formateo de datos ---
+    final fecha = DateTime.parse(widget.analysis['fecha_analisis']);
+    final formattedDate = DateFormat('dd/MM/yyyy, hh:mm a').format(fecha);
+    
+    final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
+    final confidence = (confidenceValue as num).toDouble();
+    final formattedConfidence = "${(confidence * 100).toStringAsFixed(1)}%";
+
+    final prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
+    final formattedPrediction = _formatPredictionName(prediction);
+
+    // --- Extracción de la nueva información enriquecida ---
+    final symptoms = _diseaseInfo['sintomas_clave'] as String? ?? '';
+    final affectedParts = _diseaseInfo['partes_afectadas'] as String? ?? '';
+    final impact = _diseaseInfo['impacto'] as String? ?? '';
+    final conditions = _diseaseInfo['condiciones_favorables'] as String? ?? '';
+    final description = _diseaseInfo['descripcion'] as String? ?? 'No disponible.';
+    final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+
+    // --- Construcción del documento PDF ---
+    pdf.addPage(
+      pw.MultiPage(
+        theme: theme,
+        pageFormat: PdfPageFormat.a4,
+        header: (context) => _buildPdfHeader(formattedDate),
+        footer: (context) => _buildPdfFooter(context),
+        build: (context) => [
+          // --- Sección Principal del Diagnóstico ---
+          pw.Header(
+            level: 1,
+            text: formattedPrediction,
+            textStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 28, color: PdfColors.black),
+          ),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Diagnóstico de Cultivo', style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 14)),
+              pw.Text('Confianza de la IA: $formattedConfidence', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey700, fontSize: 14)),
+            ]
+          ),
+          pw.Divider(height: 25),
+
+          // --- Sección de Síntomas e Imagen ---
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                flex: 2,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _buildPdfSectionTitle('Síntomas Clave'),
+                    pw.Wrap(
+                      spacing: 5,
+                      runSpacing: 5,
+                      children: symptomsList.map((symptom) => _buildPdfSymptomChip(symptom)).toList(),
+                    ),
+                    pw.SizedBox(height: 20),
+                    _buildPdfInfoCard('Partes Afectadas', affectedParts),
+                    pw.SizedBox(height: 10),
+                    _buildPdfInfoCard('Impacto en Cultivo', impact),
+                    pw.SizedBox(height: 10),
+                    _buildPdfInfoCard('Condiciones Favorables', conditions),
+                  ]
+                )
+              ),
+              pw.SizedBox(width: 20),
+              pw.Expanded(
+                flex: 3,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                     _buildPdfSectionTitle('Imagen Analizada'),
+                     pw.Container(
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.grey300),
+                          borderRadius: pw.BorderRadius.circular(8)
+                        ),
+                        padding: const pw.EdgeInsets.all(5),
+                        height: 250,
+                        child: pw.Image(image, fit: pw.BoxFit.contain)
+                     ),
+                     pw.SizedBox(height: 20),
+                     _buildPdfSectionTitle('Descripción General'),
+                     pw.Paragraph(text: description, style: const pw.TextStyle(fontSize: 11, lineSpacing: 4))
+                  ]
+                )
+              ),
+            ]
+          ),
+          pw.SizedBox(height: 20),
+
+          // --- Sección de Tratamientos ---
+          if (_recommendationsList.isNotEmpty) ...[
+            pw.Header(level: 2, text: 'Tratamientos Recomendados'),
+            ..._recommendationsList.map((treatment) {
+              return pw.Container(
+                margin: const pw.EdgeInsets.only(bottom: 15),
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(5),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(treatment['nombre_comercial'] ?? 'Sin nombre', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                    pw.Divider(height: 10, color: PdfColors.grey400),
+                    pw.Text('Ingrediente Activo: ${treatment['ingrediente_activo'] ?? 'N/A'}'),
+                    pw.Text('Tipo: ${treatment['tipo_tratamiento'] ?? 'N/A'}'),
+                    pw.Text('Dosis: ${treatment['dosis'] ?? 'N/A'}'),
+                    pw.Text('Frecuencia: ${treatment['frecuencia_aplicacion'] ?? 'N/A'}'),
+                    if(treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
+                      pw.Text('Notas: ${treatment['notas_adicionales']}'),
+                  ]
+                )
+              );
+            }).toList(),
+          ]
+        ],
+      ),
+    );
+
+    await Printing.sharePdf(bytes: await pdf.save(), filename: 'reporte-analisis-$formattedPrediction.pdf');
+  }
+
+  // --- 👇 WIDGETS HELPER PARA EL NUEVO DISEÑO DEL PDF 👇 ---
+  pw.Widget _buildPdfHeader(String date) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text('Reporte de Análisis', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18)),
+        pw.Text(date, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+      ]
+    );
+  }
+
+  pw.Widget _buildPdfFooter(pw.Context context) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.center,
+      children: [
+        pw.Text('Generado por Identificador de Plagas - Página ${context.pageNumber}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+      ]
+    );
+  }
+
+  pw.Widget _buildPdfSectionTitle(String title) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, color: PdfColors.blueGrey800)),
+    );
+  }
+
+  pw.Widget _buildPdfSymptomChip(String label) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: PdfColors.blueGrey50,
+        borderRadius: pw.BorderRadius.circular(12),
+      ),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: pw.Text(label, style: const pw.TextStyle(fontSize: 9, color: PdfColors.blueGrey800)),
+    );
+  }
+
+  pw.Widget _buildPdfInfoCard(String title, String content) {
+    if (content.isEmpty) return pw.SizedBox.shrink();
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(title, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+        pw.Text(content, style: const pw.TextStyle(fontSize: 10)),
+      ]
+    );
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) setState(() => _isAdmin = isAdmin);
+  }
+
   void _setupImages() {
     final frontImageUrl = widget.analysis['url_imagen'];
     final backImageUrl = widget.analysis['url_imagen_reverso'];
-
-    if (frontImageUrl != null) {
-      _imageUrls.add(frontImageUrl);
-    }
-    if (backImageUrl != null) {
-      _imageUrls.add(backImageUrl);
-    }
+    if (frontImageUrl != null) _imageUrls.add(frontImageUrl);
+    if (backImageUrl != null) _imageUrls.add(backImageUrl);
   }
 
   Future<void> _updateDominantColor() async {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final defaultColor = isDark ? AppColorsDark.surface.withOpacity(0.6) : AppColorsLight.surface.withOpacity(0.8);
-
     if (_imageUrls.isEmpty) {
       if(mounted) setState(() { _dominantColor = defaultColor; _isColorLoading = false; });
       return;
     }
     try {
-      final PaletteGenerator paletteGenerator =
-          await PaletteGenerator.fromImageProvider(
-        NetworkImage(_imageUrls.first),
-        size: const Size(200, 200),
-      );
+      final PaletteGenerator paletteGenerator = await PaletteGenerator.fromImageProvider(NetworkImage(_imageUrls.first), size: const Size(200, 200));
       if (mounted) {
         setState(() {
           _dominantColor = (paletteGenerator.dominantColor?.color ?? defaultColor).withOpacity(isDark ? 0.6 : 0.8);
@@ -111,23 +286,14 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _dominantColor = defaultColor;
-          _isColorLoading = false;
-        });
-      }
+      if (mounted) setState(() { _dominantColor = defaultColor; _isColorLoading = false; });
     }
   }
 
   String _formatPredictionName(String originalName) {
-    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
-      return 'Hoja Sana';
-    }
+    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') return 'Hoja Sana';
     String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
-    if (formattedName.isEmpty) {
-      return 'Desconocido';
-    }
+    if (formattedName.isEmpty) return 'Desconocido';
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
@@ -142,14 +308,8 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         title: const Text('Confirmar Borrado'),
         content: const Text('¿Enviar este análisis a la papelera?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Enviar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text('Enviar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger))),
         ],
       ),
     );
@@ -157,55 +317,31 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     if (confirmed != true) return;
 
     try {
-      bool success;
-      if (_isAdmin) {
-        success = await _detectionService.adminDeleteHistoryItem(analysisId);
-      } else {
-        success = await _detectionService.deleteHistoryItem(analysisId);
-      }
-      
+      bool success = _isAdmin ? await _detectionService.adminDeleteHistoryItem(analysisId) : await _detectionService.deleteHistoryItem(analysisId);
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Análisis enviado a la papelera'),
-            backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Análisis enviado a la papelera'), backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success));
         Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger));
       }
     }
   }
-  
+
   Future<void> _fetchDiseaseDetails() async {
     try {
-      final String diseaseName =
-          widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
+      final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
       final details = await _detectionService.getDiseaseDetails(diseaseName);
-
       if (mounted) {
         setState(() {
-          _diseaseInfo =
-              details['info']['descripcion'] ?? 'No hay descripción disponible.';
-          _recommendationsList = details['recommendations'];
+          _diseaseInfo = details['info'] ?? {};
+          _recommendationsList = details['recommendations'] ?? [];
           _isDetailsLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = "Error al cargar detalles: ${e.toString()}";
-          _isDetailsLoading = false;
-        });
-      }
+      if (mounted) setState(() { _errorMessage = "Error al cargar detalles: ${e.toString()}"; _isDetailsLoading = false; });
     }
   }
 
@@ -213,14 +349,9 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    
-    final confidenceValue =
-        widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
+    final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
     final double confidence = (confidenceValue as num).toDouble();
-
-    final String prediction = widget.analysis['prediction'] ??
-        widget.analysis['resultado_prediccion'] ??
-        "Análisis no disponible";
+    final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
 
     return Center(
       child: ClipRRect(
@@ -229,7 +360,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
             width: MediaQuery.of(context).size.width * 0.75,
-            height: MediaQuery.of(context).size.height * 0.8,
+            height: MediaQuery.of(context).size.height * 0.85,
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(24.0),
@@ -237,30 +368,14 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             ),
             child: Row(
               children: [
-                Expanded(
-                  flex: 2,
-                  child: _buildImageCarousel(),
-                ),
+                Expanded(flex: 2, child: _buildImageCarousel()),
                 Expanded(
                   flex: 3,
-                  child: Stack(
-                    children: [
-                      // --- ✨ CORRECCIÓN: Se usa un AnimatedSwitcher para la transición ---
-                      AnimatedSwitcher(
-                        duration: const Duration(seconds: 1),
-                        child: _isColorLoading
-                            ? Container( // Estado de carga inicial
-                                key: const ValueKey('loading'),
-                                color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5),
-                                child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
-                              )
-                            : Container( // Contenido ya cargado
-                                key: const ValueKey('loaded'),
-                                color: _dominantColor,
-                                child: _buildDetailsSection(prediction, confidence),
-                              ),
-                      ),
-                    ],
+                  child: AnimatedSwitcher(
+                    duration: const Duration(seconds: 1),
+                    child: _isColorLoading
+                        ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
+                        : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
                   ),
                 ),
               ],
@@ -279,33 +394,15 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
           PageView.builder(
             controller: _pageController,
             itemCount: _imageUrls.length,
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: NetworkImage(_imageUrls[index]),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              );
-            },
+            itemBuilder: (context, index) => Container(decoration: BoxDecoration(image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))),
           )
         else
           const Center(child: Text("Imagen no disponible", style: TextStyle(color: Colors.white))),
 
         if (_imageUrls.length > 1) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _buildCarouselArrow(isLeft: true),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: _buildCarouselArrow(isLeft: false),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _buildPageIndicator(),
-          ),
+          Align(alignment: Alignment.centerLeft, child: _buildCarouselArrow(isLeft: true)),
+          Align(alignment: Alignment.centerRight, child: _buildCarouselArrow(isLeft: false)),
+          Align(alignment: Alignment.bottomCenter, child: _buildPageIndicator()),
         ],
       ],
     );
@@ -318,11 +415,8 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       child: IconButton(
         icon: Icon(isLeft ? Icons.arrow_back_ios_new : Icons.arrow_forward_ios, color: Colors.white),
         onPressed: () {
-          if (isLeft) {
-            _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-          } else {
-            _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-          }
+          if (isLeft) _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+          else _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
         },
       ),
     );
@@ -333,30 +427,25 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(_imageUrls.length, (index) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-            height: 8.0,
-            width: _currentPage == index ? 24.0 : 8.0,
-            decoration: BoxDecoration(
-              color: _currentPage == index ? Colors.white : Colors.white54,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          );
-        }),
+        children: List.generate(_imageUrls.length, (index) => AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          height: 8.0,
+          width: _currentPage == index ? 24.0 : 8.0,
+          decoration: BoxDecoration(color: _currentPage == index ? Colors.white : Colors.white54, borderRadius: BorderRadius.circular(12)),
+        )),
       ),
     );
   }
   
   Widget _buildDetailsSection(String prediction, double confidence) {
     final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -368,50 +457,32 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       Text(
-                        _formatPredictionName(prediction),
-                        style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
-                      ),
+                       Text(_formatPredictionName(prediction), style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)])),
                       const SizedBox(height: 8),
-                      Text(
-                        "Confianza del ${(confidence * 100).toStringAsFixed(1)}%",
-                        style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8)),
-                      ),
+                      Text("Confianza del ${(confidence * 100).toStringAsFixed(1)}%", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8))),
                     ],
                   ),
                 ),
                 Row(
                   children: [
-                     _buildActionButton(
-                      icon: Icons.delete_outline,
-                      color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
-                      tooltip: 'Enviar a la papelera',
-                      onPressed: _deleteItem,
-                    ),
+                    _buildActionButton(icon: Icons.picture_as_pdf_outlined, color: Colors.green.shade400, tooltip: 'Exportar a PDF', onPressed: _exportToPdf),
                     const SizedBox(width: 12),
-                    _buildActionButton(
-                      icon: Icons.close,
-                      color: Colors.grey.shade600,
-                      tooltip: 'Cerrar',
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                    _buildActionButton(icon: Icons.delete_outline, color: isDark ? AppColorsDark.danger : AppColorsLight.danger, tooltip: 'Enviar a la papelera', onPressed: _deleteItem),
+                    const SizedBox(width: 12),
+                    _buildActionButton(icon: Icons.close, color: Colors.grey.shade600, tooltip: 'Cerrar', onPressed: () => Navigator.of(context).pop()),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             const TabBar(
               indicatorColor: Colors.white,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
               labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              indicatorSize: TabBarIndicatorSize.tab,
-              tabs: [
-                Tab(text: 'INFORMACIÓN'),
-                Tab(text: 'TRATAMIENTOS'),
-              ],
+              tabs: [Tab(text: 'DIAGNÓSTICO'), Tab(text: 'TRATAMIENTOS')],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Expanded(
               child: _isDetailsLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -419,9 +490,7 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                       ? Center(child: Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error)))
                       : TabBarView(
                           children: [
-                            SingleChildScrollView(
-                              child: Text(_diseaseInfo, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white, height: 1.5)),
-                            ),
+                            _buildDiagnosticTab(),
                             _buildRecommendationsTab(),
                           ],
                         ),
@@ -432,25 +501,118 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     );
   }
 
+  Widget _buildDiagnosticTab() {
+    final theme = Theme.of(context);
+    
+    final symptoms = _diseaseInfo['sintomas_clave'] as String? ?? '';
+    final affectedParts = _diseaseInfo['partes_afectadas'] as String? ?? '';
+    final impact = _diseaseInfo['impacto'] as String? ?? '';
+    final conditions = _diseaseInfo['condiciones_favorables'] as String? ?? '';
+
+    final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+    final affectedPartsList = affectedParts.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (symptomsList.isNotEmpty) ...[
+            Text("Síntomas Clave", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: symptomsList.map((symptom) => _buildSymptomChip(symptom)).toList(),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 2.2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            children: [
+              if (affectedPartsList.isNotEmpty)
+                _buildInfoCard(
+                  icon: Icons.filter_vintage_outlined,
+                  title: "Partes Afectadas",
+                  content: affectedPartsList.join('\n'),
+                ),
+              if (impact.isNotEmpty)
+                _buildInfoCard(
+                  icon: Icons.trending_down_rounded,
+                  title: "Impacto en Cultivo",
+                  content: impact,
+                ),
+              if (conditions.isNotEmpty)
+                 _buildInfoCard(
+                  icon: Icons.cloudy_snowing,
+                  title: "Condiciones Favorables",
+                  content: conditions,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSymptomChip(String label) {
+    return Chip(
+      label: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      backgroundColor: Colors.black.withOpacity(0.25),
+      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+  }
+  
+  Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
+    final theme = Theme.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: Colors.white70, size: 20),
+                  const SizedBox(width: 8),
+                  Text(title, style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const Spacer(),
+              Text(content, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRecommendationsTab() {
     final theme = Theme.of(context);
     return _recommendationsList.isEmpty
-        ? Center(
-            child: Text(
-              "No hay tratamientos registrados para esta condición.",
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-            ),
-          )
+        ? Center(child: Text("No hay tratamientos registrados para esta condición.", style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70)))
         : ListView.builder(
             itemCount: _recommendationsList.length,
-            itemBuilder: (context, index) {
-              final treatment = _recommendationsList[index];
-              return _buildTreatmentCard(treatment);
-            },
+            itemBuilder: (context, index) => _buildTreatmentCard(_recommendationsList[index]),
           );
   }
 
-  Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
+Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -463,25 +625,74 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.2),
               borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: Colors.white.withOpacity(0.1))
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   treatment['nombre_comercial'] ?? 'Sin nombre',
-                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)
                 ),
                 const Divider(color: Colors.white30, height: 24),
-                _buildInfoRow('Ingrediente Activo:', treatment['ingrediente_activo']),
-                _buildInfoRow('Tipo:', treatment['tipo_tratamiento']),
-                _buildInfoRow('Dosis:', treatment['dosis']),
-                _buildInfoRow('Frecuencia:', treatment['frecuencia_aplicacion']),
-                _buildInfoRow('Notas:', treatment['notas_adicionales']),
+                _buildTreatmentDetailRow(
+                  icon: Icons.science_outlined,
+                  label: 'Ingrediente Activo:',
+                  value: treatment['ingrediente_activo']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.category_outlined,
+                  label: 'Tipo:',
+                  value: treatment['tipo_tratamiento']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.opacity_outlined,
+                  label: 'Dosis:',
+                  value: treatment['dosis']
+                ),
+                _buildTreatmentDetailRow(
+                  icon: Icons.update_outlined,
+                  label: 'Frecuencia:',
+                  value: treatment['frecuencia_aplicacion']
+                ),
+                if (treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
+                  _buildTreatmentDetailRow(
+                    icon: Icons.edit_note_outlined,
+                    label: 'Notas:',
+                    value: treatment['notas_adicionales'],
+                    isNote: true,
+                  ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTreatmentDetailRow({required IconData icon, required String label, required String? value, bool isNote = false}) {
+    final theme = Theme.of(context);
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        crossAxisAlignment: isNote ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.4),
+                children: [
+                  TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
