@@ -386,6 +386,37 @@ Future<List<dynamic>> getAdminAllDiseases() async {
     }
   }
 
+// --- NUEVO MÉTODO PARA ACTUALIZAR DETALLES DE ENFERMEDAD ---
+  Future<bool> updateDiseaseDetails(int diseaseId, Map<String, dynamic> diseaseData) async {
+    final token = await _authService.readToken();
+    if (token == null) {
+      throw Exception('Usuario no autenticado');
+    }
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/admin/disease/$diseaseId'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'x-access-token': token,
+        },
+        body: jsonEncode(diseaseData),
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        return true; // Éxito
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al actualizar la enfermedad: ${body['error']}');
+      }
+    } on TimeoutException {
+      throw Exception('El servidor tardó demasiado en responder.');
+    } catch (e) {
+      // Re-lanzamos la excepción para que la UI pueda manejarla
+      throw Exception('No se pudo completar la operación de actualización: $e');
+    }
+  }  
+
 Future<List<dynamic>> getUsersWithAnalyses() async {
     final token = await _authService.readToken();
     final response = await http.get(

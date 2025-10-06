@@ -715,6 +715,109 @@ def get_all_diseases(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- NUEVO ENDPOINT PARA ACTUALIZAR UNA ENFERMEDAD ---
+@app.route('/admin/disease/<int:disease_id>', methods=['PUT'])
+@admin_required
+def update_disease_details(current_user_id, disease_id):
+    """
+    Permite a un administrador actualizar los detalles de una enfermedad,
+    incluyendo su imagen, tipo, prevención y riesgo.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No se recibieron datos para actualizar"}), 400
+
+    # Campos que se pueden actualizar
+    imagen_url = data.get('imagen_url')
+    tipo = data.get('tipo')
+    prevencion = data.get('prevencion')
+    riesgo = data.get('riesgo')
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # Construimos la consulta dinámicamente para solo actualizar los campos que se envían
+        query_parts = []
+        params = []
+        if imagen_url is not None:
+            query_parts.append("imagen_url = %s")
+            params.append(imagen_url)
+        if tipo is not None:
+            query_parts.append("tipo = %s")
+            params.append(tipo)
+        if prevencion is not None:
+            query_parts.append("prevencion = %s")
+            params.append(prevencion)
+        if riesgo is not None:
+            query_parts.append("riesgo = %s")
+            params.append(riesgo)
+
+        if not query_parts:
+            return jsonify({"error": "No se enviaron campos válidos para actualizar"}), 400
+
+        params.append(disease_id)
+        
+        query = f"UPDATE enfermedades SET {', '.join(query_parts)} WHERE id_enfermedad = %s RETURNING *;"
+        
+        cur.execute(query, tuple(params))
+        
+        updated_disease = cur.fetchone()
+        
+        if updated_disease is None:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Enfermedad no encontrada"}), 404
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify(dict(updated_disease)), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al actualizar la enfermedad: {str(e)}"}), 500
+
+# --- NUEVO ENDPOINT PARA BORRAR UNA IMAGEN DE FIREBASE STORAGE ---
+@app.route('/admin/storage/delete', methods=['POST'])
+@admin_required
+def delete_from_storage(current_user_id):
+    """
+    Recibe una URL de Firebase Storage y elimina el archivo correspondiente.
+    """
+    data = request.get_json()
+    image_url = data.get('image_url')
+
+    if not image_url:
+        return jsonify({"error": "No se proporcionó URL de la imagen"}), 400
+
+    try:
+        # Extraemos la ruta del archivo desde la URL de Firebase
+        # La ruta está después de '/o/' y antes del '?'
+        path_part = image_url.split('?')[0]
+        file_path = path_part.split('/o/')[-1].replace('%2F', '/')
+        
+        # Obtenemos el bucket de Firebase
+        bucket = storage.bucket()
+        blob = bucket.blob(file_path)
+
+        # Verificamos si el archivo existe y lo borramos
+        if blob.exists():
+            blob.delete()
+            print(f"Imagen {file_path} borrada permanentemente de Firebase Storage por un admin.")
+            return jsonify({"message": "Imagen eliminada exitosamente de Firebase Storage"}), 200
+        else:
+            print(f"ADVERTENCIA: Se intentó borrar la imagen {file_path} pero no se encontró en Firebase.")
+            # Devolvemos éxito aunque no existiera para no bloquear el frontend
+            return jsonify({"message": "La imagen no fue encontrada en Firebase, posiblemente ya fue borrada."}), 200
+
+    except Exception as e:
+        print(f"ERROR: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
+        # Es importante no devolver un error 500 para que la app pueda continuar
+        # actualizando la base de datos aunque el borrado del archivo falle.
+        return jsonify({"error": f"Ocurrió un error al intentar borrar la imagen de Firebase: {str(e)}"}), 500
+
+
 # Endpoint para AÑADIR una nueva recomendación a una enfermedad
 @app.route('/admin/treatments', methods=['POST'])
 @admin_required

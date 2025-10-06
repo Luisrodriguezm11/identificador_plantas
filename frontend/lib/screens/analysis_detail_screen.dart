@@ -697,22 +697,6 @@ Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     );
   }
 
-  Widget _buildInfoRow(String label, String? value) {
-    final theme = Theme.of(context);
-    if (value == null || value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: RichText(
-        text: TextSpan(
-          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.4),
-          children: [
-            TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            TextSpan(text: value),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     return ClipRRect(

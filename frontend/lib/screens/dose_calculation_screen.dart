@@ -13,6 +13,7 @@ import 'package:frontend/services/treatment_service.dart';
 import 'dart:ui';
 import 'package:frontend/config/app_theme.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -105,10 +106,180 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     }
   }
 
-  Future<void> _exportToPdf() async {
-    // Esta función ya está preparada para usar la nueva información
-    // que se carga en _pestDetails, por lo que no necesita cambios.
+// frontend/lib/screens/dose_calculation_screen.dart
+
+Future<void> _exportToPdf() async {
+  if (_selectedEnfermedad == null || _pestDetails.isEmpty) {
+    // Muestra un mensaje si no hay nada seleccionado para exportar
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Por favor, selecciona una enfermedad para exportar su ficha.'),
+      backgroundColor: Colors.orange,
+    ));
+    return;
   }
+
+  final pdf = pw.Document();
+
+  // --- Carga de recursos (imagen y fuentes) ---
+  final imageUrl = _selectedEnfermedad!.imagenUrl;
+  pw.MemoryImage? image;
+  if (imageUrl != null && imageUrl.isNotEmpty) {
+    try {
+      final imageResponse = await http.get(Uri.parse(imageUrl));
+      image = pw.MemoryImage(imageResponse.bodyBytes);
+    } catch (e) {
+      print("Error al descargar la imagen para el PDF: $e");
+    }
+  }
+
+  final font = pw.Font.ttf(await rootBundle.load("assets/fonts/Lato-Regular.ttf"));
+  final boldFont = pw.Font.ttf(await rootBundle.load("assets/fonts/Lato-Bold.ttf"));
+
+  final theme = pw.ThemeData.withFont(base: font, bold: boldFont);
+
+  // --- Formateo de datos ---
+  final enfermedad = _selectedEnfermedad!;
+  final info = _pestDetails['info'] ?? {};
+  final recommendations = _pestDetails['recommendations'] as List? ?? [];
+
+  final tipo = info['tipo'] as String? ?? 'No especificado';
+  final prevencion = info['prevencion'] as String? ?? 'No hay datos de prevención.';
+  final riesgo = info['riesgo'] as String? ?? 'No hay datos de riesgo.';
+  final descripcion = info['descripcion'] as String? ?? 'No hay descripción disponible.';
+
+  // --- Construcción del documento PDF ---
+  pdf.addPage(
+    pw.MultiPage(
+      theme: theme,
+      pageFormat: PdfPageFormat.a4,
+      header: (context) => pw.Header(
+        level: 0,
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('Ficha Técnica de Enfermedad', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 18)),
+            pw.Text(DateFormat('dd/MM/yyyy').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+          ]
+        )
+      ),
+      footer: (context) => pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text('Generado por Identificador de Plagas - Página ${context.pageNumber}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+        ]
+      ),
+      build: (context) => [
+        // --- Sección Principal ---
+        pw.Header(
+          level: 1,
+          text: enfermedad.nombreComun,
+          textStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 28, color: PdfColors.black),
+        ),
+        pw.Text('Clase Roboflow: ${enfermedad.roboflowClass}', style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 12)),
+        pw.Divider(height: 25),
+
+        // --- Sección de detalles e imagen ---
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              flex: 3,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (image != null)
+                    pw.Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey300),
+                        borderRadius: pw.BorderRadius.circular(8)
+                      ),
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Image(image, fit: pw.BoxFit.contain)
+                    ),
+                  if (image == null)
+                    pw.Container(
+                       height: 200,
+                       width: double.infinity,
+                       alignment: pw.Alignment.center,
+                       child: pw.Text("Imagen no disponible", style: const pw.TextStyle(color: PdfColors.grey))
+                    ),
+                  pw.SizedBox(height: 20),
+                  pw.Header(level: 3, text: 'Descripción General'),
+                  pw.Paragraph(text: descripcion, style: const pw.TextStyle(fontSize: 11, lineSpacing: 4))
+                ]
+              )
+            ),
+            pw.SizedBox(width: 20),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Header(level: 3, text: 'Información Clave'),
+                  pw.SizedBox(height: 10),
+                  _buildPdfInfoCard(title: 'Tipo de Afección', content: tipo, boldFont: boldFont),
+                  _buildPdfInfoCard(title: 'Prevención', content: prevencion, boldFont: boldFont),
+                  _buildPdfInfoCard(title: 'Época de Mayor Riesgo', content: riesgo, boldFont: boldFont),
+                ]
+              )
+            ),
+          ]
+        ),
+        pw.SizedBox(height: 20),
+
+        // --- Sección de Tratamientos ---
+        if (recommendations.isNotEmpty) ...[
+          pw.Header(level: 2, text: 'Tratamientos Recomendados'),
+          ...recommendations.map((treatment) {
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 15),
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(treatment['nombre_comercial'] ?? 'Sin nombre', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                  pw.Divider(height: 10, color: PdfColors.grey400),
+                  pw.Text('Ingrediente Activo: ${treatment['ingrediente_activo'] ?? 'N/A'}'),
+                  pw.Text('Tipo: ${treatment['tipo_tratamiento'] ?? 'N/A'}'),
+                  pw.Text('Dosis: ${treatment['dosis'] ?? 'N/A'}'),
+                  pw.Text('Frecuencia: ${treatment['frecuencia_aplicacion'] ?? 'N/A'}'),
+                  if(treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
+                    pw.Text('Notas: ${treatment['notas_adicionales']}'),
+                ]
+              )
+            );
+          }).toList(),
+        ]
+      ],
+    ),
+  );
+
+  // --- Compartir el PDF generado ---
+  await Printing.sharePdf(bytes: await pdf.save(), filename: 'ficha-${enfermedad.nombreComun.replaceAll(' ', '_')}.pdf');
+}
+
+
+// --- Widgets de ayuda para el PDF ---
+pw.Widget _buildPdfInfoCard({required String title, required String content, required pw.Font boldFont}) {
+  if (content.isEmpty) return pw.SizedBox.shrink();
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 12),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(title, style: pw.TextStyle(font: boldFont, fontSize: 12)),
+        pw.SizedBox(height: 4),
+        pw.Text(content, style: const pw.TextStyle(fontSize: 10)),
+      ]
+    )
+  );
+}
 
   void _onNavItemTapped(int index) {
     switch (index) {
@@ -302,7 +473,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
     final tipo = info['tipo'] as String? ?? 'No especificado';
     final prevencion = info['prevencion'] as String? ?? 'No hay datos de prevención.';
     final riesgo = info['riesgo'] as String? ?? 'No hay datos de riesgo.';
-    final descripcion = info['descripcion'] as String? ?? 'No hay descripción disponible.';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(48, 24, 48, 48),
