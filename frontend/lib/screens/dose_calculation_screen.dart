@@ -310,8 +310,13 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
     );
   }
 
+// frontend/lib/screens/dose_calculation_screen.dart
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: TopNavigationBar(
@@ -322,22 +327,61 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
       ),
       extendBodyBehindAppBar: true,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(height: kToolbarHeight + 40),
           _buildHeaderSection(),
-          const SizedBox(height: 24),
-          _buildDiseasesCarousel(),
-          const SizedBox(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 48.0),
-            child: Divider(thickness: 1),
-          ),
+          // --- 👇 ¡CAMBIO AQUÍ! 👇 ---
+          const SizedBox(height: 5), // Espacio reducido, antes era 24
+          Center(child: _buildDiseasesCarousel()),
+          // El SizedBox que estaba aquí se ha movido dentro de _buildContentSection
           Expanded(
             child: _buildContentSection(),
           ),
         ],
       ),
+      floatingActionButton: _selectedEnfermedad != null
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(28.0),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _exportToPdf,
+                  borderRadius: BorderRadius.circular(28.0),
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondary.withOpacity(isDark ? 0.3 : 0.4),
+                      borderRadius: BorderRadius.circular(28.0),
+                      border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Exportar Ficha",
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : null,
     );
   }
 
@@ -345,34 +389,31 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 48.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center, // Centra los hijos
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Guía de Plagas y Enfermedades', style: theme.textTheme.displaySmall),
-              const SizedBox(height: 8),
-              Text(
-                'Selecciona una afección para ver sus detalles y tratamientos.',
-                style: theme.textTheme.titleMedium?.copyWith(color: theme.textTheme.bodyMedium?.color),
-              ),
-            ],
+          Text(
+            'Guía de Plagas y Enfermedades',
+            textAlign: TextAlign.center, // Asegura el centrado del texto
+            style: theme.textTheme.displayLarge?.copyWith(fontSize: 52), // Estilo grande y ancho
           ),
-          if (_selectedEnfermedad != null)
-            ElevatedButton.icon(
-              onPressed: _exportToPdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              label: const Text('Exportar Ficha'),
-              style: AppTheme.accentButtonStyle(context),
+          const SizedBox(height: 16),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Text(
+              'Selecciona una afección para ver sus detalles y tratamientos.',
+              textAlign: TextAlign.center, // Centra el subtítulo
+              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
+            ),  
             ),
         ],
       ),
     );
   }
 
-  Widget _buildDiseasesCarousel() {
+// frontend/lib/screens/dose_calculation_screen.dart
+
+Widget _buildDiseasesCarousel() {
     if (_isLoadingEnfermedades) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -380,43 +421,55 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
       return Center(child: Text(_errorMessage!));
     }
 
-    return SizedBox(
-      height: 180,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _enfermedades.length,
-        padding: const EdgeInsets.symmetric(horizontal: 48.0),
-        itemBuilder: (context, index) {
-          final enfermedad = _enfermedades[index];
+    // --- 👇 ¡LÓGICA ACTUALIZADA PARA MOSTRAR TARJETAS ESTÁTICAS! 👇 ---
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 48.0),
+      child: Wrap(
+        // Centra las tarjetas en el espacio disponible
+        alignment: WrapAlignment.center,
+        // Espacio horizontal entre tarjetas
+        spacing: 20,
+        // Espacio vertical si las tarjetas pasan a la siguiente línea
+        runSpacing: 20,
+        children: _enfermedades.map((enfermedad) {
           final isSelected = _selectedEnfermedad?.id == enfermedad.id;
           return _buildDiseaseCard(enfermedad, isSelected);
-        },
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildDiseaseCard(Enfermedad enfermedad, bool isSelected) {
+// frontend/lib/screens/dose_calculation_screen.dart
+
+// frontend/lib/screens/dose_calculation_screen.dart
+
+Widget _buildDiseaseCard(Enfermedad enfermedad, bool isSelected) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(right: 20),
+    
+    // --- 👇 ¡CORRECCIÓN DEFINITIVA AQUÍ! 👇 ---
+    // Damos un tamaño fijo (ancho y alto) a la tarjeta para que el layout no falle.
+    return SizedBox(
+      width: 280,
+      height: 180, // <- La altura que faltaba
       child: GestureDetector(
         onTap: () => _fetchDetailsForPest(enfermedad),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 280,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: isSelected ? theme.colorScheme.primary : Colors.white.withOpacity(0.2),
               width: isSelected ? 3 : 1.5,
             ),
-            boxShadow: isSelected ? [
-              BoxShadow(
-                color: theme.colorScheme.primary.withOpacity(0.3),
-                blurRadius: 12,
-                spreadRadius: 2,
-              )
-            ] : [],
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.3),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    )
+                  ]
+                : [],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
@@ -424,7 +477,6 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
               fit: StackFit.expand,
               children: [
                 Image.network(
-                  // Asumimos que el modelo `Enfermedad` ahora tiene `imagenUrl`
                   enfermedad.imagenUrl ?? 'https://via.placeholder.com/280x180.png?text=Sin+Imagen',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
@@ -455,8 +507,13 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
       ),
     );
   }
-  
-  Widget _buildContentSection() {
+
+
+// frontend/lib/screens/dose_calculation_screen.dart
+
+// frontend/lib/screens/dose_calculation_screen.dart
+
+Widget _buildContentSection() {
     if (_selectedEnfermedad == null) {
       return _buildEmptyState();
     }
@@ -475,25 +532,53 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
     final riesgo = info['riesgo'] as String? ?? 'No hay datos de riesgo.';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(48, 24, 48, 48),
+      // Eliminamos el padding superior para controlar el espacio desde afuera
+      padding: const EdgeInsets.fromLTRB(48, 0, 48, 48), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+           // Añadimos el SizedBox aquí para un control más preciso
+          const SizedBox(height: 0),
+          GridView.count(
+            crossAxisCount: 3, 
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 4.0,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 20,
             children: [
-              Expanded(flex: 2, child: _buildInfoCard(icon: Icons.bug_report_outlined, title: "Tipo de Afección", content: tipo)),
-              const SizedBox(width: 20),
-              Expanded(flex: 3, child: _buildInfoCard(icon: Icons.shield_outlined, title: "Prevención", content: prevencion)),
-              const SizedBox(width: 20),
-              Expanded(flex: 3, child: _buildInfoCard(icon: Icons.warning_amber_rounded, title: "Época de Mayor Riesgo", content: riesgo)),
+              _buildInfoCard(icon: Icons.bug_report_outlined, title: "Tipo de Afección", content: tipo),
+              _buildInfoCard(icon: Icons.shield_outlined, title: "Prevención", content: prevencion),
+              _buildInfoCard(icon: Icons.warning_amber_rounded, title: "Época de Mayor Riesgo", content: riesgo),
             ],
           ),
-          const SizedBox(height: 32),
-          Text('Tratamientos Recomendados', style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 16),
-          if(recommendations.isNotEmpty)
-            ...recommendations.map((rec) => _buildTreatmentCard(rec)).toList()
+          const SizedBox(height: 24),
+Center(
+  child: Text(
+    'Tratamientos Recomendados',
+    style: Theme.of(context).textTheme.headlineMedium
+  ),
+),
+// --- 👇 ¡CAMBIO AQUÍ! 👇 ---
+// Se eliminó el SizedBox(height: 0)
+if (recommendations.isNotEmpty)
+  Transform.translate(            // <--- WIDGET AÑADIDO
+    offset: const Offset(0, -20),  // <-- Mueve el GridView 10 píxeles hacia arriba
+    child: GridView.builder(       // <-- El GridView ahora es el hijo del Transform
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 500,
+        childAspectRatio: 16 / 11,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+      ),
+      itemCount: recommendations.length,
+      itemBuilder: (context, index) {
+        return _buildTreatmentCard(recommendations[index]);
+      },
+            )
+  )
           else
             const Text("No hay tratamientos registrados para esta condición."),
         ],
@@ -526,29 +611,46 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
 
   Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // 4. ¡CORRECCIÓN! Usamos el diseño de tarjeta con BackdropFilter
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16.0),
+      borderRadius: BorderRadius.circular(24.0),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          height: 150,
-          padding: const EdgeInsets.all(16.0),
+         // --- 👇 ¡CAMBIO AQUÍ! 👇 ---
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Menos padding vertical
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16.0),
+            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(icon, color: theme.iconTheme.color, size: 20),
-                  const SizedBox(width: 8),
-                  Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Icon(icon, color: theme.textTheme.bodyMedium?.color, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Expanded(child: Text(content, style: theme.textTheme.bodyMedium)),
+              const SizedBox(height: 8),
+              Expanded(
+                child: SingleChildScrollView( // Para evitar overflow si el texto es muy largo
+                  child: Text(
+                    content,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -558,56 +660,69 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
   
   Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-          child: Container(
-            padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(color: Colors.white.withOpacity(0.1))
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  treatment['nombre_comercial'] ?? 'Sin nombre',
-                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)
-                ),
-                const Divider(color: Colors.white30, height: 24),
-                _buildTreatmentDetailRow(
-                  icon: Icons.science_outlined,
-                  label: 'Ingrediente Activo:',
-                  value: treatment['ingrediente_activo']
-                ),
-                _buildTreatmentDetailRow(
-                  icon: Icons.category_outlined,
-                  label: 'Tipo:',
-                  value: treatment['tipo_tratamiento']
-                ),
-                _buildTreatmentDetailRow(
-                  icon: Icons.opacity_outlined,
-                  label: 'Dosis:',
-                  value: treatment['dosis']
-                ),
-                _buildTreatmentDetailRow(
-                  icon: Icons.update_outlined,
-                  label: 'Frecuencia:',
-                  value: treatment['frecuencia_aplicacion']
-                ),
-                if (treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
-                  _buildTreatmentDetailRow(
-                    icon: Icons.edit_note_outlined,
-                    label: 'Notas:',
-                    value: treatment['notas_adicionales'],
-                    isNote: true,
+    final isDark = theme.brightness == Brightness.dark;
+
+    // 5. ¡TARJETA COMPLETAMENTE REDISEÑADA!
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                treatment['nombre_comercial'] ?? 'Sin nombre',
+                // 6. ¡CORRECCIÓN! Usamos el color de texto del tema
+                style: theme.textTheme.headlineSmall
+              ),
+              Divider(
+                color: (isDark ? Colors.white : Colors.black).withOpacity(0.2),
+                height: 24
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTreatmentDetailRow(
+                        icon: Icons.science_outlined,
+                        label: 'Ingrediente Activo:',
+                        value: treatment['ingrediente_activo']
+                      ),
+                      _buildTreatmentDetailRow(
+                        icon: Icons.category_outlined,
+                        label: 'Tipo:',
+                        value: treatment['tipo_tratamiento']
+                      ),
+                      _buildTreatmentDetailRow(
+                        icon: Icons.opacity_outlined,
+                        label: 'Dosis:',
+                        value: treatment['dosis']
+                      ),
+                      _buildTreatmentDetailRow(
+                        icon: Icons.update_outlined,
+                        label: 'Frecuencia:',
+                        value: treatment['frecuencia_aplicacion']
+                      ),
+                      if (treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
+                        _buildTreatmentDetailRow(
+                          icon: Icons.edit_note_outlined,
+                          label: 'Notas:',
+                          value: treatment['notas_adicionales'],
+                          isNote: true,
+                        ),
+                    ],
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -623,14 +738,15 @@ pw.Widget _buildPdfInfoCard({required String title, required String content, req
       child: Row(
         crossAxisAlignment: isNote ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white70, size: 20),
+          Icon(icon, color: theme.iconTheme.color?.withOpacity(0.7), size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.4),
+                // 6. ¡CORRECCIÓN! El estilo base viene del tema
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 children: [
-                  TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  TextSpan(text: '$label ', style: const TextStyle(fontWeight: FontWeight.bold)),
                   TextSpan(text: value),
                 ],
               ),
