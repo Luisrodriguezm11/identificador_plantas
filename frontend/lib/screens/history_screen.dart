@@ -15,7 +15,7 @@ import 'trash_screen.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
 import 'detection_screen.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int? highlightedAnalysisId;
@@ -189,7 +189,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
     }
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -226,7 +226,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             ),
           ),
           Positioned(
-            // ... (botón de regreso sin cambios)
             top: kToolbarHeight + 10,
             left: 20,
             child: ClipRRect(
@@ -250,11 +249,8 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               ),
             ),
           ),
-          // El botón "+ Nuevo Análisis" se ha eliminado de aquí.
         ],
       ),
-
-      // --- 👇 AQUÍ ESTÁ EL NUEVO BOTÓN INTEGRADO ---
       floatingActionButton: ClipRRect(
         borderRadius: BorderRadius.circular(28.0),
         child: BackdropFilter(
@@ -305,29 +301,53 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
 
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        // 3. TEXTOS DINÁMICOS
-        Text(
-          'Historial de Análisis',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Text(
-            'Aquí encontrarás todos los diagnósticos que has realizado. Puedes ver los detalles o enviar un análisis a la papelera.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
-          ),
-        ),
-      ],
+    
+    // RESPONSIVE: Usamos LayoutBuilder para adaptar el texto al ancho disponible.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        
+        // Determinamos el tamaño de la fuente basado en el ancho del contenedor.
+        final double titleSize;
+        final double subtitleSize;
+
+        if (constraints.maxWidth > 800) {
+          titleSize = 52; // Tamaño grande para escritorio
+          subtitleSize = 18;
+        } else if (constraints.maxWidth > 500) {
+          titleSize = 42; // Tamaño mediano para tabletas
+          subtitleSize = 17;
+        } else {
+          titleSize = 34; // Tamaño compacto para móviles
+          subtitleSize = 16;
+        }
+
+        return Column(
+          children: [
+            Text(
+              'Historial de Análisis',
+              textAlign: TextAlign.center,
+              // Aplicamos el tamaño de fuente dinámico.
+              style: theme.textTheme.displayLarge?.copyWith(fontSize: titleSize),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Text(
+                'Aquí encontrarás todos los diagnósticos que has realizado. Puedes ver los detalles o enviar un análisis a la papelera.',
+                textAlign: TextAlign.center,
+                // Aplicamos el tamaño de fuente dinámico al subtítulo.
+                style: theme.textTheme.bodyMedium?.copyWith(fontSize: subtitleSize),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 
-  Widget _buildHistoryGrid() {
+Widget _buildHistoryGrid() {
     final theme = Theme.of(context);
+    
     return _isLoading
         ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
         : _errorMessage != null
@@ -348,7 +368,9 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                       padding: const EdgeInsets.only(bottom: 24),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 250,
-                        childAspectRatio: 2 / 2.8,
+                        // --- CAMBIO AQUÍ ---
+                        // Se ajustó la proporción para hacer las tarjetas más altas.
+                        childAspectRatio: 2 / 3.2,
                         crossAxisSpacing: 20,
                         mainAxisSpacing: 20,
                       ),
@@ -361,7 +383,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                   );
   }
 
-  Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
+Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final fecha = DateTime.parse(analysis['fecha_analisis']);
@@ -373,7 +395,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          // 5. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
@@ -415,8 +436,10 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                         Text(
                           _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
-                            color: Colors.white, // El texto sobre el gradiente oscuro se mantiene blanco
-                            fontSize: 20,
+                            color: Colors.white,
+                            // --- CAMBIO 1 ---
+                            // Se redujo el tamaño de la fuente para un mejor ajuste.
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                           ),
@@ -425,12 +448,18 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
                         ),
                         const SizedBox(height: 8),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          // Se elimina `mainAxisAlignment` para que `Expanded` funcione.
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              fechaFormateada,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            // --- CAMBIO 2 ---
+                            // Se envuelve el Text de la fecha en Expanded para evitar overflows horizontales.
+                            Expanded(
+                              child: Text(
+                                fechaFormateada,
+                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             Row(
                               children: [
@@ -482,7 +511,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
           return Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24.0),
-              // 6. BORDE ANIMADO ADAPTADO AL TEMA
               border: Border.all(
                 color: theme.colorScheme.primary.withOpacity(_highlightController!.value),
                 width: 3,
@@ -517,7 +545,6 @@ Widget _buildActionButton({required IconData icon, required Color color, require
           child: IconButton(
             padding: EdgeInsets.zero,
             onPressed: onPressed,
-            // --- 👇 CAMBIO AQUÍ: El color del ícono ahora es siempre blanco 👇 ---
             icon: Icon(icon, color: Colors.white, size: 20),
             tooltip: tooltip,
           ),

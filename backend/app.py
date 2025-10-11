@@ -193,10 +193,12 @@ def _run_prediction(image_url):
 
 
 
+# backend/app.py
+
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
-    # --- ESTA FUNCIÓN AHORA SOLO ANALIZA, NO GUARDA ---
+    # --- ESTA FUNCIÓN AHORA ANALIZA, NO GUARDA ---
     total_start_time = time.time()
     data = request.get_json()
     image_url_front = data.get('image_url_front')
@@ -225,13 +227,32 @@ def analyze_image(current_user_id):
             else:
                 final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
+        # --- 👇 INICIO DEL NUEVO FILTRO DE VALIDACIÓN 👇 ---
+
+        # Define el umbral de confianza mínimo para considerar una imagen como válida.
+        # ¡Puedes ajustar este valor! 0.30 (30%) es un buen punto de partida.
+        MIN_CONFIDENCE_THRESHOLD = 0.30 
+
+        is_valid_leaf = True
+        final_prediction = final_result['prediction']
+
+        # Si el modelo no detectó nada O la confianza es muy baja,
+        # consideramos que no es una hoja de café válida.
+        if final_result['prediction'] == 'No se detectó ninguna plaga' or final_result['confidence'] < MIN_CONFIDENCE_THRESHOLD:
+            is_valid_leaf = False
+            # Sobrescribimos el resultado para mostrar un mensaje claro en el frontend
+            final_prediction = "Imagen no reconocida"
+        
+        # --- 👆 FIN DEL NUEVO FILTRO DE VALIDACIÓN 👆 ---
+
         total_end_time = time.time()
         print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
 
-        # Se devuelve el resultado completo, incluyendo las URLs para guardarlas después
+        # Se devuelve el resultado completo, incluyendo la nueva bandera para el frontend
         response_data = {
-            "prediction": final_result['prediction'],
+            "prediction": final_prediction,
             "confidence": final_result['confidence'],
+            "is_valid_leaf": is_valid_leaf, # <-- ¡NUEVO! Le dice al frontend si la imagen es válida
             "url_imagen": image_url_front,
             "url_imagen_reverso": image_url_back
         }
@@ -240,8 +261,6 @@ def analyze_image(current_user_id):
 
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
-
-
 
 # --- 👇 ESTA ES LA NUEVA FUNCIÓN PARA GUARDAR 👇 ---
 @app.route('/history/save', methods=['POST'])
@@ -1177,6 +1196,149 @@ def change_password(current_user_id):
         return jsonify({"message": "Contraseña actualizada exitosamente"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# backend/app.py
+
+# ... (todas las demás rutas e importaciones se mantienen igual)
+
+@app.route('/admin/user/<int:user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(current_user_id, user_id):
+    """
+    Permite a un administrador eliminar permanentemente a un usuario,
+    todos sus datos asociados de la BD y sus imágenes de Firebase Storage.
+    """
+    if current_user_id == user_id:
+        return jsonify({"error": "Un administrador no puede eliminarse a sí mismo."}), 403
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor) # Usamos DictCursor para acceder a las columnas por nombre
+
+        # --- INICIO DE LA LÓGICA MEJORADA ---
+
+        # 1. Obtener todas las URLs de las imágenes de análisis del usuario
+        cur.execute(
+            "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s",
+            (user_id,)
+        )
+        analysis_images = cur.fetchall()
+        
+        # 2. Obtener la URL de la imagen de perfil del usuario
+        cur.execute(
+            "SELECT profile_image_url FROM usuarios WHERE id_usuario = %s",
+            (user_id,)
+        )
+        user_profile = cur.fetchone()
+
+        # Comprobar si el usuario a eliminar es un admin
+        cur.execute("SELECT es_admin FROM usuarios WHERE id_usuario = %s", (user_id,))
+        user_to_delete_is_admin = cur.fetchone()
+
+        if user_to_delete_is_admin and user_to_delete_is_admin['es_admin']:
+             cur.close()
+             conn.close()
+             return jsonify({"error": "No se puede eliminar a otro administrador."}), 403
+
+        # 3. Construir una lista con TODAS las URLs a eliminar
+        urls_to_delete = []
+        if user_profile and user_profile['profile_image_url']:
+            urls_to_delete.append(user_profile['profile_image_url'])
+        
+        for item in analysis_images:
+            if item['url_imagen']:
+                urls_to_delete.append(item['url_imagen'])
+            if item['url_imagen_reverso']:
+                urls_to_delete.append(item['url_imagen_reverso'])
+
+        # 4. Eliminar los registros de la base de datos ANTES de borrar las imágenes
+        # Se hace en este orden por si el borrado de imágenes falla, no dejar la BD inconsistente.
+        cur.execute("DELETE FROM analisis WHERE id_usuario = %s", (user_id,))
+        cur.execute("DELETE FROM usuarios WHERE id_usuario = %s", (user_id,))
+        
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Usuario no encontrado"}), 404
+        
+        # Si todo fue bien en la BD, confirmamos los cambios
+        conn.commit()
+        
+        # 5. Ahora, procedemos a borrar las imágenes de Firebase Storage
+        if urls_to_delete:
+            print(f"Iniciando borrado de {len(urls_to_delete)} imágenes de Firebase para el usuario {user_id}.")
+            bucket = storage.bucket()
+            for image_url in urls_to_delete:
+                if image_url:
+                    try:
+                        # Esta lógica ya la tenías en otras funciones, la reutilizamos
+                        path_part = image_url.split('?')[0]
+                        file_path = path_part.split('/o/')[-1].replace('%2F', '/')
+                        
+                        blob = bucket.blob(file_path)
+                        if blob.exists():
+                            blob.delete()
+                            print(f"Imagen {file_path} borrada de Firebase Storage.")
+                        else:
+                            print(f"ADVERTENCIA: Se intentó borrar {file_path} pero no se encontró en Firebase.")
+                    except Exception as e:
+                        # Imprimimos la advertencia pero no detenemos el proceso
+                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase: {e}")
+
+        # --- FIN DE LA LÓGICA MEJORADA ---
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Usuario y todos sus datos han sido eliminados exitosamente"}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback() # Revertimos los cambios en la BD si algo falla
+            cur.close()
+            conn.close()
+        return jsonify({"error": f"Ocurrió un error al eliminar el usuario: {str(e)}"}), 500
+
+@app.route('/admin/user/<int:user_id>/reset-password', methods=['PUT'])
+@admin_required
+def admin_reset_password(current_user_id, user_id):
+    """
+    Permite a un administrador restablecer la contraseña de cualquier usuario.
+    """
+    data = request.get_json()
+    new_password = data.get('new_password')
+
+    if not new_password:
+        return jsonify({"error": "Se requiere la nueva contraseña"}), 400
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Encriptamos la nueva contraseña
+        new_hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+        
+        # Actualizamos la contraseña en la base de datos
+        cur.execute(
+            "UPDATE usuarios SET password_hash = %s WHERE id_usuario = %s",
+            (new_hashed_password.decode('utf-8'), user_id)
+        )
+        
+        # Verificamos si se actualizó alguna fila
+        if cur.rowcount == 0:
+            cur.close()
+            conn.close()
+            return jsonify({"error": "Usuario no encontrado"}), 404
+            
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Contraseña del usuario actualizada exitosamente"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Ocurrió un error al restablecer la contraseña: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

@@ -49,11 +49,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final fullName = await _authService.getUserName();
     if (mounted && fullName != null && fullName.isNotEmpty) {
       final nameParts = fullName.split(' ');
-      String displayName = nameParts.first; // Empieza con el primer nombre
+      String displayName = nameParts.first;
 
-      // Si hay al menos un apellido, lo añade
       if (nameParts.length > 2) {
-        displayName += ' ${nameParts[2]}'; // <-- ¡AQUÍ ESTÁ LA MAGIA!
+        displayName += ' ${nameParts[2]}';
       }
       
       setState(() {
@@ -127,7 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -140,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-        //const AnimatedBubbleBackground(),
+          //const AnimatedBubbleBackground(),
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -150,17 +149,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // --- 👇 CAMBIO: Menos espacio arriba ---
-                      SizedBox(height: kToolbarHeight + 30), // Antes era + 60
+                      SizedBox(height: kToolbarHeight + 30),
                       _buildWelcomeSection(),
-                      // --- 👇 CAMBIO: Menos espacio aquí ---
-                      const SizedBox(height: 30), // Antes era 40
+                      const SizedBox(height: 30),
                       _buildActionButtons(),
-                      // --- 👇 CAMBIO: Menos espacio aquí ---
-                      const SizedBox(height: 40), // Antes era 60
+                      const SizedBox(height: 40),
                       _buildMainAnalysisCard(),
-                      // --- 👇 CAMBIO: Menos espacio aquí ---
-                      const SizedBox(height: 40), // Antes era 60
+                      const SizedBox(height: 40),
                       _buildRecentHistorySection(),
                       const SizedBox(height: 40),
                     ],
@@ -174,32 +169,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- WIDGETS DE CONSTRUCCIÓN ADAPTADOS AL TEMA ---
-
   Widget _buildWelcomeSection() {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        // <--- CAMBIO: Usa la variable _userName ---
-        Text(
-          '¡Bienvenido, $_userName!',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52, letterSpacing: -1.5),
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Text(
-            'Tu asistente inteligente para el monitoreo de cultivos de café. Empieza un nuevo análisis o revisa tu historial.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
-          ),
-        ),
-      ],
+
+    // RESPONSIVE: Usamos LayoutBuilder para adaptar el texto al ancho disponible.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Determinamos el tamaño de la fuente basado en el ancho del contenedor.
+        final double titleSize;
+        if (constraints.maxWidth > 800) {
+          titleSize = 52; // Tamaño grande para escritorio
+        } else if (constraints.maxWidth > 500) {
+          titleSize = 42; // Tamaño mediano para tabletas o ventanas pequeñas
+        } else {
+          titleSize = 34; // Tamaño compacto para móviles
+        }
+
+        return Column(
+          children: [
+            Text(
+              '¡Bienvenido, $_userName!',
+              textAlign: TextAlign.center,
+              // Aplicamos el tamaño de fuente dinámico.
+              style: theme.textTheme.displayLarge?.copyWith(fontSize: titleSize, letterSpacing: -1.5),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Text(
+                'Tu asistente inteligente para el monitoreo de cultivos de café. Empieza un nuevo análisis o revisa tu historial.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 
   Widget _buildActionButtons() {
+    // El widget Wrap ya es inherentemente responsive, por lo que no necesita grandes cambios.
     return Wrap(
       spacing: 20,
       runSpacing: 20,
@@ -224,7 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
   
-  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onTap}) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
@@ -236,9 +246,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Container(
+
             width: 220,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            // 3. TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
               borderRadius: BorderRadius.circular(16),
@@ -262,65 +272,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(40),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+    // RESPONSIVE: Usamos LayoutBuilder para cambiar de Fila a Columna en pantallas pequeñas.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Definimos un "breakpoint" o punto de quiebre. Si el ancho es menor, cambiamos el diseño.
+        bool useMobileLayout = constraints.maxWidth < 650;
+
+        // Creamos una lista de widgets de texto para no repetir código.
+        List<Widget> textContent = [
+          Text(
+            "Detectar Plagas y Enfermedades",
+            // RESPONSIVE: Hacemos el texto centrado en el layout móvil.
+            textAlign: useMobileLayout ? TextAlign.center : TextAlign.start,
+            style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Detectar Plagas y Enfermedades",
-                      style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Sube una imagen de la hoja de tu planta de café para obtener un diagnóstico instantáneo y recomendaciones de tratamiento.",
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 40),
-              // 4. BOTÓN DE ACENTO
-              ElevatedButton.icon(
-                icon: const Icon(Icons.upload_file_outlined, size: 24),
-                label: const Text("Iniciar Nuevo Análisis"),
-                onPressed: () async {
-                  final result = await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
-                  if (result == true && mounted) {
-                    _fetchRecentAnalyses();
-                  }
-                },
-                style: AppTheme.accentButtonStyle(context),
-              ),
-            ],
+          const SizedBox(height: 8),
+          Text(
+            "Sube una imagen de la hoja de tu planta de café para obtener un diagnóstico instantáneo y recomendaciones de tratamiento.",
+            // RESPONSIVE: Hacemos el texto centrado en el layout móvil.
+            textAlign: useMobileLayout ? TextAlign.center : TextAlign.start,
+            style: theme.textTheme.bodyMedium,
           ),
-        ),
-      ),
+        ];
+
+        // Creamos el botón para no repetir código.
+        Widget actionButton = ElevatedButton.icon(
+          icon: const Icon(Icons.upload_file_outlined, size: 24),
+          label: const Text("Iniciar Nuevo Análisis"),
+          onPressed: () async {
+            final result = await Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DetectionScreen()));
+            if (result == true && mounted) {
+              _fetchRecentAnalyses();
+            }
+          },
+          style: AppTheme.accentButtonStyle(context),
+        );
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+              ),
+              // RESPONSIVE: Elegimos qué layout mostrar (Fila o Columna).
+              child: useMobileLayout
+                  ? Column( // Layout para pantallas estrechas
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ...textContent, // El contenido de texto
+                        const SizedBox(height: 30),
+                        actionButton, // El botón
+                      ],
+                    )
+                  : Row( // Layout para pantallas anchas
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: textContent,
+                          ),
+                        ),
+                        const SizedBox(width: 40),
+                        actionButton,
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-// --- 👇 PASO 1: REEMPLAZA ESTA FUNCIÓN COMPLETA 👇 ---
   Widget _buildRecentHistorySection() {
     final theme = Theme.of(context);
-    // Tomamos los primeros 4 análisis para mostrar
     final analysesToShow = _recentAnalyses.take(4).toList();
-    // Verificamos si hay más de 4 para decidir si mostramos la tarjeta extra
     final bool showViewAllCard = _recentAnalyses.length > 4;
-    // El número de items en el grid será 4, o 5 si hay más análisis
     final int itemCount = showViewAllCard ? analysesToShow.length + 1 : analysesToShow.length;
+
+    // RESPONSIVE: El GridView con SliverGridDelegateWithMaxCrossAxisExtent ya es adaptable por naturaleza.
+    // Se ajustará automáticamente para mostrar más o menos columnas según el ancho.
+    // No se necesitan cambios aquí.
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,10 +366,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           "Mis Análisis Recientes",
           style: theme.textTheme.headlineMedium?.copyWith(
             fontSize: 28,
-            height: 0.1, // Mantenemos el ajuste de altura
+            height: 0.1,
           ),
         ),
-        const SizedBox(height: 16), // Espacio ajustado
+        const SizedBox(height: 16),
         _isLoading
             ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
             : _recentAnalyses.isEmpty
@@ -347,18 +384,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: 250,
-                      childAspectRatio: 2 / 2.8,
+                      childAspectRatio: 2 / 3.2,
                       crossAxisSpacing: 20,
                       mainAxisSpacing: 20,
                     ),
-                    itemCount: itemCount, // <-- Usamos el nuevo contador de items
+                    itemCount: itemCount,
                     itemBuilder: (context, index) {
-                      // Si debemos mostrar la tarjeta extra Y este es el último item...
                       if (showViewAllCard && index == analysesToShow.length) {
-                        // ...construimos la tarjeta "Ver Todo".
                         return _buildViewAllCard();
                       }
-                      // De lo contrario, mostramos la tarjeta de análisis normal.
                       final analysis = analysesToShow[index];
                       return _buildAnalysisCard(analysis);
                     },
@@ -367,13 +401,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- 👇 PASO 2: AÑADE ESTA NUEVA FUNCIÓN A TU CLASE 👇 ---
   Widget _buildViewAllCard() {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
     return GestureDetector(
-      // Navegación a la pantalla de historial
       onTap: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen())),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.0),
@@ -417,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
-  Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
+Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final fecha = DateTime.parse(analysis['fecha_analisis']);
@@ -469,8 +501,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
-                            color: Colors.white, // El texto aquí siempre será blanco por el gradiente
-                            fontSize: 20,
+                            color: Colors.white,
+                            fontSize: 18, // Mantenemos el tamaño reducido
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                           ),
@@ -478,14 +510,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
+                        // --- INICIO DE LA CORRECCIÓN ---
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          // Se elimina `mainAxisAlignment: MainAxisAlignment.spaceBetween`
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              fechaFormateada,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            // 1. Se envuelve el Text de la fecha con Expanded.
+                            Expanded(
+                              child: Text(
+                                fechaFormateada,
+                                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                // 2. Se agregan estas propiedades por seguridad para evitar que el texto crezca.
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                            // El widget del botón se mantiene igual.
                             ClipRRect(
                               borderRadius: BorderRadius.circular(30.0),
                               child: BackdropFilter(
@@ -519,6 +559,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
                         ),
+                        // --- FIN DE LA CORRECCIÓN ---
                       ],
                     ),
                   ),

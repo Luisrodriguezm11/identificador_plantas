@@ -6,8 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AuthService {
   //final String _baseUrl = "https://identificador-plantas-backend.onrender.com";
-  final String _baseUrl = "http://192.168.0.33:5001";
-  //final String _baseUrl = "http://172.20.10.7:5001";
+  //final String _baseUrl = "http://192.168.0.33:5001";
+  final String _baseUrl = "http://172.20.10.7:5001";
   final _storage = const FlutterSecureStorage();
 
   // --- Métodos de almacenamiento de Token ---
@@ -175,7 +175,47 @@ class AuthService {
     }
   }
   
-  // --- FIN DE LAS CORRECCIONES ---
+Future<Map<String, dynamic>> deleteUserByAdmin(int userId) async {
+    final token = await readToken();
+    if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/admin/user/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+      ).timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPasswordByAdmin({
+    required int userId,
+    required String newPassword,
+  }) async {
+    final token = await readToken();
+    if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/admin/user/$userId/reset-password'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: jsonEncode({
+          'new_password': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión'};
+    }
+  }
 
 Map<String, dynamic> _handleResponse(http.Response response) {
   // --- PUNTO DE CONTROL 3 ---

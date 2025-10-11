@@ -7,7 +7,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:dotted_border/dotted_border.dart'; // <-- 1. IMPORTAMOS EL NUEVO PAQUETE
+import 'package:dotted_border/dotted_border.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
@@ -15,7 +15,6 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -26,7 +25,8 @@ import 'package:lottie/lottie.dart';
 import 'admin_dashboard_screen.dart';
 import 'package:frontend/config/app_theme.dart';
 
-// --- (El State y la lógica interna no cambian, solo los widgets de la UI) ---
+/// Pantalla principal para iniciar un nuevo análisis de imágenes.
+/// Permite al usuario subir una imagen del frente y reverso de una hoja para su diagnóstico.
 class DetectionScreen extends StatefulWidget {
   final XFile? initialImageFile;
 
@@ -40,19 +40,17 @@ class DetectionScreen extends StatefulWidget {
 }
 
 class _DetectionScreenState extends State<DetectionScreen> {
+  // Lógica de estado y servicios (sin cambios)
   XFile? _imageFileFront;
   XFile? _imageFileBack;
-
   final ImagePicker _picker = ImagePicker();
   final DetectionService _detectionService = DetectionService();
   final StorageService _storageService = StorageService();
   final AuthService _authService = AuthService();
-
   bool _isAdmin = false;
   bool _isLoading = false;
   String _loadingMessage = '';
   String? _errorMessage;
-
   late ValueNotifier<bool> _cancellationNotifier;
 
   @override
@@ -81,25 +79,20 @@ class _DetectionScreenState extends State<DetectionScreen> {
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const TrashScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const TrashScreen()));
         break;
       case 3:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         if (_isAdmin) {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
@@ -114,9 +107,9 @@ class _DetectionScreenState extends State<DetectionScreen> {
     );
   }
 
+  /// Permite al usuario seleccionar una imagen de la galería.
   Future<void> _pickImage(bool isFront) async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         if (isFront) {
@@ -129,6 +122,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
+  /// Limpia la imagen seleccionada del slot correspondiente.
   void _clearImage(bool isFront) {
     setState(() {
       if (isFront) {
@@ -140,6 +134,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
   }
 
+  /// Orquesta el proceso completo de análisis: subida, diagnóstico y guardado.
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
     setState(() {
@@ -150,36 +145,27 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
 
     try {
+      // Notificador para permitir la cancelación del proceso en cualquier punto.
       await Future.delayed(const Duration(milliseconds: 50));
       if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
       setState(() => _loadingMessage = 'Subiendo imágenes...');
 
-      final String? imageUrlFront = await _storageService.uploadOriginalImage(
-          _imageFileFront!,
-          cancellationNotifier: _cancellationNotifier);
+      final String? imageUrlFront = await _storageService.uploadOriginalImage(_imageFileFront!, cancellationNotifier: _cancellationNotifier);
       if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
-      if (imageUrlFront == null) {
-        throw Exception("No se pudo subir la imagen del frente.");
-      }
+      if (imageUrlFront == null) throw Exception("No se pudo subir la imagen del frente.");
 
       String? imageUrlBack;
       if (_imageFileBack != null) {
-        imageUrlBack = await _storageService.uploadOriginalImage(
-            _imageFileBack!,
-            cancellationNotifier: _cancellationNotifier);
+        imageUrlBack = await _storageService.uploadOriginalImage(_imageFileBack!, cancellationNotifier: _cancellationNotifier);
         if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
-        if (imageUrlBack == null) {
-          throw Exception("No se pudo subir la imagen del reverso.");
-        }
+        if (imageUrlBack == null) throw Exception("No se pudo subir la imagen del reverso.");
       }
 
-      setState(
-          () => _loadingMessage = 'Analizando con la IA...\nEsto puede tardar un momento.');
+      setState(() => _loadingMessage = 'Analizando con la IA...\nEsto puede tardar un momento.');
       if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
-      final http.Response analysisResponse =
-          await _detectionService.analyzeImages(
+      final http.Response analysisResponse = await _detectionService.analyzeImages(
         imageUrlFront: imageUrlFront,
         imageUrlBack: imageUrlBack,
       );
@@ -193,8 +179,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
         setState(() => _loadingMessage = 'Guardando resultado...');
         if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
-        final http.Response saveResponse =
-            await _detectionService.saveAnalysisResult(result);
+        final http.Response saveResponse = await _detectionService.saveAnalysisResult(result);
 
         if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
         if (!mounted) return;
@@ -203,8 +188,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
         if (saveResponse.statusCode != 201) {
           final saveBody = json.decode(saveResponse.body);
-          throw Exception(
-              "Error al guardar el análisis: ${saveBody['error'] ?? 'Error desconocido'}");
+          throw Exception("Error al guardar el análisis: ${saveBody['error'] ?? 'Error desconocido'}");
         }
 
         await showDialog(
@@ -222,8 +206,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
         }
       } else {
         final body = json.decode(analysisResponse.body);
-        throw Exception(
-            "Error del servidor: ${body['error'] ?? analysisResponse.reasonPhrase}");
+        throw Exception("Error del servidor: ${body['error'] ?? analysisResponse.reasonPhrase}");
       }
     } catch (e) {
       if (mounted) {
@@ -236,9 +219,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
       }
     }
   }
-
-
-  // --- 👇 TODA LA UI HA SIDO RECONSTRUIDA DESDE AQUÍ 👇 ---
 
   @override
   Widget build(BuildContext context) {
@@ -256,12 +236,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-
-          //Container(
-            //decoration: AppTheme.backgroundDecoration,
-          //),
           //const AnimatedBubbleBackground(),
-  
           SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -342,83 +317,105 @@ class _DetectionScreenState extends State<DetectionScreen> {
     );
   }
 
-  // NUEVO WIDGET: Encabezado principal de la pantalla
+  /// Construye el encabezado principal de la pantalla.
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Text(
-          'Nuevo Análisis',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.displayLarge?.copyWith(fontSize: 52),
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Text(
-            'Sube una foto del frente y, opcionalmente, del reverso de una hoja de café para obtener un diagnóstico preciso.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 18),
-          ),
-        ),
-      ],
+    // RESPONSIVE: Utiliza LayoutBuilder para adaptar el tamaño del texto.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double titleSize = constraints.maxWidth > 600 ? 52 : 40;
+        final double subtitleSize = constraints.maxWidth > 600 ? 18 : 16;
+        return Column(
+          children: [
+            Text(
+              'Nuevo Análisis',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.displayLarge?.copyWith(fontSize: titleSize),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Text(
+                'Sube una foto del frente y, opcionalmente, del reverso de una hoja de café para obtener un diagnóstico preciso.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(fontSize: subtitleSize),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 
-  // REDISEÑADO: La zona de carga de archivos ahora es una tarjeta principal
+  /// Construye el área principal para la carga de imágenes.
   Widget _buildUploadArea() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-        child: Container(
-          padding: const EdgeInsets.all(32.0),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+    // RESPONSIVE: LayoutBuilder decide si mostrar los slots en Fila o Columna.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool useMobileLayout = constraints.maxWidth < 700;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(24.0),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(
+              padding: const EdgeInsets.all(32.0),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(24.0),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+              ),
+              child: Column(
                 children: [
-                  Expanded(child: _buildImageSlot(isFront: true)),
-                  const SizedBox(width: 24),
-                  Expanded(child: _buildImageSlot(isFront: false)),
+                  // RESPONSIVE: Se muestra como Fila o Columna según el espacio.
+                  useMobileLayout
+                    ? Column(
+                        children: [
+                          _buildImageSlot(isFront: true),
+                          const SizedBox(height: 24),
+                          _buildImageSlot(isFront: false),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildImageSlot(isFront: true)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildImageSlot(isFront: false)),
+                        ],
+                      ),
+                  if (_errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(color: theme.colorScheme.error, fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  if (_imageFileFront != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 32.0),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.analytics_outlined, size: 20),
+                        label: const Text("Analizar Imagen(es)"),
+                        onPressed: _isLoading ? null : _analyzeImages,
+                        style: AppTheme.accentButtonStyle(context),
+                      ),
+                    ),
                 ],
               ),
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 24.0),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(color: theme.colorScheme.error, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              if (_imageFileFront != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 32.0),
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.analytics_outlined, size: 20),
-                    label: const Text("Analizar Imagen(es)"),
-                    onPressed: _isLoading ? null : _analyzeImages,
-                    style: AppTheme.accentButtonStyle(context),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      }
     );
   }
 
-  // REDISEÑADO: El slot para cada imagen ahora usa bordes punteados
+/// Construye un slot individual para subir o mostrar una imagen.
   Widget _buildImageSlot({required bool isFront}) {
     final theme = Theme.of(context);
     final imageFile = isFront ? _imageFileFront : _imageFileBack;
@@ -431,128 +428,140 @@ class _DetectionScreenState extends State<DetectionScreen> {
           children: [
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 16),
-            imageFile != null
-                ? Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12.0),
-                        child: kIsWeb
-                            ? Image.network(imageFile.path, height: 250, fit: BoxFit.cover)
-                            : Image.file(File(imageFile.path), height: 250, fit: BoxFit.cover),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(4.0),
-                        child: CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Colors.black54,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.close, color: Colors.white, size: 14),
-                            onPressed: _isLoading ? null : () => _clearImage(isFront),
-                            tooltip: 'Quitar imagen',
+            // RESPONSIVE: AspectRatio mantiene la proporción del slot.
+            AspectRatio(
+              // --- CAMBIO AQUÍ ---
+              // Cambiamos la proporción de 1 (cuadrado) a 4/3 (más ancho que alto).
+              // Esto hace que la tarjeta sea más pequeña verticalmente.
+              // Puedes experimentar con otros valores como 3/2 si la quieres aún más baja.
+              aspectRatio: 4 / 3,
+              child: imageFile != null
+                  ? Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12.0),
+                            child: kIsWeb
+                                ? Image.network(imageFile.path, fit: BoxFit.cover)
+                                : Image.file(File(imageFile.path), fit: BoxFit.cover),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : DropTarget(
-                    onDragDone: (detail) {
-                      if (detail.files.isNotEmpty) {
-                        setState(() {
-                          if (isFront) _imageFileFront = detail.files.first;
-                          else _imageFileBack = detail.files.first;
-                        });
-                      }
-                      slotSetState(() => isDragging = false);
-                    },
-                    onDragEntered: (detail) => slotSetState(() => isDragging = true),
-                    onDragExited: (detail) => slotSetState(() => isDragging = false),
-                    child: GestureDetector(
-                      onTap: _isLoading ? null : () => _pickImage(isFront),
-                      child: DottedBorder(
-                        color: isDragging ? theme.colorScheme.primary : (theme.textTheme.bodyMedium?.color?.withOpacity(0.5) ?? Colors.grey),
-                        strokeWidth: 2,
-                        radius: const Radius.circular(12),
-                        dashPattern: const [8, 6],
-                        borderType: BorderType.RRect,
-                        child: Container(
-                          height: 250,
-                          decoration: BoxDecoration(
-                            color: isDragging ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
+                        Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Colors.black54,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              icon: const Icon(Icons.close, color: Colors.white, size: 14),
+                              onPressed: _isLoading ? null : () => _clearImage(isFront),
+                              tooltip: 'Quitar imagen',
+                            ),
                           ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo_outlined, size: 50, color: theme.iconTheme.color?.withOpacity(0.7)),
-                                const SizedBox(height: 16),
-                                Text("Arrastra o haz clic", style: theme.textTheme.bodyMedium)
-                              ],
+                        ),
+                      ],
+                    )
+                  : DropTarget(
+                      onDragDone: (detail) {
+                        if (detail.files.isNotEmpty) {
+                          setState(() {
+                            if (isFront) _imageFileFront = detail.files.first;
+                            else _imageFileBack = detail.files.first;
+                          });
+                        }
+                        slotSetState(() => isDragging = false);
+                      },
+                      onDragEntered: (detail) => slotSetState(() => isDragging = true),
+                      onDragExited: (detail) => slotSetState(() => isDragging = false),
+                      child: GestureDetector(
+                        onTap: _isLoading ? null : () => _pickImage(isFront),
+                        child: DottedBorder(
+                          color: isDragging ? theme.colorScheme.primary : (theme.textTheme.bodyMedium?.color?.withOpacity(0.5) ?? Colors.grey),
+                          strokeWidth: 2,
+                          radius: const Radius.circular(12),
+                          dashPattern: const [8, 6],
+                          borderType: BorderType.RRect,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDragging ? theme.colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_a_photo_outlined, size: 40, color: theme.iconTheme.color?.withOpacity(0.7)), // Ícono un poco más pequeño
+                                  const SizedBox(height: 12),
+                                  Text("Arrastra o haz clic", style: theme.textTheme.bodyMedium)
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+            ),
           ],
         );
       },
     );
   }
 
-  // NUEVO WIDGET: Sección de consejos en la parte inferior
+  /// Construye la sección inferior con consejos para el análisis.
   Widget _buildTipsSection() {
     final theme = Theme.of(context);
     return Column(
       children: [
         Text("Consejos para un buen análisis", style: theme.textTheme.headlineSmall),
         const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // RESPONSIVE: Se reemplazó Row con Wrap para que las tarjetas se reorganicen solas.
+        Wrap(
+          spacing: 20,       // Espacio horizontal entre tarjetas
+          runSpacing: 20,    // Espacio vertical si las tarjetas saltan de línea
+          alignment: WrapAlignment.center, // Centra las tarjetas
           children: [
-            Expanded(child: _buildTipCard('assets/animations/sun_animation.json', 'Usa buena iluminación, preferiblemente luz natural.')),
-            const SizedBox(width: 20),
-            Expanded(child: _buildTipCard('assets/animations/focus_animation.json', 'Asegúrate que la hoja esté bien enfocada y nítida.')),
-            const SizedBox(width: 20),
-            Expanded(child: _buildTipCard('assets/animations/blurried_animation.json', 'Evita el desenfoque, sujeta firme el dispositivo.')),
-            const SizedBox(width: 20),
-            Expanded(child: _buildTipCard('assets/animations/background_animation.json', 'Utiliza un fondo sencillo y de color plano.')),
+            _buildTipCard('assets/animations/sun_animation.json', 'Usa buena iluminación preferible luz natural.'),
+            _buildTipCard('assets/animations/focus_animation.json', 'Asegúrate que la hoja esté bien enfocada y nítida.'),
+            _buildTipCard('assets/animations/blurried_animation.json', 'Evita el desenfoque, sujeta firme el dispositivo.'),
+            _buildTipCard('assets/animations/background_animation.json', 'Utiliza un fondo sencillo y de color plano.'),
           ],
         )
       ],
     );
   }
 
-  // NUEVO WIDGET: Tarjeta individual para cada consejo
+  /// Construye una tarjeta individual para un consejo.
   Widget _buildTipCard(String lottieAsset, String text) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          height: 180,
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withOpacity(0.3) : AppColorsLight.surface.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Lottie.asset(lottieAsset, width: 60, height: 60),
-              const SizedBox(height: 16),
-              Text(
-                text,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
+    // RESPONSIVE: Se le da un tamaño y ancho máximo a cada tarjeta para que funcione bien con Wrap.
+    return SizedBox(
+      width: 180,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+          child: Container(
+            padding: const EdgeInsets.all(16.0),
+            height: 180,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withOpacity(0.3) : AppColorsLight.surface.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Lottie.asset(lottieAsset, width: 60, height: 60),
+                const SizedBox(height: 16),
+                Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
           ),
         ),
       ),

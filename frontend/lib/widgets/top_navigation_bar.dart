@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/theme_provider.dart';
 import '../screens/detection_screen.dart';
-// --- 👇 1. AÑADE LA IMPORTACIÓN DE LA NUEVA PANTALLA 👇 ---
 import '../screens/edit_profile_screen.dart';
 
 class TopNavigationBar extends StatefulWidget implements PreferredSizeWidget {
@@ -33,9 +32,9 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
     final theme = Theme.of(context);
 
+    // --- 1. SE MANTIENE LA LISTA DE ITEMS DE NAVEGACIÓN ---
     final navItems = [
       {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'index': 0},
       {'icon': Icons.history_outlined, 'label': 'Historial', 'index': 1},
@@ -68,60 +67,118 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           ),
         ),
       ),
-      title: Stack(
-        children: [
-          Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: navItems.map((item) => _buildNavItem(
-                icon: item['icon'] as IconData,
-                label: item['label'] as String,
-                index: item['index'] as int,
-              )).toList(),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Cambiar Tema',
-                  icon: Icon(
-                    themeProvider.themeMode == ThemeMode.dark
-                        ? Icons.light_mode_outlined
-                        : Icons.dark_mode_outlined,
-                  ),
-                  onPressed: () {
-                    themeProvider.toggleTheme();
-                  },
-                ),
-                
-                // --- 👇 2. AQUÍ ESTÁ EL NUEVO BOTÓN INTEGRADO 👇 ---
-                IconButton(
-                  tooltip: 'Editar Perfil',
-                  icon: const Icon(Icons.person_outline),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                    );
-                  },
-                ),
-                
-                IconButton(
-                  tooltip: 'Cerrar Sesión',
-                  icon: const Icon(Icons.logout),
-                  onPressed: widget.onLogout,
-                ),
-                const SizedBox(width: 20),
-              ],
-            ),
-          ),
-        ],
+      // --- 2. SE USA LAYOUTBUILDER PARA LA RESPONSIVIDAD ---
+      title: LayoutBuilder(
+        builder: (context, constraints) {
+          // Definimos un punto de quiebre. Si es más angosto de 700px, se considera "pequeña".
+          if (constraints.maxWidth < 700) {
+            // --- DISEÑO PARA PANTALLAS PEQUEÑAS ---
+            return _buildNarrowLayout(navItems);
+          } else {
+            // --- DISEÑO PARA PANTALLAS ANCHAS ---
+            return _buildWideLayout(navItems);
+          }
+        },
       ),
     );
   }
 
+  /// Construye el diseño para pantallas anchas (el original).
+  Widget _buildWideLayout(List<Map<String, Object>> navItems) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: navItems.map((item) => _buildNavItem(
+              icon: item['icon'] as IconData,
+              label: item['label'] as String,
+              index: item['index'] as int,
+            )).toList(),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _buildActionIcons(),
+        ),
+      ],
+    );
+  }
+
+  /// Construye el diseño para pantallas pequeñas (con menú de hamburguesa).
+  Widget _buildNarrowLayout(List<Map<String, Object>> navItems) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Menú de hamburguesa a la izquierda
+        PopupMenuButton<int>(
+          icon: const Icon(Icons.menu),
+          tooltip: 'Menú de Navegación',
+          onSelected: (int index) {
+            if (index == 5) {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const DetectionScreen()));
+            } else {
+              widget.onItemSelected(index);
+            }
+          },
+          itemBuilder: (context) {
+            return navItems.map((item) {
+              return PopupMenuItem<int>(
+                value: item['index'] as int,
+                child: Row(
+                  children: [
+                    Icon(item['icon'] as IconData, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 16),
+                    Text(item['label'] as String),
+                  ],
+                ),
+              );
+            }).toList();
+          },
+        ),
+        // Iconos de acción a la derecha
+        _buildActionIcons(isNarrow: true),
+      ],
+    );
+  }
+
+  /// Widget para los botones de acción de la derecha (Tema, Perfil, Logout).
+  Widget _buildActionIcons({bool isNarrow = false}) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Cambiar Tema',
+          icon: Icon(
+            themeProvider.themeMode == ThemeMode.dark
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined,
+          ),
+          onPressed: () => themeProvider.toggleTheme(),
+        ),
+        IconButton(
+          tooltip: 'Editar Perfil',
+          icon: const Icon(Icons.person_outline),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+            );
+          },
+        ),
+        IconButton(
+          tooltip: 'Cerrar Sesión',
+          icon: const Icon(Icons.logout),
+          onPressed: widget.onLogout,
+        ),
+        if (!isNarrow) const SizedBox(width: 20),
+      ],
+    );
+  }
+
+  /// Widget para cada item de navegación (sin cambios).
   Widget _buildNavItem({
     required IconData icon,
     required String label,

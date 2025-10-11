@@ -8,12 +8,14 @@ import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
-//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/detection_service.dart';
 import 'dart:ui';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart';
 
+/// Pantalla que muestra los análisis eliminados (en la papelera).
+/// Permite a los usuarios restaurar análisis o eliminarlos permanentemente.
+/// Los administradores tienen vistas y permisos adicionales.
 class TrashScreen extends StatefulWidget {
   const TrashScreen({super.key});
 
@@ -34,12 +36,14 @@ class _TrashScreenState extends State<TrashScreen> {
     _loadInitialData();
   }
 
+  /// Carga los datos iniciales necesarios para la pantalla.
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _checkAdminStatus();
     await _fetchTrashedItems();
   }
 
+  /// Verifica si el usuario actual tiene permisos de administrador.
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
@@ -47,6 +51,8 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  /// Obtiene la lista de análisis en la papelera desde el servicio.
+  /// Llama a un endpoint diferente si el usuario es administrador.
   Future<void> _fetchTrashedItems() async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -74,6 +80,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  /// Formatea el nombre de la predicción para una mejor lectura.
   String _formatPredictionName(String originalName) {
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
@@ -84,31 +91,29 @@ class _TrashScreenState extends State<TrashScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
+  /// Gestiona la navegación al pulsar un ítem de la barra de navegación superior.
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const DashboardScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen()));
         break;
       case 1:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const HistoryScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const HistoryScreen()));
         break;
       case 2:
         break;
       case 3:
-        Navigator.pushReplacement(
-            context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
         if (_isAdmin) {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboardScreen()));
         }
         break;
     }
   }
 
+  /// Cierra la sesión del usuario y lo redirige a la pantalla de login.
   void _logout(BuildContext context) async {
     final navigator = Navigator.of(context);
     await _authService.deleteToken();
@@ -118,6 +123,7 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
+  /// Restaura un análisis de la papelera a la pantalla de historial.
   Future<void> _restoreItem(int analysisId, int index) async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -146,8 +152,7 @@ class _TrashScreenState extends State<TrashScreen> {
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Análisis Restaurado'),
-              content: const Text(
-                  'El análisis ha sido movido de vuelta a tu historial.'),
+              content: const Text('El análisis ha sido movido de vuelta a tu historial.'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -177,6 +182,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  /// Elimina permanentemente un análisis de la base de datos.
   Future<void> _permanentlyDeleteItem(int analysisId, int index) async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -186,20 +192,15 @@ class _TrashScreenState extends State<TrashScreen> {
         title: const Text('Borrado Permanente'),
         content: const Text('Esta acción no se puede deshacer. ¿Continuar?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar')),
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Borrar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger))),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: Text('Borrar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger))),
         ],
       ),
     );
 
     if (confirmed == true) {
       try {
-        final success =
-            await _detectionService.permanentlyDeleteItem(analysisId);
+        final success = await _detectionService.permanentlyDeleteItem(analysisId);
         if (success) {
           setState(() => _trashedList!.removeAt(index));
           if (mounted) {
@@ -218,6 +219,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
+  /// Elimina permanentemente todos los análisis que están en la papelera del usuario.
   Future<void> _emptyTrash() async {
     if (_trashedList == null || _trashedList!.isEmpty) return;
     final theme = Theme.of(context);
@@ -227,12 +229,9 @@ class _TrashScreenState extends State<TrashScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Vaciar Papelera'),
-        content: const Text(
-            'Todos los análisis en la papelera se eliminarán permanentemente. Esta acción no se puede deshacer.'),
+        content: const Text('Todos los análisis en la papelera se eliminarán permanentemente. Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: Text('Vaciar', style: TextStyle(color: isDark ? AppColorsDark.danger : AppColorsLight.danger)),
@@ -271,7 +270,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -331,11 +330,8 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           ),
-          // El botón "Vaciar Papelera" se eliminó de aquí
         ],
       ),
-
-      // --- 👇 AQUÍ ESTÁ EL BOTÓN INTEGRADO EN SU NUEVO LUGAR 👇 ---
       floatingActionButton: (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
         ? ClipRRect(
             borderRadius: BorderRadius.circular(28.0),
@@ -377,35 +373,57 @@ class _TrashScreenState extends State<TrashScreen> {
               ),
             ),
           )
-        : null, // Si no hay nada que vaciar, no se muestra el botón
+        : null,
     );
   }
 
-  // --- 👇 CAMBIO: ELIMINAMOS EL BOTÓN DE ESTA SECCIÓN 👇 ---
+  /// Construye el encabezado principal de la pantalla de la papelera.
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        Text(
-          'Papelera',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.displayMedium,
-        ),
-        const SizedBox(height: 16),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Text(
-            'Aquí encontrarás los análisis que has eliminado. Puedes restaurarlos o eliminarlos permanentemente.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge,
-          ),
-        ),
-      ],
+    // RESPONSIVE: Utiliza LayoutBuilder para adaptar el tamaño del texto.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Define tamaños de fuente dinámicos basados en el ancho disponible.
+        final double titleSize;
+        final double subtitleSize;
+        if (constraints.maxWidth > 800) {
+          titleSize = 45; // displayMedium es ~45px
+          subtitleSize = 16; // bodyLarge es ~16px
+        } else if (constraints.maxWidth > 500) {
+          titleSize = 38;
+          subtitleSize = 15;
+        } else {
+          titleSize = 30;
+          subtitleSize = 14;
+        }
+
+        return Column(
+          children: [
+            Text(
+              'Papelera',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.displayMedium?.copyWith(fontSize: titleSize),
+            ),
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Text(
+                'Aquí encontrarás los análisis que has eliminado. Puedes restaurarlos o eliminarlos permanentemente.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(fontSize: subtitleSize),
+              ),
+            ),
+          ],
+        );
+      }
     );
   }
 
+  /// Construye la cuadrícula que muestra los análisis eliminados.
   Widget _buildTrashGrid() {
     final theme = Theme.of(context);
+    // RESPONSIVE: Esta cuadrícula ya es adaptable gracias a SliverGridDelegateWithMaxCrossAxisExtent.
+    // No requiere cambios ya que ajusta el número de columnas automáticamente.
     return _isLoading
         ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
         : _trashedList == null || _trashedList!.isEmpty
@@ -430,6 +448,7 @@ class _TrashScreenState extends State<TrashScreen> {
               );
   }
 
+  /// Construye la tarjeta individual para cada análisis en la papelera.
   Widget _buildTrashCard(Map<String, dynamic> item, int index) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -440,14 +459,9 @@ class _TrashScreenState extends State<TrashScreen> {
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withOpacity(0.1)
-                : AppColorsLight.surface.withOpacity(0.6),
+            color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.2)
-                    : Colors.black.withOpacity(0.1)),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -462,18 +476,14 @@ class _TrashScreenState extends State<TrashScreen> {
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: isDark ? Colors.grey[800] : Colors.grey[300],
                       child: Center(
-                        child: Icon(Icons.image_not_supported_outlined,
-                            color: isDark ? Colors.white70 : Colors.black54, size: 40),
+                        child: Icon(Icons.image_not_supported_outlined, color: isDark ? Colors.white70 : Colors.black54, size: 40),
                       ),
                     ),
                   ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.8)
-                        ],
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0.5, 1.0],
@@ -502,26 +512,23 @@ class _TrashScreenState extends State<TrashScreen> {
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
                               item['email'],
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 12),
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         const Spacer(),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceAround, // Ligeramente más espaciado
                           children: [
                             _buildActionButton(
-                                icon: Icons.restore_from_trash,
+                                icon: Icons.restore_from_trash_outlined,
                                 color: isDark ? AppColorsDark.info : AppColorsLight.info,
-                                onPressed: () =>
-                                    _restoreItem(item['id_analisis'], index),
+                                onPressed: () => _restoreItem(item['id_analisis'], index),
                                 tooltip: 'Restaurar'),
                             _buildActionButton(
-                                icon: Icons.delete_forever,
+                                icon: Icons.delete_forever_outlined,
                                 color: isDark ? AppColorsDark.danger : AppColorsLight.danger,
-                                onPressed: () => _permanentlyDeleteItem(
-                                    item['id_analisis'], index),
+                                onPressed: () => _permanentlyDeleteItem(item['id_analisis'], index),
                                 tooltip: 'Eliminar permanentemente'),
                           ],
                         ),
@@ -537,11 +544,8 @@ class _TrashScreenState extends State<TrashScreen> {
     );
   }
 
-  Widget _buildActionButton(
-      {required IconData icon,
-      required Color color,
-      required VoidCallback onPressed,
-      required String tooltip}) {
+  /// Construye un botón de acción circular con efecto de vidrio.
+  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
@@ -557,7 +561,7 @@ class _TrashScreenState extends State<TrashScreen> {
           ),
           child: IconButton(
             onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white, size: 18),
+            icon: Icon(icon, color: Colors.white, size: 20), // Aumentado ligeramente el tamaño
             tooltip: tooltip,
           ),
         ),

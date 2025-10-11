@@ -224,95 +224,133 @@ _buildGlassButton(
     );
   }
 
-  Widget _buildUserCard(Map<String, dynamic> user) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    final String userImageUrl = user['profile_image_url'] ?? 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=USER';
-    final String userName = user['nombre_completo'] ?? 'Usuario Desconocido';
-    final String userEmail = user['email'] ?? 'correo@ejemplo.com';
-    final int analysisCount = user['analysis_count'] ?? 0;
+// frontend/lib/screens/admin_user_list_screen.dart
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => UserSpecificAnalysesScreen(user: user)));
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            // 4. TARJETAS ADAPTATIVAS
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16.0),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      userImageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: isDark ? Colors.grey[800] : Colors.grey[300],
-                        child: Center(
-                          child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 40),
+Widget _buildUserCard(Map<String, dynamic> user) {
+  final theme = Theme.of(context);
+  final bool isDark = theme.brightness == Brightness.dark;
+  final String userImageUrl = user['profile_image_url'] ?? 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=USER';
+  final String userName = user['nombre_completo'] ?? 'Usuario Desconocido';
+  final String userEmail = user['email'] ?? 'correo@ejemplo.com';
+  final int analysisCount = user['analysis_count'] ?? 0;
+  final int userId = user['id_usuario']; // <-- Obtenemos el ID del usuario
+
+  return GestureDetector(
+    onTap: () {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => UserSpecificAnalysesScreen(user: user)));
+    },
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(24.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.0),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    userImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: isDark ? Colors.grey[800] : Colors.grey[300],
+                      child: Center(
+                        child: Icon(Icons.person_outline, color: isDark ? Colors.white70 : Colors.black54, size: 40),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0.5, 1.0],
+                        const SizedBox(height: 4),
+                        Text(
+                          userEmail,
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Chip(
+                            avatar: Icon(Icons.analytics_outlined, color: theme.chipTheme.labelStyle?.color, size: 18),
+                            label: Text('$analysisCount análisis'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // --- 👇 AQUÍ EMPIEZA EL NUEVO CÓDIGO DEL MENÚ 👇 ---
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'reset_password') {
+                          _showResetPasswordDialog(userId, userName);
+                        } else if (value == 'delete_user') {
+                          _showDeleteUserDialog(userId, userName);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                        const PopupMenuItem<String>(
+                          value: 'reset_password',
+                          child: ListTile(
+                            leading: Icon(Icons.lock_reset),
+                            title: Text('Restablecer contraseña'),
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'delete_user',
+                          child: ListTile(
+                            leading: Icon(Icons.delete_forever, color: Colors.red),
+                            title: Text('Eliminar usuario', style: TextStyle(color: Colors.red)),
+                          ),
+                        ),
+                      ],
+                      icon: const Icon(Icons.more_vert, color: Colors.white),
+                      color: isDark ? Colors.grey[800] : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.0),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            userName,
-                            style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            userEmail,
-                            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Chip(
-                              avatar: Icon(Icons.analytics_outlined, color: theme.chipTheme.labelStyle?.color, size: 18),
-                              label: Text('$analysisCount análisis'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  // --- 👆 AQUÍ TERMINA EL NUEVO CÓDIGO DEL MENÚ 👆 ---
+                ],
               ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildGlassButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
     final theme = Theme.of(context);
@@ -338,4 +376,105 @@ _buildGlassButton(
       ),
     );
   }
+
+void _showResetPasswordDialog(int userId, String userName) {
+  final TextEditingController passwordController = TextEditingController();
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('Restablecer contraseña de $userName'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: passwordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Nueva Contraseña'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Por favor, ingresa una contraseña';
+              }
+              if (value.length < 6) {
+                return 'La contraseña debe tener al menos 6 caracteres';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final result = await _authService.resetPasswordByAdmin(
+                  userId: userId,
+                  newPassword: passwordController.text,
+                );
+                Navigator.pop(context); // Cierra el dialogo
+                if (mounted) { // Verifica si el widget todavía está en el árbol
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result['success']
+                          ? result['data']['message']
+                          : 'Error: ${result['error']}'),
+                      backgroundColor: result['success'] ? Colors.green : Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Restablecer'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+void _showDeleteUserDialog(int userId, String userName) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text('¿Eliminar a $userName?'),
+        content: const Text('Esta acción es permanente y no se puede deshacer. Se borrarán todos los análisis y datos del usuario.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              final result = await _authService.deleteUserByAdmin(userId);
+              Navigator.pop(context); // Cierra el dialogo
+              if (mounted) {
+                 ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result['success']
+                          ? result['data']['message']
+                          : 'Error: ${result['error']}'),
+                      backgroundColor: result['success'] ? Colors.green : Colors.red,
+                    ),
+                  );
+                // Si el borrado fue exitoso, refrescamos la lista de usuarios
+                if (result['success']) {
+                  setState(() {
+                    _usersFuture = _detectionService.getUsersWithAnalyses();
+                  });
+                }
+              }
+            },
+            child: const Text('Eliminar Definitivamente'),
+          ),
+        ],
+      );
+    },
+  );
+}  
 }
