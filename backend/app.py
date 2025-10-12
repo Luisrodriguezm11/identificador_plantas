@@ -195,6 +195,8 @@ def _run_prediction(image_url):
 
 # backend/app.py
 
+# EN: backend/app.py
+
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
@@ -217,8 +219,8 @@ def analyze_image(current_user_id):
             print("--- Procesando imagen del reverso ---")
             result_back = _run_prediction(image_url_back)
             
-            is_front_disease = result_front['prediction'] != 'No se detectó ninguna plaga'
-            is_back_disease = result_back['prediction'] != 'No se detectó ninguna plaga'
+            is_front_disease = result_front['prediction'] not in ['No se detectó ninguna plaga', 'Hoja sana']
+            is_back_disease = result_back['prediction'] not in ['No se detectó ninguna plaga', 'Hoja sana']
 
             if is_back_disease:
                 final_result = result_back
@@ -227,32 +229,33 @@ def analyze_image(current_user_id):
             else:
                 final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
-        # --- 👇 INICIO DEL NUEVO FILTRO DE VALIDACIÓN 👇 ---
+        # --- 👇 INICIO DEL FILTRO DE VALIDACIÓN CORREGIDO 👇 ---
 
-        # Define el umbral de confianza mínimo para considerar una imagen como válida.
-        # ¡Puedes ajustar este valor! 0.30 (30%) es un buen punto de partida.
-        MIN_CONFIDENCE_THRESHOLD = 0.30 
+        MIN_CONFIDENCE_FOR_VALID_LEAF = 0.30 # Umbral del 30%
 
+        prediction_text = final_result['prediction']
+        prediction_confidence = final_result['confidence']
         is_valid_leaf = True
-        final_prediction = final_result['prediction']
 
-        # Si el modelo no detectó nada O la confianza es muy baja,
-        # consideramos que no es una hoja de café válida.
-        if final_result['prediction'] == 'No se detectó ninguna plaga' or final_result['confidence'] < MIN_CONFIDENCE_THRESHOLD:
-            is_valid_leaf = False
-            # Sobrescribimos el resultado para mostrar un mensaje claro en el frontend
-            final_prediction = "Imagen no reconocida"
+        # --- 👇 ¡AQUÍ ESTÁ LA CORRECCIÓN CLAVE! 👇 ---
+        # ANTES (Incorrecto):
+        # if prediction_text != 'No se detectó ninguna plaga' and prediction_confidence < MIN_CONFIDENCE_FOR_VALID_LEAF:
         
-        # --- 👆 FIN DEL NUEVO FILTRO DE VALIDACIÓN 👆 ---
+        # DESPUÉS (Correcto):
+        # Ahora, si la predicción es "No se detectó..." O la confianza es muy baja, la consideramos inválida.
+        if prediction_text == 'No se detectó ninguna plaga' or prediction_confidence < MIN_CONFIDENCE_FOR_VALID_LEAF:
+            is_valid_leaf = False
+            prediction_text = "Imagen no reconocida"
+        
+        # --- 👆 FIN DEL FILTRO DE VALIDACIÓN CORREGIDO 👆 ---
 
         total_end_time = time.time()
         print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
 
-        # Se devuelve el resultado completo, incluyendo la nueva bandera para el frontend
         response_data = {
-            "prediction": final_prediction,
-            "confidence": final_result['confidence'],
-            "is_valid_leaf": is_valid_leaf, # <-- ¡NUEVO! Le dice al frontend si la imagen es válida
+            "prediction": prediction_text,
+            "confidence": prediction_confidence,
+            "is_valid_leaf": is_valid_leaf,
             "url_imagen": image_url_front,
             "url_imagen_reverso": image_url_back
         }

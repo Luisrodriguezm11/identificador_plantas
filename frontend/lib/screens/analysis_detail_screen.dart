@@ -68,12 +68,10 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     super.dispose();
   }
 
-  // --- 👇 FUNCIÓN DE PDF COMPLETAMENTE ACTUALIZADA 👇 ---
   Future<void> _exportToPdf() async {
     final pdf = pw.Document();
     final imageUrl = _imageUrls.first;
 
-    // --- Carga de recursos (imagen y fuentes) ---
     final imageResponse = await http.get(Uri.parse(imageUrl));
     final imageBytes = imageResponse.bodyBytes;
     final image = pw.MemoryImage(imageBytes);
@@ -83,7 +81,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     
     final theme = pw.ThemeData.withFont(base: font, bold: boldFont);
 
-    // --- Formateo de datos ---
     final fecha = DateTime.parse(widget.analysis['fecha_analisis']);
     final formattedDate = DateFormat('dd/MM/yyyy, hh:mm a').format(fecha);
     
@@ -94,7 +91,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     final prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
     final formattedPrediction = _formatPredictionName(prediction);
 
-    // --- Extracción de la nueva información enriquecida ---
     final symptoms = _diseaseInfo['sintomas_clave'] as String? ?? '';
     final affectedParts = _diseaseInfo['partes_afectadas'] as String? ?? '';
     final impact = _diseaseInfo['impacto'] as String? ?? '';
@@ -102,7 +98,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     final description = _diseaseInfo['descripcion'] as String? ?? 'No disponible.';
     final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
 
-    // --- Construcción del documento PDF ---
     pdf.addPage(
       pw.MultiPage(
         theme: theme,
@@ -110,7 +105,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
         header: (context) => _buildPdfHeader(formattedDate),
         footer: (context) => _buildPdfFooter(context),
         build: (context) => [
-          // --- Sección Principal del Diagnóstico ---
           pw.Header(
             level: 1,
             text: formattedPrediction,
@@ -120,12 +114,12 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text('Diagnóstico de Cultivo', style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 14)),
-              pw.Text('Confianza de la IA: $formattedConfidence', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey700, fontSize: 14)),
+              if (!_isPredictionHealthy(prediction))
+                pw.Text('Confianza de la IA: $formattedConfidence', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.blueGrey700, fontSize: 14)),
             ]
           ),
           pw.Divider(height: 25),
 
-          // --- Sección de Síntomas e Imagen ---
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -134,13 +128,15 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildPdfSectionTitle('Síntomas Clave'),
-                    pw.Wrap(
-                      spacing: 5,
-                      runSpacing: 5,
-                      children: symptomsList.map((symptom) => _buildPdfSymptomChip(symptom)).toList(),
-                    ),
-                    pw.SizedBox(height: 20),
+                    if (symptomsList.isNotEmpty) ...[
+                      _buildPdfSectionTitle('Síntomas Clave'),
+                      pw.Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: symptomsList.map((symptom) => _buildPdfSymptomChip(symptom)).toList(),
+                      ),
+                      pw.SizedBox(height: 20),
+                    ],
                     _buildPdfInfoCard('Partes Afectadas', affectedParts),
                     pw.SizedBox(height: 10),
                     _buildPdfInfoCard('Impacto en Cultivo', impact),
@@ -167,7 +163,12 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                      ),
                      pw.SizedBox(height: 20),
                      _buildPdfSectionTitle('Descripción General'),
-                     pw.Paragraph(text: description, style: const pw.TextStyle(fontSize: 11, lineSpacing: 4))
+                     pw.Paragraph(
+                       text: _isPredictionHealthy(prediction) 
+                           ? 'El análisis de la imagen no ha revelado la presencia de plagas o enfermedades comunes del café. La hoja presenta una apariencia saludable, lo cual es un indicador positivo del estado general del cultivo. Se recomienda continuar con las buenas prácticas agrícolas y el monitoreo regular.'
+                           : description,
+                       style: const pw.TextStyle(fontSize: 11, lineSpacing: 4)
+                     )
                   ]
                 )
               ),
@@ -175,7 +176,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
           ),
           pw.SizedBox(height: 20),
 
-          // --- Sección de Tratamientos ---
           if (_recommendationsList.isNotEmpty) ...[
             pw.Header(level: 2, text: 'Tratamientos Recomendados'),
             ..._recommendationsList.map((treatment) {
@@ -209,7 +209,6 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     await Printing.sharePdf(bytes: await pdf.save(), filename: 'reporte-analisis-$formattedPrediction.pdf');
   }
 
-  // --- 👇 WIDGETS HELPER PARA EL NUEVO DISEÑO DEL PDF 👇 ---
   pw.Widget _buildPdfHeader(String date) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -290,8 +289,28 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     }
   }
 
+  // --- 👇 CORRECCIÓN 1: Lógica mejorada para detectar cualquier resultado "sano". ---
+// EN: frontend/lib/screens/analysis_detail_screen.dart -> LÍNEA 344
+
+bool _isPredictionHealthy(String originalName) {
+  // ANTES (Incorrecto):
+  // final healthyStates = ['no se detectó ninguna plaga', 'sana'];
+
+  // DESPUÉS (Correcto):
+  final healthyStates = ['no se detectó ninguna plaga', 'sana', 'hoja sana'];
+  
+  return healthyStates.contains(originalName.trim().toLowerCase());
+}
+
+// --- 👇 NUEVO: Lógica para detectar un resultado no reconocido. ---
+bool _isPredictionUnrecognized(String originalName, double confidence) {
+  final unrecognizedNames = ['imagen no reconocida', 'desconocido', 'unknown', 'análisis no disponible'];
+  // Consideramos no reconocido si el nombre está en la lista O si la confianza es extremadamente baja (ej. 0.0)
+  return unrecognizedNames.contains(originalName.trim().toLowerCase()) || confidence == 0.0;
+}
+
   String _formatPredictionName(String originalName) {
-    if (originalName.toLowerCase() == 'no se detectó ninguna plaga') return 'Hoja Sana';
+    if (_isPredictionHealthy(originalName)) return 'Hoja Sana'; // Usamos la nueva función
     String formattedName = originalName.replaceAll('hojas-', '').replaceAll('_', ' ');
     if (formattedName.isEmpty) return 'Desconocido';
     return formattedName[0].toUpperCase() + formattedName.substring(1);
@@ -328,10 +347,17 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
       }
     }
   }
-
+  
   Future<void> _fetchDiseaseDetails() async {
+    final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
+    
+    // Si la hoja está sana, no hacemos la llamada a la API y terminamos de cargar.
+    if (_isPredictionHealthy(diseaseName)) {
+      if (mounted) setState(() => _isDetailsLoading = false);
+      return;
+    }
+    
     try {
-      final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
       final details = await _detectionService.getDiseaseDetails(diseaseName);
       if (mounted) {
         setState(() {
@@ -438,12 +464,19 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     );
   }
   
-  Widget _buildDetailsSection(String prediction, double confidence) {
+Widget _buildDetailsSection(String prediction, double confidence) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    
+    final bool isHealthy = _isPredictionHealthy(prediction);
+    final bool isUnrecognized = _isPredictionUnrecognized(prediction, confidence); // NUEVO
+    final String formattedPrediction = _formatPredictionName(prediction);
 
+    // NUEVO: Título dinámico para la cabecera
+    final String headerTitle = isUnrecognized ? "Resultado no Válido" : formattedPrediction;
+
+    // MODIFICADO: La longitud del TabController ahora depende de si es sano O no reconocido
     return DefaultTabController(
-      length: 2,
+      length: isHealthy || isUnrecognized ? 1 : 2, 
       child: Padding(
         padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
         child: Column(
@@ -457,17 +490,21 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       Text(_formatPredictionName(prediction), style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)])),
+                      // MODIFICADO: Usa el nuevo título dinámico
+                      Text(headerTitle, style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)])),
                       const SizedBox(height: 8),
-                      Text("Confianza del ${(confidence * 100).toStringAsFixed(1)}%", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8))),
+                      // MODIFICADO: La confianza solo se muestra si NO es sano y NO es no reconocido
+                      if (!isHealthy && !isUnrecognized)
+                        Text("Confianza del ${(confidence * 100).toStringAsFixed(1)}%", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8))),
                     ],
                   ),
                 ),
                 Row(
                   children: [
+                    // ... (tus action buttons no cambian)
                     _buildActionButton(icon: Icons.picture_as_pdf_outlined, color: Colors.green.shade400, tooltip: 'Exportar a PDF', onPressed: _exportToPdf),
                     const SizedBox(width: 12),
-                    _buildActionButton(icon: Icons.delete_outline, color: isDark ? AppColorsDark.danger : AppColorsLight.danger, tooltip: 'Enviar a la papelera', onPressed: _deleteItem),
+                    _buildActionButton(icon: Icons.delete_outline, color: Theme.of(context).brightness == Brightness.dark ? AppColorsDark.danger : AppColorsLight.danger, tooltip: 'Enviar a la papelera', onPressed: _deleteItem),
                     const SizedBox(width: 12),
                     _buildActionButton(icon: Icons.close, color: Colors.grey.shade600, tooltip: 'Cerrar', onPressed: () => Navigator.of(context).pop()),
                   ],
@@ -475,25 +512,113 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            const TabBar(
-              indicatorColor: Colors.white,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              tabs: [Tab(text: 'DIAGNÓSTICO'), Tab(text: 'TRATAMIENTOS')],
-            ),
-            const SizedBox(height: 20),
+            
+            // MODIFICADO: Las pestañas solo se muestran si NO es sano y NO es no reconocido.
+            if (!isHealthy && !isUnrecognized)
+              TabBar(
+                indicatorColor: Colors.white,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                tabs: const [
+                  Tab(text: 'DIAGNÓSTICO'),
+                  Tab(text: 'TRATAMIENTOS'),
+                ],
+              ),
+
+            // MODIFICADO: Si no hay pestañas, agregamos un padding para compensar.
+            if (isHealthy || isUnrecognized)
+              const SizedBox(height: 20),
+
             Expanded(
               child: _isDetailsLoading
                   ? const Center(child: CircularProgressIndicator(color: Colors.white))
                   : _errorMessage != null
                       ? Center(child: Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error)))
                       : TabBarView(
+                          // MODIFICADO: Lógica anidada para mostrar el widget correcto.
                           children: [
-                            _buildDiagnosticTab(),
-                            _buildRecommendationsTab(),
+                            if (isUnrecognized)
+                              _buildUnrecognizedDiagnosisTab()
+                            else if (isHealthy) 
+                              _buildHealthyDiagnosisTab()
+                            else
+                              _buildDiagnosticTab(),
+                            
+                            if (!isHealthy && !isUnrecognized) 
+                              _buildRecommendationsTab(),
                           ],
                         ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHealthyDiagnosisTab() {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 80),
+            const SizedBox(height: 24),
+            Text(
+              "¡Excelentes Noticias!",
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [const Shadow(blurRadius: 2, color: Colors.black45)]
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "No hemos detectado ninguna plaga o enfermedad en tu planta de café. Tu cultivo se ve sano y fuerte. ¡Sigue con el buen trabajo!",
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white.withOpacity(0.9),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+Widget _buildUnrecognizedDiagnosisTab() {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.help_outline_rounded, color: Colors.white, size: 80),
+            const SizedBox(height: 24),
+            Text(
+              "Imagen no reconocida",
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [const Shadow(blurRadius: 2, color: Colors.black45)]
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Lo sentimos, nuestro sistema no pudo identificar una plaga en esta imagen. Para un mejor resultado, por favor intenta con una fotografía más clara y bien enfocada de la hoja.",
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white.withOpacity(0.9),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
