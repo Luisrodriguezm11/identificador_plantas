@@ -590,9 +590,10 @@ Widget _buildDetailsSection(String prediction, double confidence) {
       ),
     );
   }
-
 Widget _buildUnrecognizedDiagnosisTab() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -620,12 +621,31 @@ Widget _buildUnrecognizedDiagnosisTab() {
               ),
               textAlign: TextAlign.center,
             ),
+            
+            // --- 👇 NUEVO: Botón de acción para eliminar ---
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _deleteItem, // Reutilizamos la función de borrado existente
+              icon: const Icon(Icons.delete_outline, size: 20),
+              label: const Text('Eliminar este análisis'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30), // Bordes redondeados
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
   Widget _buildDiagnosticTab() {
     final theme = Theme.of(context);
     
