@@ -27,10 +27,20 @@ try:
 except Exception as e:
     print(f"Error inicializando Firebase Admin: {e}")
 
+origins = [
+    "http://localhost:5000",
+    "http://12_7.0.0.1:5000",
+    "https://identificador-plantas-frontend.onrender.com"
+]
+
 app = Flask(__name__)
 # Configuración de CORS para permitir todas las solicitudes de cualquier origen.
-CORS(app, resources={r"/*": {"origins": "*"}})
-app.config.from_object(Config)
+CORS(
+    app,
+    resources={r"/*": {"origins": origins}},
+    supports_credentials=True,
+    allow_headers=["Authorization", "Content-Type"] # Permite las cabeceras necesarias
+)
 
 def get_db_connection():
     conn = psycopg2.connect(app.config['DATABASE_URI'])
