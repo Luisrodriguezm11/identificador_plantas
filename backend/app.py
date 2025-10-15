@@ -30,16 +30,16 @@ except Exception as e:
 origins = [
     "http://localhost:5000",
     "http://12_7.0.0.1:5000",
-    "https://identificador-plantas-frontend.onrender.com"
+    "https://identificador-plagas-v2.web.app" # <-- ¡URL CORREGIDA!
 ]
 
 app = Flask(__name__)
-# Configuración de CORS para permitir todas las solicitudes de cualquier origen.
+# Configuración de CORS
 CORS(
     app,
     resources={r"/*": {"origins": origins}},
     supports_credentials=True,
-    allow_headers=["Authorization", "Content-Type"] # Permite las cabeceras necesarias
+    allow_headers=["Authorization", "Content-Type"]
 )
 
 def get_db_connection():
