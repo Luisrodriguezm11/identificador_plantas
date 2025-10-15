@@ -11,7 +11,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'una-clave-secreta-muy-dificil-de-adivinar')
 
     # Usa directamente la variable DATABASE_URI proporcionada por Render para en linea 
-    DATABASE_URI = os.environ.get('DATABASE_URI')
+    DATABASE_URI = os.environ.get('DATABASE_URL')
 
     #Configuración de la base de datos PostgreSQL en local
     #DB_USER = os.environ.get('DB_USER', 'postgres')
