@@ -63,7 +63,7 @@ class Tratamiento {
 }
 
 class TreatmentService {
-  //final String _baseUrl = "http://192.168.0.33:5001";
+  //final String _baseUrl = "http://192.168.0.10:5001";
   final String _baseUrl = "https://identificador-plantas-backend.onrender.com"; 
   final AuthService _authService = AuthService();
 

@@ -18,6 +18,7 @@ import firebase_admin
 from firebase_admin import credentials, storage
 from PIL import Image # <-- 1. IMPORTAR LA LIBRERÍA
 import time
+import re #
 
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
@@ -28,9 +29,8 @@ except Exception as e:
     print(f"Error inicializando Firebase Admin: {e}")
 
 origins = [
-    "http://localhost:5000",
-    "http://12_7.0.0.1:5000",
-    "https://identificador-plagas-v2.web.app" # <-- ¡URL CORREGIDA!
+    re.compile(r"http://localhost:.*"), # <-- 2. PERMITE CUALQUIER PUERTO EN LOCALHOST
+    "https://identificador-plagas-v2.web.app"
 ]
 
 app = Flask(__name__)
@@ -40,7 +40,7 @@ CORS(
     app,
     resources={r"/*": {"origins": origins}},
     supports_credentials=True,
-    allow_headers=["Authorization", "Content-Type"]
+    allow_headers=["Authorization", "Content-Type", "x-access-token"]
 )
 
 def get_db_connection():
