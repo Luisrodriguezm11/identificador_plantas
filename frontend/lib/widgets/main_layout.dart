@@ -1,8 +1,18 @@
 // frontend/lib/widgets/main_layout.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/admin_dashboard_screen.dart';
+import 'package:frontend/screens/auth_check_screen.dart';
+import 'package:frontend/screens/dashboard_screen.dart';
+import 'package:frontend/screens/detection_screen.dart';
+import 'package:frontend/screens/dose_calculation_screen.dart';
+import 'package:frontend/screens/history_screen.dart';
+import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/widgets/animated_bubble_background.dart';
-import 'package:frontend/screens/auth_check_screen.dart'; // Asegúrate que la ruta sea correcta
+
+// Creamos una clave global para nuestro navegador anidado.
+// Esto nos permite controlarlo desde cualquier parte de la app si es necesario.
+final GlobalKey<NavigatorState> mainNavigatorKey = GlobalKey<NavigatorState>();
 
 class MainLayout extends StatelessWidget {
   const MainLayout({Key? key}) : super(key: key);
@@ -10,27 +20,50 @@ class MainLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Usamos un Stack para poner el fondo detrás de todo
       body: Stack(
         children: [
-          // 1. El fondo animado que SIEMPRE estará visible
+          // 1. El fondo animado SIEMPRE estará en la base del Stack.
           const AnimatedBubbleBackground(),
 
-          // 2. Un Navigator que se encargará de mostrar las pantallas
-          // encima del fondo.
+          // 2. El Navegador anidado que renderizará las pantallas ENCIMA del fondo.
           Navigator(
-            // La pantalla inicial de tu app
-            initialRoute: '/',
-            // Esta función se encarga de construir las rutas (pantallas)
+            key: mainNavigatorKey,
+            initialRoute: '/auth_check', // La primera ruta es la de verificación.
             onGenerateRoute: (settings) {
+              Widget page;
               switch (settings.name) {
-                case '/':
-                  return MaterialPageRoute(builder: (_) => const AuthCheckScreen());
-                // Aquí podrías añadir más rutas si las necesitaras en este Navigator,
-                // pero por ahora, el principal de MaterialApp las manejará.
+                case '/auth_check':
+                  page = const AuthCheckScreen();
+                  break;
+                case '/dashboard':
+                  page = const DashboardScreen();
+                  break;
+                case '/history':
+                  // Aceptamos argumentos para poder resaltar el análisis
+                  final args = settings.arguments as Map<String, dynamic>?;
+                  page = HistoryScreen(highlightedAnalysisId: args?['highlightedAnalysisId']);
+                  break;
+                case '/trash':
+                  page = const TrashScreen();
+                  break;
+                case '/dose-calculation':
+                  page = const DoseCalculationScreen();
+                  break;
+                case '/detection':
+                  page = const DetectionScreen();
+                   break;
+                case '/admin-dashboard':
+                   page = const AdminDashboardScreen();
+                   break;
                 default:
-                  return MaterialPageRoute(builder: (_) => const AuthCheckScreen()); // Una pantalla por defecto
+                  page = const AuthCheckScreen(); // Ruta por defecto
               }
+              // Usamos PageRouteBuilder para quitar la animación de transición
+              return PageRouteBuilder(
+                pageBuilder: (_, __, ___) => page,
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              );
             },
           ),
         ],

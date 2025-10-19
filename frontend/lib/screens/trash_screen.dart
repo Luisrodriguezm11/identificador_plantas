@@ -8,6 +8,7 @@ import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
 import 'package:frontend/services/auth_service.dart';
+import 'package:frontend/widgets/main_layout.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
 import '../services/detection_service.dart';
 import 'dart:ui';
@@ -158,16 +159,20 @@ class _TrashScreenState extends State<TrashScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cerrar'),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pushReplacement(NoTransitionRoute(
-                        page: HistoryScreen(
-                      highlightedAnalysisId: restoredItem['id_analisis'],
-                    )));
-                  },
-                  child: const Text('Ver en Historial'),
-                ),
+ElevatedButton(
+  onPressed: () {
+    // 1. Cierra el diálogo.
+    Navigator.of(context).pop();
+
+    // 2. Navega a la ruta '/history' DENTRO del navegador de MainLayout,
+    //    pasando el ID del análisis como argumento.
+    mainNavigatorKey.currentState?.pushReplacementNamed(
+      '/history',
+      arguments: {'highlightedAnalysisId': restoredItem['id_analisis']},
+    );
+  },
+  child: const Text('Ver en Historial'),
+),
               ],
             ),
           );

@@ -2,16 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/config/theme_provider.dart';
-import 'package:frontend/screens/admin_dashboard_screen.dart';
-import 'package:frontend/screens/admin_user_list_screen.dart';
-import 'package:frontend/screens/dashboard_screen.dart';
-import 'package:frontend/screens/detection_screen.dart';
-import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
-import 'package:frontend/screens/manage_recommendations_screen.dart';
 import 'package:frontend/screens/register_screen.dart';
-import 'package:frontend/screens/trash_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -54,18 +46,15 @@ class MyApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
+          // 1. MainLayout es la PANTALLA DE INICIO VISUAL.
           home: const MainLayout(),
+          // 2. ELIMINAMOS LAS RUTAS que ahora manejará el navegador anidado.
+          //    Dejamos solo las que se muestran como pantallas completas
+          //    (modales o de pantalla completa) como login y register.
           routes: {
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
-            '/dashboard': (context) => const DashboardScreen(),
-            '/history': (context) => const HistoryScreen(),
-            '/trash': (context) => const TrashScreen(),
-            '/detection': (context) => const DetectionScreen(),
-            '/dose-calculation': (context) => const DoseCalculationScreen(),
-            '/admin-dashboard': (context) => const AdminDashboardScreen(),
-            '/admin-users': (context) => const AdminUserListScreen(),
-            '/manage-recommendations': (context) => const ManageRecommendationsScreen(),
+            // ¡Quitamos /dashboard, /history, /trash, etc. de aquí!
           },
        );
       },

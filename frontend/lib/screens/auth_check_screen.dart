@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 //import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'package:lottie/lottie.dart'; // <-- 2. IMPORTAMOS LOTTIE PARA ANIMACIONES
 import '../services/auth_service.dart';
-import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
 class AuthCheckScreen extends StatefulWidget {
@@ -24,23 +23,22 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
     _checkLoginStatus();
   }
 
-  void _checkLoginStatus() async {
-    // Un pequeño retraso para que la pantalla de carga se sienta más natural
-    await Future.delayed(const Duration(seconds: 2));
+void _checkLoginStatus() async {
+  await Future.delayed(const Duration(seconds: 2));
 
-    final token = await _authService.readToken();
-    if (mounted) {
-      if (token != null) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
+  final token = await _authService.readToken();
+  if (mounted) {
+    if (token != null) {
+      // Navega a la ruta '/dashboard' DENTRO del navegador de MainLayout
+      Navigator.of(context).pushReplacementNamed('/dashboard');
+    } else {
+      // Navega a la pantalla de Login (esta reemplaza toda la app, lo cual es correcto aquí)
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
