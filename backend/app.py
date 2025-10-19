@@ -54,7 +54,7 @@ def get_db_connection():
 def register():
     data = request.get_json()
     nombre_completo = data.get('nombre_completo')
-    email = data.get('email')
+    email = data.get('email').lower()
     password = data.get('password')
     ong = data.get('ong')
     # --- 👇 NUEVA LÍNEA ---
@@ -94,8 +94,8 @@ def login():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Pedimos la nueva columna 'es_admin' en la consulta
-        cur.execute("SELECT id_usuario, password_hash, es_admin, nombre_completo FROM usuarios WHERE email = %s", (email,))
+        # backend/app.py -> en la función login()
+        cur.execute("SELECT id_usuario, password_hash, es_admin, nombre_completo FROM usuarios WHERE LOWER(email) = LOWER(%s)", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
