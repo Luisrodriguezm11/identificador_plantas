@@ -248,6 +248,7 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
                     pw.Text('Frecuencia: ${treatment['frecuencia_aplicacion'] ?? 'N/A'}'),
                     if(treatment['notas_adicionales'] != null && treatment['notas_adicionales'].isNotEmpty)
                       pw.Text('Notas: ${treatment['notas_adicionales']}'),
+                      _buildPdfDisclaimer(boldFont),
                   ]
                 )
               );
@@ -274,6 +275,39 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
           pw.Text(content, style: const pw.TextStyle(fontSize: 10)),
         ]
       )
+    );
+  }
+
+pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 25),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.amber50,
+        border: pw.Border.all(color: PdfColors.orange300),
+        borderRadius: pw.BorderRadius.circular(5),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            child: pw.RichText(
+              text: pw.TextSpan(
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800),
+                children: [
+                  pw.TextSpan(
+                    text: 'Descargo de Responsabilidad: ',
+                    style: pw.TextStyle(font: boldFont),
+                  ),
+                  const pw.TextSpan(
+                    text: 'Este reporte es una guía generada por IA y no reemplaza el diagnóstico de un profesional. Verifique siempre los resultados y tratamientos con un ingeniero agrónomo certificado.',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

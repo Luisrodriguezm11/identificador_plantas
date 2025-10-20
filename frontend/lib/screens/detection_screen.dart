@@ -242,7 +242,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
+                  constraints: const BoxConstraints(maxWidth: 1100),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -252,6 +252,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                       _buildUploadArea(),
                       const SizedBox(height: 50),
                       _buildTipsSection(),
+                      // CAMBIO: Se elimina el disclaimer de aquí porque ahora está dentro de _buildUploadArea
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -348,14 +349,15 @@ class _DetectionScreenState extends State<DetectionScreen> {
   }
 
   /// Construye el área principal para la carga de imágenes.
-  Widget _buildUploadArea() {
+Widget _buildUploadArea() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // RESPONSIVE: LayoutBuilder decide si mostrar los slots en Fila o Columna.
     return LayoutBuilder(
       builder: (context, constraints) {
-        bool useMobileLayout = constraints.maxWidth < 700;
+        // Se ajusta el punto de quiebre para 3 tarjetas
+        bool useMobileLayout = constraints.maxWidth < 950;
+        
         return ClipRRect(
           borderRadius: BorderRadius.circular(24.0),
           child: BackdropFilter(
@@ -369,13 +371,14 @@ class _DetectionScreenState extends State<DetectionScreen> {
               ),
               child: Column(
                 children: [
-                  // RESPONSIVE: Se muestra como Fila o Columna según el espacio.
                   useMobileLayout
                     ? Column(
                         children: [
                           _buildImageSlot(isFront: true),
                           const SizedBox(height: 24),
                           _buildImageSlot(isFront: false),
+                          const SizedBox(height: 24),
+                          _buildDisclaimerCard(), // En móvil, se apila debajo
                         ],
                       )
                     : Row(
@@ -385,6 +388,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           Expanded(child: _buildImageSlot(isFront: true)),
                           const SizedBox(width: 24),
                           Expanded(child: _buildImageSlot(isFront: false)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildDisclaimerCard()), // En escritorio, es la tercera columna
                         ],
                       ),
                   if (_errorMessage != null)
@@ -412,6 +417,54 @@ class _DetectionScreenState extends State<DetectionScreen> {
           ),
         );
       }
+    );
+  }
+
+// frontend/lib/screens/detection_screen.dart
+
+// CAMBIO: Se añade este nuevo método para crear la tarjeta de descargo de responsabilidad.
+  Widget _buildDisclaimerCard() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
+      children: [
+        Text("Importante", style: theme.textTheme.titleMedium),
+        const SizedBox(height: 16),
+        AspectRatio(
+          aspectRatio: 4 / 3,
+          child: Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                  color: (isDark ? Colors.orange.shade900 : Colors.amber.shade200).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12.0),
+                  border: Border.all(
+                      color: (isDark ? Colors.orange.shade800 : Colors.amber.shade400).withOpacity(0.4),
+                  ),
+              ),
+              child: Center(
+                child: SingleChildScrollView(
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                            Icon(
+                                Icons.warning_amber_rounded,
+                                color: isDark ? Colors.orange.shade300 : Colors.orange.shade800,
+                                size: 40,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                                'Los resultados son una guía y no garantizan precisión. Consulte siempre a un agrónomo profesional.',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium,
+                            ),
+                        ],
+                    ),
+                ),
+              ),
+          ),
+        ),
+      ],
     );
   }
 
