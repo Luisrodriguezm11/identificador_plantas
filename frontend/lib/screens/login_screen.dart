@@ -54,22 +54,20 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    // Obtenemos el tema actual para decidir qué colores usar
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
+    
+    // <-- 1. Obtenemos el ancho de la pantalla
+    final screenWidth = MediaQuery.of(context).size.width;
+    // <-- 2. Definimos un punto de quiebre (breakpoint) para cambiar el diseño
+    final bool isWideScreen = screenWidth > 768;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          
-          // 1. FONDO UNIFICADO
-          //Container(
-            //decoration: AppTheme.backgroundDecoration,
-          //),
-
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),
@@ -80,108 +78,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                     child: Container(
-                      // 2. COLORES DE TARJETA ADAPTATIVOS
                       decoration: BoxDecoration(
                         color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(16.0),
                         border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                       ),
                       child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            // --- COLUMNA IZQUIERDA: FORMULARIO ---
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.all(32.0),
-                                child: Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      // 3. TEXTOS Y CAMPOS USAN EL TEMA
-                                      Text(
-                                        "INICIAR SESIÓN",
-                                        style: theme.textTheme.headlineMedium,
-                                      ),
-                                      const SizedBox(height: 32),
-                                      TextFormField(
-                                        controller: _emailController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "CORREO ELECTRÓNICO"),
-                                        keyboardType: TextInputType.emailAddress,
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty || !value.contains('@')) {
-                                            return 'Por favor, ingresa un email válido';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 16),
-                                      TextFormField(
-                                        controller: _passwordController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "CONTRASEÑA"),
-                                        obscureText: true,
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return 'Por favor, ingresa tu contraseña';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 32),
-                                      _isLoading
-                                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                                          : SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton(
-                                                // 4. BOTÓN DE ACENTO DEL TEMA
-                                                style: AppTheme.accentButtonStyle(context),
-                                                onPressed: _login,
-                                                child: const Text("INGRESAR"),
-                                              ),
-                                            ),
-                                      const SizedBox(height: 24),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                                          );
-                                        },
-                                        // El estilo del TextButton también se adapta
-                                        child: Text(
-                                          "¿No tienes una cuenta? Regístrate",
-                                          style: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.primary),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // --- COLUMNA DERECHA: IMAGEN ---
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.black.withOpacity(0.2) : Colors.white,
-                                  borderRadius: const BorderRadius.only(
-                                    topRight: Radius.circular(16.0),
-                                    bottomRight: Radius.circular(16.0),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/login_image.jpg',
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        // <-- 3. Usamos un operador ternario para elegir el layout
+                        child: isWideScreen
+                            ? Row(
+                                children: [
+                                  Expanded(flex: 3, child: _buildLoginForm(context)),
+                                  Expanded(flex: 2, child: _buildImageSide(context)),
+                                ],
+                              )
+                            : _buildLoginForm(context), // En pantallas pequeñas, solo mostramos el formulario
                       ),
                     ),
                   ),
@@ -193,4 +104,97 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  // --- MÉTODOS AUXILIARES PARA MAYOR CLARIDAD ---
+
+  // Widget para el formulario de Login
+  Widget _buildLoginForm(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "INICIAR SESIÓN",
+              style: theme.textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 32),
+            TextFormField(
+              controller: _emailController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "CORREO ELECTRÓNICO"),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty || !value.contains('@')) {
+                  return 'Por favor, ingresa un email válido';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "CONTRASEÑA"),
+              obscureText: true,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Por favor, ingresa tu contraseña';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 32),
+            _isLoading
+                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: AppTheme.accentButtonStyle(context),
+                      onPressed: _login,
+                      child: const Text("INGRESAR"),
+                    ),
+                  ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                );
+              },
+              child: Text(
+                "¿No tienes una cuenta? Regístrate",
+                style: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.primary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget para la imagen lateral
+// Reemplaza la versión anterior de este método en ambos archivos.
+
+Widget _buildImageSide(BuildContext context, {BoxFit fit = BoxFit.cover}) { // <-- 1. Añadimos el parámetro
+  return Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      borderRadius: const BorderRadius.only(
+        topRight: Radius.circular(16.0),
+        bottomRight: Radius.circular(16.0),
+      ),
+      image: DecorationImage(
+        fit: fit, // <-- 2. Usamos el parámetro en lugar de un valor fijo
+        image: const AssetImage('assets/login_image.jpg'),
+      ),
+    ),
+  );
+}
 }

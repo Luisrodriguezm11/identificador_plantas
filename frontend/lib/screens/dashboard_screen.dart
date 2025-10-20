@@ -512,20 +512,16 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                         const SizedBox(height: 8),
                         // --- INICIO DE LA CORRECCIÓN ---
                         Row(
-                          // Se elimina `mainAxisAlignment: MainAxisAlignment.spaceBetween`
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // 1. Se envuelve el Text de la fecha con Expanded.
                             Expanded(
                               child: Text(
                                 fechaFormateada,
                                 style: const TextStyle(color: Colors.white70, fontSize: 14),
-                                // 2. Se agregan estas propiedades por seguridad para evitar que el texto crezca.
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // El widget del botón se mantiene igual.
                             ClipRRect(
                               borderRadius: BorderRadius.circular(30.0),
                               child: BackdropFilter(
@@ -537,8 +533,10 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                                     border: Border.all(color: Colors.white.withOpacity(0.3)),
                                   ),
                                   child: TextButton(
-                                    onPressed: () {
-                                      showDialog(
+                                    onPressed: () async {
+                                      // 1. Convertimos la función a `async`.
+                                      // 2. Esperamos el resultado del diálogo.
+                                      final result = await showDialog(
                                         context: context,
                                         builder: (BuildContext dialogContext) {
                                           return Dialog(
@@ -547,6 +545,12 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                                           );
                                         },
                                       );
+
+                                      // 3. Si el resultado es `true`, significa que algo
+                                      //    se borró y debemos refrescar la lista.
+                                      if (result == true) {
+                                        _fetchRecentAnalyses();
+                                      }
                                     },
                                     style: TextButton.styleFrom(
                                       foregroundColor: Colors.white,

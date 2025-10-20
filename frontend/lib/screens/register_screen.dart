@@ -40,7 +40,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-Future<void> _register() async {
+  Future<void> _register() async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
@@ -89,16 +89,13 @@ Future<void> _register() async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bool isWideScreen = screenWidth > 768;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          
-          //Container(
-            //decoration: AppTheme.backgroundDecoration,
-          //),
-          //const AnimatedBubbleBackground(),
-          
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(32.0),
@@ -109,131 +106,22 @@ Future<void> _register() async {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
                     child: Container(
-                      // 3. TARJETA ADAPTATIVA
                       decoration: BoxDecoration(
                         color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(16.0),
                         border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                       ),
                       child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Form(
-                                  key: _formKey,
-child: Column(
-  mainAxisAlignment: MainAxisAlignment.center,
-  children: [
-    Text(
-      "REGISTRO",
-      style: theme.textTheme.headlineMedium,
-    ),
-    const SizedBox(height: 24),
-
-    // --- 👇 AÑADE ESTE BLOQUE COMPLETO 👇 ---
-    GestureDetector(
-      onTap: _pickProfileImage,
-      child: CircleAvatar(
-        radius: 50,
-        backgroundColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-        backgroundImage: _profileImageFile != null
-            ? (kIsWeb
-                ? NetworkImage(_profileImageFile!.path)
-                : FileImage(File(_profileImageFile!.path))) as ImageProvider
-            : null,
-        child: _profileImageFile == null
-            ? Icon(
-                Icons.camera_alt,
-                color: isDark ? Colors.white70 : Colors.black54,
-                size: 40,
-              )
-            : null,
-      ),
-    ),
-    const SizedBox(height: 8),
-    Text(
-      'Añadir foto de perfil',
-      style: theme.textTheme.bodyMedium,
-    ),
-    const SizedBox(height: 24),
-  
-
-                                      TextFormField(
-                                        controller: _nombreController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "NOMBRE COMPLETO"),
-                                        validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      TextFormField(
-                                        controller: _emailController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "CORREO ELECTRÓNICO"),
-                                        keyboardType: TextInputType.emailAddress,
-                                        validator: (value) => value!.isEmpty || !value.contains('@') ? 'Email inválido' : null,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      TextFormField(
-                                        controller: _passwordController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "CONTRASEÑA"),
-                                        obscureText: true,
-                                        validator: (value) => value!.length < 6 ? 'La contraseña debe tener al menos 6 caracteres' : null,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      TextFormField(
-                                        controller: _ongController,
-                                        style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
-                                        decoration: const InputDecoration(labelText: "ONG (OPCIONAL)"),
-                                      ),
-                                      const SizedBox(height: 32),
-                                      _isLoading
-                                          ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-                                          : SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton(
-                                                // 5. BOTÓN DE ACENTO
-                                                style: AppTheme.accentButtonStyle(context),
-                                                onPressed: _register,
-                                                child: const Text("REGISTRARSE"),
-                                              ),
-                                            ),
-                                      const SizedBox(height: 24),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text(
-                                          "Volver al inicio de sesión",
-                                          style: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.primary),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.black.withOpacity(0.2) : Colors.white,
-                                  borderRadius: const BorderRadius.only(
-                                    topRight: Radius.circular(16.0),
-                                    bottomRight: Radius.circular(16.0),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/login_image.jpg',
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: isWideScreen
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(flex: 3, child: _buildRegisterForm(context)),
+                                  // --- 👇 CAMBIO 1: LLAMAMOS AL NUEVO MÉTODO 👇 ---
+                                  Expanded(flex: 2, child: _buildScalableImageSide(context)),
+                                ],
+                              )
+                            : _buildRegisterForm(context),
                       ),
                     ),
                   ),
@@ -245,4 +133,114 @@ child: Column(
       ),
     );
   }
+
+  Widget _buildRegisterForm(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("REGISTRO", style: theme.textTheme.headlineMedium),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: _pickProfileImage,
+              child: CircleAvatar(
+                radius: 50,
+                backgroundColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                backgroundImage: _profileImageFile != null
+                    ? (kIsWeb
+                        ? NetworkImage(_profileImageFile!.path)
+                        : FileImage(File(_profileImageFile!.path))) as ImageProvider
+                    : null,
+                child: _profileImageFile == null
+                    ? Icon(Icons.camera_alt, color: isDark ? Colors.white70 : Colors.black54, size: 40)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('Añadir foto de perfil', style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 24),
+            TextFormField(
+              controller: _nombreController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "NOMBRE COMPLETO"),
+              validator: (value) => value!.isEmpty ? 'Campo requerido' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "CORREO ELECTRÓNICO"),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'El correo es requerido';
+                String pattern = r'^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$';
+                RegExp regex = RegExp(pattern);
+                if (!regex.hasMatch(value)) return 'Introduce un correo electrónico válido';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "CONTRASEÑA"),
+              obscureText: true,
+              validator: (value) => value!.length < 6 ? 'La contraseña debe tener al menos 6 caracteres' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _ongController,
+              style: TextStyle(color: isDark ? AppColorsDark.textPrimary : AppColorsLight.textPrimary),
+              decoration: const InputDecoration(labelText: "ONG (OPCIONAL)"),
+            ),
+            const SizedBox(height: 32),
+            _isLoading
+                ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+                : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: AppTheme.accentButtonStyle(context),
+                      onPressed: _register,
+                      child: const Text("REGISTRARSE"),
+                    ),
+                  ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                "Volver al inicio de sesión",
+                style: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.primary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- 👇 CAMBIO 2: MÉTODO DE IMAGEN ESPECIALIZADO PARA EL REGISTRO 👇 ---
+// --- 👇 MÉTODO DE IMAGEN CORREGIDO Y SIMPLIFICADO 👇 ---
+Widget _buildScalableImageSide(BuildContext context) {
+  return Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: const BoxDecoration(
+      color: Colors.white, // Mantenemos el fondo blanco sólido
+      borderRadius: BorderRadius.only(
+        topRight: Radius.circular(16.0),
+        bottomRight: Radius.circular(16.0),
+      ),
+    ),
+    child: Image.asset(
+      'assets/login_image.jpg', // Asegúrate que esta ruta sea correcta
+      // --- CAMBIO CLAVE: Volvemos a .contain para evitar el recorte ---
+      fit: BoxFit.contain,
+    ),
+  );
+}
 }

@@ -1354,5 +1354,84 @@ def admin_reset_password(current_user_id, user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al restablecer la contraseña: {str(e)}"}), 500
 
+# backend/app.py
+
+@app.route('/profile/delete', methods=['POST'])
+@token_required
+def delete_current_user(current_user_id):
+    """
+    Permite a un usuario eliminar su propia cuenta permanentemente.
+    Requiere la contraseña actual para confirmación.
+    """
+    data = request.get_json()
+    current_password = data.get('current_password')
+
+    if not current_password:
+        return jsonify({"error": "Se requiere la contraseña actual para confirmar"}), 400
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # 1. Verificar la contraseña actual del usuario
+        cur.execute("SELECT password_hash FROM usuarios WHERE id_usuario = %s", (current_user_id,))
+        user = cur.fetchone()
+        
+        if not user or not bcrypt.checkpw(current_password.encode('utf-8'), user['password_hash'].encode('utf-8')):
+            return jsonify({"error": "La contraseña actual es incorrecta"}), 401
+
+        # 2. Si la contraseña es correcta, obtener todas las URLs de las imágenes a eliminar
+        cur.execute("SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s", (current_user_id,))
+        analysis_images = cur.fetchall()
+        
+        cur.execute("SELECT profile_image_url FROM usuarios WHERE id_usuario = %s", (current_user_id,))
+        user_profile = cur.fetchone()
+
+        urls_to_delete = []
+        if user_profile and user_profile['profile_image_url']:
+            urls_to_delete.append(user_profile['profile_image_url'])
+        
+        for item in analysis_images:
+            if item['url_imagen']:
+                urls_to_delete.append(item['url_imagen'])
+            if item['url_imagen_reverso']:
+                urls_to_delete.append(item['url_imagen_reverso'])
+
+        # 3. Eliminar los registros de la base de datos
+        # (Se borran primero los análisis y luego el usuario para respetar las relaciones)
+        cur.execute("DELETE FROM analisis WHERE id_usuario = %s", (current_user_id,))
+        cur.execute("DELETE FROM usuarios WHERE id_usuario = %s", (current_user_id,))
+        
+        conn.commit() # Confirmar los cambios en la base de datos
+        
+        # 4. Borrar las imágenes de Firebase Storage
+        if urls_to_delete:
+            bucket = storage.bucket()
+            for image_url in urls_to_delete:
+                if image_url:
+                    try:
+                        path_part = image_url.split('?')[0]
+                        file_path = path_part.split('/o/')[-1].replace('%2F', '/')
+                        blob = bucket.blob(file_path)
+                        if blob.exists():
+                            blob.delete()
+                    except Exception as e:
+                        print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase: {e}")
+
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Tu cuenta y todos tus datos han sido eliminados"}), 200
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"error": f"Ocurrió un error al eliminar la cuenta: {str(e)}"}), 500
+    finally:
+        if conn and not conn.closed:
+            cur.close()
+            conn.close()
+            
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

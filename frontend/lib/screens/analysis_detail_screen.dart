@@ -292,15 +292,20 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   // --- 👇 CORRECCIÓN 1: Lógica mejorada para detectar cualquier resultado "sano". ---
 // EN: frontend/lib/screens/analysis_detail_screen.dart -> LÍNEA 344
 
+// --- 👇 INICIO DE LA CORRECCIÓN ---
 bool _isPredictionHealthy(String originalName) {
-  // ANTES (Incorrecto):
-  // final healthyStates = ['no se detectó ninguna plaga', 'sana'];
+  // Lista de todos los posibles resultados que indican una hoja sana.
+  // Se añade 'hojas-sana' que es un posible resultado del modelo de Roboflow.
+  final healthyStates = [
+    'no se detectó ninguna plaga',
+    'sana',
+    'hoja sana',
+    'hojas-sana' // <-- CORRECCIÓN AÑADIDA
+  ];
 
-  // DESPUÉS (Correcto):
-  final healthyStates = ['no se detectó ninguna plaga', 'sana', 'hoja sana'];
-  
   return healthyStates.contains(originalName.trim().toLowerCase());
 }
+// --- 👆 FIN DE LA CORRECCIÓN ---
 
 // --- 👇 NUEVO: Lógica para detectar un resultado no reconocido. ---
 bool _isPredictionUnrecognized(String originalName, double confidence) {
@@ -371,46 +376,79 @@ bool _isPredictionUnrecognized(String originalName, double confidence) {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bool isDark = theme.brightness == Brightness.dark;
-    final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
-    final double confidence = (confidenceValue as num).toDouble();
-    final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
+@override
+Widget build(BuildContext context) {
+  final theme = Theme.of(context);
+  final bool isDark = theme.brightness == Brightness.dark;
+  final confidenceValue = widget.analysis['confidence'] ?? widget.analysis['confianza'] ?? 0.0;
+  final double confidence = (confidenceValue as num).toDouble();
+  final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
 
-    return Center(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.0),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.75,
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
-            ),
-            child: Row(
-              children: [
-                Expanded(flex: 2, child: _buildImageCarousel()),
-                Expanded(
-                  flex: 3,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(seconds: 1),
-                    child: _isColorLoading
-                        ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
-                        : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
-                  ),
-                ),
-              ],
+  // 1. Usamos LayoutBuilder para obtener el ancho y alto disponibles
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      // 2. Definimos nuestro punto de quiebre (breakpoint) para cambiar el diseño
+      final bool isSmallScreen = constraints.maxWidth < 800;
+
+      // 3. Hacemos que el contenedor principal ocupe toda la pantalla si es pequeña
+      final containerWidth = isSmallScreen ? constraints.maxWidth : constraints.maxWidth * 0.75;
+      final containerHeight = isSmallScreen ? constraints.maxHeight : constraints.maxHeight * 0.85;
+
+      return Center(
+        child: ClipRRect(
+          // Si la pantalla es pequeña, no redondeamos los bordes para que ocupe todo
+          borderRadius: BorderRadius.circular(isSmallScreen ? 0 : 24.0),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(
+              width: containerWidth,
+              height: containerHeight,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(isSmallScreen ? 0 : 24.0),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+              ),
+              // 4. Decidimos si usar Fila (Row) o Columna (Column)
+              child: isSmallScreen
+                  ? Column( // VISTA MÓVIL: Imagen arriba, detalles abajo
+                      children: [
+                        // La imagen ocupa una porción de la altura
+                        AspectRatio(
+                          aspectRatio: 4 / 3, // Proporción ideal para la imagen
+                          child: _buildImageCarousel(),
+                        ),
+                        // Los detalles ocupan el resto del espacio
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            child: _isColorLoading
+                                ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
+                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row( // VISTA ESCRITORIO: Layout actual de dos columnas
+                      children: [
+                        Expanded(flex: 2, child: _buildImageCarousel()),
+                        Expanded(
+                          flex: 3,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(seconds: 1),
+                            child: _isColorLoading
+                                ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
+                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Widget _buildImageCarousel() {
     return Stack(
@@ -646,64 +684,79 @@ Widget _buildUnrecognizedDiagnosisTab() {
       ),
     );
   }
-  Widget _buildDiagnosticTab() {
-    final theme = Theme.of(context);
-    
-    final symptoms = _diseaseInfo['sintomas_clave'] as String? ?? '';
-    final affectedParts = _diseaseInfo['partes_afectadas'] as String? ?? '';
-    final impact = _diseaseInfo['impacto'] as String? ?? '';
-    final conditions = _diseaseInfo['condiciones_favorables'] as String? ?? '';
+ Widget _buildDiagnosticTab() {
+  final theme = Theme.of(context);
+  
+  // 1. Detectamos si la pantalla es pequeña, igual que en el método build principal
+  final screenWidth = MediaQuery.of(context).size.width;
+  final isSmallScreen = screenWidth < 800;
+  
+  final symptoms = _diseaseInfo['sintomas_clave'] as String? ?? '';
+  final affectedParts = _diseaseInfo['partes_afectadas'] as String? ?? '';
+  final impact = _diseaseInfo['impacto'] as String? ?? '';
+  final conditions = _diseaseInfo['condiciones_favorables'] as String? ?? '';
 
-    final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
-    final affectedPartsList = affectedParts.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+  final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+  final affectedPartsList = affectedParts.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (symptomsList.isNotEmpty) ...[
-            Text("Síntomas Clave", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white)),
-            const SizedBox(height: 12),
-            Wrap(
+  return SingleChildScrollView(
+    // Añadimos un poco de padding para que no se pegue a los bordes
+    padding: const EdgeInsets.only(top: 16.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (symptomsList.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text("Síntomas Clave", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white)),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Wrap(
               spacing: 10,
               runSpacing: 10,
               children: symptomsList.map((symptom) => _buildSymptomChip(symptom)).toList(),
             ),
-            const SizedBox(height: 24),
-          ],
-
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 2.2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            children: [
-              if (affectedPartsList.isNotEmpty)
-                _buildInfoCard(
-                  icon: Icons.filter_vintage_outlined,
-                  title: "Partes Afectadas",
-                  content: affectedPartsList.join('\n'),
-                ),
-              if (impact.isNotEmpty)
-                _buildInfoCard(
-                  icon: Icons.trending_down_rounded,
-                  title: "Impacto en Cultivo",
-                  content: impact,
-                ),
-              if (conditions.isNotEmpty)
-                 _buildInfoCard(
-                  icon: Icons.cloudy_snowing,
-                  title: "Condiciones Favorables",
-                  content: conditions,
-                ),
-            ],
           ),
+          const SizedBox(height: 24),
         ],
-      ),
-    );
-  }
+
+        GridView.count(
+          // 2. Ajustamos la cantidad de columnas dinámicamente
+          crossAxisCount: isSmallScreen ? 1 : 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          // 3. Ajustamos la proporción de las tarjetas para que tengan más altura en 1 columna
+          childAspectRatio: isSmallScreen ? 2.8 : 1.9,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          padding: EdgeInsets.zero,
+          children: [
+            if (affectedPartsList.isNotEmpty)
+              _buildInfoCard(
+                icon: Icons.filter_vintage_outlined,
+                title: "Partes Afectadas",
+                content: affectedPartsList.join('\n'),
+              ),
+            if (impact.isNotEmpty)
+              _buildInfoCard(
+                icon: Icons.trending_down_rounded,
+                title: "Impacto en Cultivo",
+                content: impact,
+              ),
+            if (conditions.isNotEmpty)
+               _buildInfoCard(
+                icon: Icons.cloudy_snowing,
+                title: "Condiciones Favorables",
+                content: conditions,
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildSymptomChip(String label) {
     return Chip(
@@ -714,6 +767,8 @@ Widget _buildUnrecognizedDiagnosisTab() {
     );
   }
   
+// frontend/lib/screens/analysis_detail_screen.dart
+
   Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
     final theme = Theme.of(context);
     return ClipRRect(
@@ -730,6 +785,7 @@ Widget _buildUnrecognizedDiagnosisTab() {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ESTA FILA SE MANTIENE IGUAL
               Row(
                 children: [
                   Icon(icon, color: Colors.white70, size: 20),
@@ -737,9 +793,18 @@ Widget _buildUnrecognizedDiagnosisTab() {
                   Text(title, style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const Spacer(),
-              Text(content, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))),
-              const Spacer(),
+              // --- 👇 CAMBIO PRINCIPAL AQUÍ ---
+              // 1. Reemplazamos el primer Spacer por un espacio fijo.
+              const SizedBox(height: 12), 
+              
+              // 2. Envolvemos el texto en 'Expanded' para que ocupe el espacio
+              //    restante de forma flexible, y eliminamos el segundo Spacer.
+              Expanded(
+                child: Text(
+                  content, 
+                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))
+                ),
+              ),
             ],
           ),
         ),
