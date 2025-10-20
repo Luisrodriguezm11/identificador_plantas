@@ -126,6 +126,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+ // frontend/lib/screens/dashboard_screen.dart
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -140,29 +142,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Stack(
         children: [
           //const AnimatedBubbleBackground(),
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48.0),
-              child: Center(
+          
+          // CAMBIO: Se envuelve el contenido en un LayoutBuilder para obtener la altura de la pantalla.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      SizedBox(height: kToolbarHeight + 30),
-                      _buildWelcomeSection(),
-                      const SizedBox(height: 30),
-                      _buildActionButtons(),
-                      const SizedBox(height: 40),
-                      _buildMainAnalysisCard(),
-                      const SizedBox(height: 40),
-                      _buildRecentHistorySection(),
-                      const SizedBox(height: 40),
-                    ],
+                  // CAMBIO: Se establece una altura mínima igual a la de la pantalla.
+                  // Esto fuerza al contenedor a ocupar todo el espacio vertical disponible.
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48.0),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          // CAMBIO: Se centra todo el contenido verticalmente.
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(height: kToolbarHeight + 30),
+                            _buildWelcomeSection(),
+                            const SizedBox(height: 30),
+                            _buildActionButtons(),
+                            const SizedBox(height: 40),
+                            _buildMainAnalysisCard(),
+                            const SizedBox(height: 40),
+                            _buildRecentHistorySection(),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -349,15 +364,45 @@ Widget _buildActionButton({required IconData icon, required String label, requir
     );
   }
 
+// frontend/lib/screens/dashboard_screen.dart
+
   Widget _buildRecentHistorySection() {
     final theme = Theme.of(context);
     final analysesToShow = _recentAnalyses.take(4).toList();
     final bool showViewAllCard = _recentAnalyses.length > 4;
     final int itemCount = showViewAllCard ? analysesToShow.length + 1 : analysesToShow.length;
 
-    // RESPONSIVE: El GridView con SliverGridDelegateWithMaxCrossAxisExtent ya es adaptable por naturaleza.
-    // Se ajustará automáticamente para mostrar más o menos columnas según el ancho.
-    // No se necesitan cambios aquí.
+    // Agrupamos el contenido en una variable para aplicarle el Transform
+    Widget gridContent = _isLoading
+        ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
+        : _recentAnalyses.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32.0),
+                  child: Text(
+                    "Aún no has analizado ningún archivo.",
+                  ),
+                ),
+              )
+            : GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 24), // Padding para que el contenido no se corte
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 250,
+                  childAspectRatio: 2 / 3.2,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                ),
+                itemCount: itemCount,
+                itemBuilder: (context, index) {
+                  if (showViewAllCard && index == analysesToShow.length) {
+                    return _buildViewAllCard();
+                  }
+                  final analysis = analysesToShow[index];
+                  return _buildAnalysisCard(analysis);
+                },
+              );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,37 +411,14 @@ Widget _buildActionButton({required IconData icon, required String label, requir
           "Mis Análisis Recientes",
           style: theme.textTheme.headlineMedium?.copyWith(
             fontSize: 28,
-            height: 0.1,
           ),
         ),
-        const SizedBox(height: 16),
-        _isLoading
-            ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
-            : _recentAnalyses.isEmpty
-                ? Center(
-                    child: Text(
-                      "Aún no has analizado ningún archivo.",
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  )
-                : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 250,
-                      childAspectRatio: 2 / 3.2,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                    ),
-                    itemCount: itemCount,
-                    itemBuilder: (context, index) {
-                      if (showViewAllCard && index == analysesToShow.length) {
-                        return _buildViewAllCard();
-                      }
-                      final analysis = analysesToShow[index];
-                      return _buildAnalysisCard(analysis);
-                    },
-                  ),
+        // CAMBIO: Usamos Transform.translate para aplicar un espacio negativo
+        // y subir visualmente todo el bloque de tarjetas.
+        Transform.translate(
+          offset: const Offset(0.0, -10.0), // Mueve las tarjetas 20 píxeles hacia arriba
+          child: gridContent,
+        ),
       ],
     );
   }

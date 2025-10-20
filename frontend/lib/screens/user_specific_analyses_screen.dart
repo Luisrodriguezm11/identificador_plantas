@@ -379,6 +379,7 @@ class _UserSpecificAnalysesScreenState
     );
   }
 
+
   Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -398,7 +399,9 @@ class _UserSpecificAnalysesScreenState
           child: IconButton(
             padding: EdgeInsets.zero,
             onPressed: onPressed,
-            icon: Icon(icon, color: isDark ? Colors.white : theme.colorScheme.primary, size: 20),
+            // CAMBIO: Se establece el color del ícono a blanco (Colors.white)
+            // tanto para el modo claro como para el oscuro, para un contraste adecuado.
+            icon: Icon(icon, color: Colors.white, size: 20),
             tooltip: tooltip,
           ),
         ),

@@ -51,25 +51,28 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
     super.dispose();
   }
 
+// frontend/lib/widgets/animated_bubble_background.dart
+
   // --- INICIALIZACIÓN DE LAS BURBUJAS (AHORA DEPENDE DEL TEMA) ---
   void _initializeBubbles(Size size, bool isDarkMode) {
     if (_bubblesInitialized) return; // Solo se inicializa una vez
     
-    // 👇 PALETAS DE COLORES CONDICIONALES
+    // CAMBIO: Se han reducido los valores de opacidad para que las burbujas
+    // sean más tenues, pero sin desaparecer por completo.
     List<Color> lightThemeColors = [
-      Colors.lightBlue.withOpacity(0.1),
-      Colors.cyanAccent.withOpacity(0.1),
-      Colors.purple.withOpacity(0.08),
-      Colors.indigo.withOpacity(0.07),
-      Colors.tealAccent.withOpacity(0.09),
+      Colors.lightBlue.withOpacity(0.05),
+      Colors.cyanAccent.withOpacity(0.05),
+      Colors.purple.withOpacity(0.04),
+      Colors.indigo.withOpacity(0.03),
+      Colors.tealAccent.withOpacity(0.04),
     ];
     
     List<Color> darkThemeColors = [
-      Colors.lightBlueAccent.withOpacity(0.1),
-      Colors.pinkAccent.withOpacity(0.1),
-      Colors.tealAccent.withOpacity(0.08),
-      Colors.amberAccent.withOpacity(0.07),
-      Colors.purpleAccent.withOpacity(0.09),
+      Colors.lightBlueAccent.withOpacity(0.06),
+      Colors.pinkAccent.withOpacity(0.05),
+      Colors.tealAccent.withOpacity(0.04),
+      Colors.amberAccent.withOpacity(0.03),
+      Colors.purpleAccent.withOpacity(0.05),
     ];
 
     final colors = isDarkMode ? darkThemeColors : lightThemeColors;
@@ -87,7 +90,6 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
     }
     _bubblesInitialized = true;
   }
-
   // --- ACTUALIZACIÓN DE POSICIONES ---
   void _updateBubblePositions(Size size) {
     // (Esta función no necesita cambios)
