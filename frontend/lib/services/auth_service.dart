@@ -217,6 +217,35 @@ Future<Map<String, dynamic>> deleteUserByAdmin(int userId) async {
     }
   }
 
+// frontend/lib/services/auth_service.dart
+
+  Future<Map<String, dynamic>> deleteCurrentUserAccount(String password) async {
+    final token = await readToken();
+    if (token == null) return {'success': false, 'error': 'No autenticado'};
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/profile/delete'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-access-token': token,
+        },
+        body: jsonEncode({
+          'current_password': password,
+        }),
+      ).timeout(const Duration(seconds: 45)); // Tiempo de espera más largo
+
+      // Si la eliminación fue exitosa, borramos el token localmente
+      if (response.statusCode == 200) {
+        await deleteToken();
+      }
+
+      return _handleResponse(response);
+    } catch (e) {
+      return {'success': false, 'error': 'Error de conexión durante la eliminación'};
+    }
+  }
+
 Map<String, dynamic> _handleResponse(http.Response response) {
   // --- PUNTO DE CONTROL 3 ---
   print('[DEBUG] 3. AuthService: Respuesta del servidor (Status Code: ${response.statusCode})');

@@ -183,7 +183,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _logout() async {
-    await _authService.deleteToken();
+    // No borramos el token aquí, porque la función de borrado en el servicio ya lo hace.
+    // Solo navegamos.
     if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -223,7 +224,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     return null;
   }
-
+  
+  // ... (Los métodos _buildHeaderSection y _buildGlassCard se mantienen igual)
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
     return Column(
@@ -275,6 +277,97 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  // NUEVO: Método para construir la tarjeta de "Zona de Peligro".
+  Widget _buildDangerZoneCard() {
+    return _buildGlassCard(
+      title: 'Zona de Peligro',
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          'La eliminación de tu cuenta es una acción permanente e irreversible. Todos tus datos, incluidos tus análisis, serán eliminados para siempre.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.warning_amber_rounded),
+            label: const Text('Eliminar Mi Cuenta'),
+            onPressed: _showDeleteAccountDialog,
+            style: AppTheme.dangerButtonStyle(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // NUEVO: Método para mostrar el diálogo de confirmación de borrado.
+  Future<void> _showDeleteAccountDialog() async {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isDeleting = false;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: !isDeleting,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Confirmar Eliminación'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    const Text('Esta acción es irreversible. Para confirmar, por favor ingresa tu contraseña actual.'),
+                    const SizedBox(height: 20),
+                    Form(
+                      key: formKey,
+                      child: TextFormField(
+                        controller: passwordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'Contraseña Actual'),
+                        validator: (value) => value!.isEmpty ? 'La contraseña es requerida' : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  style: AppTheme.dangerButtonStyle(context),
+                  onPressed: isDeleting ? null : () async {
+                    if (formKey.currentState!.validate()) {
+                      setStateDialog(() => isDeleting = true);
+                      
+                      final result = await _authService.deleteCurrentUserAccount(passwordController.text);
+
+                      if (!mounted) return;
+                      Navigator.of(context).pop(); // Cerrar el diálogo
+
+                      if (result['success']) {
+                        _showSuccessSnackBar('Tu cuenta ha sido eliminada.');
+                        // Navegamos a la pantalla de login después de un breve retraso
+                        Future.delayed(const Duration(seconds: 2), () => _logout());
+                      } else {
+                        _showErrorSnackBar('Error: ${result['error']}');
+                      }
+                    }
+                  },
+                  child: isDeleting
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
+                      : const Text('Eliminar Permanentemente'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -284,10 +377,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: TopNavigationBar(
-        selectedIndex: -1,
+        selectedIndex: -1, // Ningún ítem seleccionado
         isAdmin: false,
         onItemSelected: _onNavItemTapped,
-        onLogout: _logout,
+        onLogout: () {
+            Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (Route<dynamic> route) => false,
+          );
+        },
       ),
       body: Stack(
         children: [
@@ -303,7 +401,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        SizedBox(height: kToolbarHeight + 60), // Un poco más de espacio
+                        SizedBox(height: kToolbarHeight + 60),
                         _buildHeaderSection(),
                         _buildGlassCard(
                           title: 'Información del Perfil',
@@ -387,6 +485,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                           ],
                         ),
+                        
+                        // NUEVO: Se añade la tarjeta de "Zona de Peligro".
+                        const SizedBox(height: 40),
+                        _buildDangerZoneCard(),
                         const SizedBox(height: 40),
                       ],
                     ),
@@ -395,8 +497,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
           
-          // <-- CAMBIO: AQUÍ ESTÁ EL NUEVO BOTÓN DE REGRESO -->
-          // Lo posicionamos de forma absoluta en la pantalla, como en history_screen.dart
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -415,7 +515,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: IconButton(
                     tooltip: 'Regresar',
                     icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
-                    // La acción es simple: pop() para cerrar esta pantalla.
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
