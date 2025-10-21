@@ -33,8 +33,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // --- 1. SE MANTIENE LA LISTA DE ITEMS DE NAVEGACIÓN ---
     final navItems = [
       {'icon': Icons.dashboard_outlined, 'label': 'Dashboard', 'index': 0},
       {'icon': Icons.history_outlined, 'label': 'Historial', 'index': 1},
@@ -67,15 +65,11 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
           ),
         ),
       ),
-      // --- 2. SE USA LAYOUTBUILDER PARA LA RESPONSIVIDAD ---
       title: LayoutBuilder(
         builder: (context, constraints) {
-          // Definimos un punto de quiebre. Si es más angosto de 700px, se considera "pequeña".
           if (constraints.maxWidth < 700) {
-            // --- DISEÑO PARA PANTALLAS PEQUEÑAS ---
             return _buildNarrowLayout(navItems);
           } else {
-            // --- DISEÑO PARA PANTALLAS ANCHAS ---
             return _buildWideLayout(navItems);
           }
         },
@@ -83,7 +77,7 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     );
   }
 
-  /// Construye el diseño para pantallas anchas (el original).
+  // Construye el diseño para pantallas anchas 
   Widget _buildWideLayout(List<Map<String, Object>> navItems) {
     return Stack(
       alignment: Alignment.center,
@@ -106,7 +100,7 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
     );
   }
 
-  /// Construye el diseño para pantallas pequeñas (con menú de hamburguesa).
+  // Construye el diseño para pantallas pequeñas 
   Widget _buildNarrowLayout(List<Map<String, Object>> navItems) {
     final theme = Theme.of(context);
     return Row(
@@ -138,7 +132,6 @@ class _TopNavigationBarState extends State<TopNavigationBar> {
             }).toList();
           },
         ),
-        // Iconos de acción a la derecha
         _buildActionIcons(isNarrow: true),
       ],
     );

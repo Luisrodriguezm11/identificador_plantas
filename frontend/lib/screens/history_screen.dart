@@ -302,7 +302,7 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
     
-    // RESPONSIVE: Usamos LayoutBuilder para adaptar el texto al ancho disponible.
+    // LayoutBuilder para adaptar el texto al ancho disponible.
     return LayoutBuilder(
       builder: (context, constraints) {
         
@@ -326,7 +326,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
             Text(
               'Historial de Análisis',
               textAlign: TextAlign.center,
-              // Aplicamos el tamaño de fuente dinámico.
               style: theme.textTheme.displayLarge?.copyWith(fontSize: titleSize),
             ),
             const SizedBox(height: 16),
@@ -335,7 +334,6 @@ class _HistoryScreenState extends State<HistoryScreen> with TickerProviderStateM
               child: Text(
                 'Aquí encontrarás todos los diagnósticos que has realizado. Puedes ver los detalles o enviar un análisis a la papelera.',
                 textAlign: TextAlign.center,
-                // Aplicamos el tamaño de fuente dinámico al subtítulo.
                 style: theme.textTheme.bodyMedium?.copyWith(fontSize: subtitleSize),
               ),
             ),
@@ -368,8 +366,6 @@ Widget _buildHistoryGrid() {
                       padding: const EdgeInsets.only(bottom: 24),
                       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                         maxCrossAxisExtent: 250,
-                        // --- CAMBIO AQUÍ ---
-                        // Se ajustó la proporción para hacer las tarjetas más altas.
                         childAspectRatio: 2 / 3.2,
                         crossAxisSpacing: 20,
                         mainAxisSpacing: 20,
@@ -437,8 +433,6 @@ Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
                           _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
-                            // --- CAMBIO 1 ---
-                            // Se redujo el tamaño de la fuente para un mejor ajuste.
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
@@ -448,11 +442,8 @@ Widget _buildHistoryCard(Map<String, dynamic> analysis, int index) {
                         ),
                         const SizedBox(height: 8),
                         Row(
-                          // Se elimina `mainAxisAlignment` para que `Expanded` funcione.
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // --- CAMBIO 2 ---
-                            // Se envuelve el Text de la fecha en Expanded para evitar overflows horizontales.
                             Expanded(
                               child: Text(
                                 fechaFormateada,

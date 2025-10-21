@@ -17,7 +17,7 @@ import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
 import 'package:frontend/config/app_theme.dart';
-import 'package:image_picker/image_picker.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:image_picker/image_picker.dart'; 
 
 class EditRecommendationsScreen extends StatefulWidget {
   final Map<String, dynamic> disease;
@@ -101,8 +101,6 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
   final bool isDark = theme.brightness == Brightness.dark;
   final formKey = GlobalKey<FormState>();
   final bool isEditing = treatment != null;
-
-  // --- Los controladores se mantienen igual ---
   final nameController = TextEditingController(text: isEditing ? treatment['nombre_comercial'] : '');
   final ingredientController = TextEditingController(text: isEditing ? treatment['ingrediente_activo'] : '');
   final typeController = TextEditingController(text: isEditing ? treatment['tipo_tratamiento'] : '');
@@ -113,11 +111,9 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (context) {
-      // --- V ENVOLVEMOS CON BACKDROPFILTER PARA EL EFECTO BLUR V ---
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: AlertDialog(
-          // --- V NUEVOS ESTILOS PARA EL DIÁLOGO V ---
           backgroundColor: isDark ? const Color(0xFF1E1E1E).withOpacity(0.85) : AppColorsLight.surface.withOpacity(0.85),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
@@ -126,7 +122,6 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
           title: Text(isEditing ? 'Editar Tratamiento' : 'Añadir Tratamiento', textAlign: TextAlign.center),
           titleTextStyle: theme.textTheme.headlineSmall,
           content: Container(
-            // --- V LIMITAMOS EL ANCHO DEL DIÁLOGO V ---
             width: 500,
             child: Form(
               key: formKey,
@@ -134,7 +129,6 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // --- V USAMOS NUESTRO MÉTODO REUTILIZABLE _buildStyledTextFormField V ---
                     _buildStyledTextFormField(controller: nameController, label: 'Nombre Comercial'),
                     _buildStyledTextFormField(controller: ingredientController, label: 'Ingrediente Activo'),
                     _buildStyledTextFormField(controller: typeController, label: 'Tipo (Sistémico, De Contacto...)'),
@@ -146,7 +140,6 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
               ),
             ),
           ),
-          // --- V BOTONES REDISEÑADOS IGUAL QUE EN EL OTRO DIÁLOGO V ---
           actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           actionsAlignment: MainAxisAlignment.end,
           actions: [
@@ -169,7 +162,6 @@ Future<void> _showEditDialog({Map<String, dynamic>? treatment}) async {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () async {
-                // ... La lógica de guardado no cambia ...
                 if (formKey.currentState!.validate()) {
                   final treatmentData = {
                     'id_enfermedad': widget.disease['id_enfermedad'],
@@ -254,7 +246,6 @@ Widget build(BuildContext context) {
       onLogout: () => _logout(context),
     ),
     extendBodyBehindAppBar: true,
-    // --- El FloatingActionButton ha sido eliminado de aquí ---
     body: Stack(
       children: [
  
@@ -276,7 +267,6 @@ Widget build(BuildContext context) {
                     _buildHeaderSection(),
                     const SizedBox(height: 60),
                     _buildTreatmentsList(),
-                    // Añadimos un espacio extra al final para que el botón no tape el último elemento
                     const SizedBox(height: 100), 
                   ],
                 ),
@@ -285,12 +275,10 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // 3. BOTÓN DE REGRESO
         Positioned(
           top: kToolbarHeight + 10,
           left: 20,
           child: ClipRRect(
-            // ... (el código del botón de regreso se mantiene igual)
             borderRadius: BorderRadius.circular(50),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
@@ -311,8 +299,6 @@ Widget build(BuildContext context) {
             ),
           ),
         ),
-
-        // --- 👇 ¡AQUÍ ESTÁ EL NUEVO BOTÓN PERSONALIZADO! 👇 ---
         Positioned(
           bottom: 32,
           right: 32,
@@ -361,11 +347,10 @@ Widget build(BuildContext context) {
 
 Widget _buildHeaderSection() {
   final theme = Theme.of(context);
-  return Row( // <-- CAMBIAMOS COLUMN POR ROW
-    mainAxisAlignment: MainAxisAlignment.center, // Centramos horizontalmente
-    crossAxisAlignment: CrossAxisAlignment.center, // Centramos verticalmente
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center, 
+    crossAxisAlignment: CrossAxisAlignment.center,
     children: [
-      // Usamos Expanded para que el texto ocupe el espacio disponible y no se desborde
       Expanded(
         child: Column(
           children: [
@@ -386,14 +371,12 @@ Widget _buildHeaderSection() {
           ],
         ),
       ),
-      const SizedBox(width: 24), // Espacio entre el texto y el botón
-      // --- V NUEVO BOTÓN PARA ABRIR EL DIÁLOGO V ---
+      const SizedBox(width: 24), 
       Tooltip(
         message: 'Editar Detalles de la Enfermedad',
         child: IconButton(
           icon: Icon(Icons.settings_outlined, color: theme.colorScheme.primary, size: 32),
           onPressed: () {
-            // ¡Llamamos al método que movimos!
             _showEditDiseaseDialog(widget.disease);
           },
         ),
@@ -571,19 +554,17 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (context) {
-      // Para que el fondo se vea borroso, envolvemos el diálogo
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: AlertDialog(
           backgroundColor: isDark ? const Color(0xFF1E1E1E).withOpacity(0.85) : AppColorsLight.surface.withOpacity(0.85),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24), // Bordes más redondeados
+            borderRadius: BorderRadius.circular(24), 
             side: BorderSide(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
           ),
           title: Text('Editar Detalles de "${widget.disease['nombre_comun']}"', textAlign: TextAlign.center),
           titleTextStyle: theme.textTheme.headlineSmall,
           content: Container(
-            // --- ¡AQUÍ LIMITAMOS EL ANCHO! ---
             width: 500, 
             child: Form(
               key: formKey,
@@ -591,7 +572,6 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ... (La lógica del selector de imagen se mantiene igual)
                     ValueListenableBuilder<int>(
                       valueListenable: imageStateNotifier,
                       builder: (context, _, __) {
@@ -657,8 +637,6 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
                       },
                     ),
                     const SizedBox(height: 24),
-                    
-                    // --- ¡AQUÍ USAMOS NUESTRO NUEVO ESTILO! ---
                     _buildStyledTextFormField(controller: tipoController, label: 'Tipo de Afección'),
                     _buildStyledTextFormField(controller: prevencionController, label: 'Métodos de Prevención', maxLines: 3),
                     _buildStyledTextFormField(controller: riesgoController, label: 'Época de Mayor Riesgo', maxLines: 3),
@@ -667,7 +645,7 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
               ),
             ),
           ),
-          // --- ¡AQUÍ ESTÁN LOS BOTONES REDISEÑADOS! ---
+
           actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           actionsAlignment: MainAxisAlignment.end,
           actions: [
@@ -691,7 +669,6 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
               ),
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
-                  // ... (La lógica de guardado se mantiene exactamente igual)
                    try {
                     if (imageUrlToDelete != null && imageUrlToDelete!.isNotEmpty) {
                       await storageService.deleteImageFromUrl(imageUrlToDelete!);
@@ -733,8 +710,6 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
       );
     },
   );
-  
-  // ... (El resto del método `if (result == true)` se mantiene igual)
   if (result == true) {
     if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -745,7 +720,6 @@ Future<void> _showEditDiseaseDialog(Map<String, dynamic> disease) async {
   }
 }
 
-// NUEVO MÉTODO AUXILIAR PARA ESTILIZAR LOS CAMPOS DE TEXTO
 Widget _buildStyledTextFormField({
   required TextEditingController controller,
   required String label,
@@ -763,13 +737,11 @@ Widget _buildStyledTextFormField({
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: isDark ? AppColorsDark.textSecondary : AppColorsLight.textSecondary),
-        // Estilo del fondo
         filled: true,
         fillColor: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-        // Estilo de los bordes
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none, // Sin borde visible por defecto
+          borderSide: BorderSide.none, 
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

@@ -126,8 +126,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
- // frontend/lib/screens/dashboard_screen.dart
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -141,15 +139,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          //const AnimatedBubbleBackground(),
-          
-          // CAMBIO: Se envuelve el contenido en un LayoutBuilder para obtener la altura de la pantalla.
           LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
                 child: ConstrainedBox(
-                  // CAMBIO: Se establece una altura mínima igual a la de la pantalla.
-                  // Esto fuerza al contenedor a ocupar todo el espacio vertical disponible.
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 48.0),
@@ -158,7 +151,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         constraints: const BoxConstraints(maxWidth: 1100),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
-                          // CAMBIO: Se centra todo el contenido verticalmente.
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(height: kToolbarHeight + 30),
@@ -187,7 +179,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWelcomeSection() {
     final theme = Theme.of(context);
 
-    // RESPONSIVE: Usamos LayoutBuilder para adaptar el texto al ancho disponible.
     return LayoutBuilder(
       builder: (context, constraints) {
         // Determinamos el tamaño de la fuente basado en el ancho del contenedor.
@@ -224,7 +215,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildActionButtons() {
-    // El widget Wrap ya es inherentemente responsive, por lo que no necesita grandes cambios.
     return Wrap(
       spacing: 20,
       runSpacing: 20,
@@ -287,30 +277,23 @@ Widget _buildActionButton({required IconData icon, required String label, requir
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
-    // RESPONSIVE: Usamos LayoutBuilder para cambiar de Fila a Columna en pantallas pequeñas.
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Definimos un "breakpoint" o punto de quiebre. Si el ancho es menor, cambiamos el diseño.
         bool useMobileLayout = constraints.maxWidth < 650;
-
-        // Creamos una lista de widgets de texto para no repetir código.
         List<Widget> textContent = [
           Text(
             "Detectar Plagas y Enfermedades",
-            // RESPONSIVE: Hacemos el texto centrado en el layout móvil.
             textAlign: useMobileLayout ? TextAlign.center : TextAlign.start,
             style: theme.textTheme.headlineMedium?.copyWith(fontSize: 28),
           ),
           const SizedBox(height: 8),
           Text(
             "Sube una imagen de la hoja de tu planta de café para obtener un diagnóstico instantáneo y recomendaciones de tratamiento.",
-            // RESPONSIVE: Hacemos el texto centrado en el layout móvil.
             textAlign: useMobileLayout ? TextAlign.center : TextAlign.start,
             style: theme.textTheme.bodyMedium,
           ),
         ];
 
-        // Creamos el botón para no repetir código.
         Widget actionButton = ElevatedButton.icon(
           icon: const Icon(Icons.upload_file_outlined, size: 24),
           label: const Text("Iniciar Nuevo Análisis"),
@@ -334,14 +317,13 @@ Widget _buildActionButton({required IconData icon, required String label, requir
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
               ),
-              // RESPONSIVE: Elegimos qué layout mostrar (Fila o Columna).
               child: useMobileLayout
                   ? Column( // Layout para pantallas estrechas
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ...textContent, // El contenido de texto
+                        ...textContent, 
                         const SizedBox(height: 30),
-                        actionButton, // El botón
+                        actionButton, 
                       ],
                     )
                   : Row( // Layout para pantallas anchas
@@ -364,7 +346,7 @@ Widget _buildActionButton({required IconData icon, required String label, requir
     );
   }
 
-// frontend/lib/screens/dashboard_screen.dart
+
 
   Widget _buildRecentHistorySection() {
     final theme = Theme.of(context);
@@ -372,7 +354,6 @@ Widget _buildActionButton({required IconData icon, required String label, requir
     final bool showViewAllCard = _recentAnalyses.length > 4;
     final int itemCount = showViewAllCard ? analysesToShow.length + 1 : analysesToShow.length;
 
-    // Agrupamos el contenido en una variable para aplicarle el Transform
     Widget gridContent = _isLoading
         ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
         : _recentAnalyses.isEmpty
@@ -413,8 +394,6 @@ Widget _buildActionButton({required IconData icon, required String label, requir
             fontSize: 28,
           ),
         ),
-        // CAMBIO: Usamos Transform.translate para aplicar un espacio negativo
-        // y subir visualmente todo el bloque de tarjetas.
         Transform.translate(
           offset: const Offset(0.0, -10.0), // Mueve las tarjetas 20 píxeles hacia arriba
           child: gridContent,
@@ -524,7 +503,7 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                           _formatPredictionName(analysis['resultado_prediccion']),
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 18, // Mantenemos el tamaño reducido
+                            fontSize: 18, 
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
                           ),
@@ -532,7 +511,6 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-                        // --- INICIO DE LA CORRECCIÓN ---
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -556,8 +534,6 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                                   ),
                                   child: TextButton(
                                     onPressed: () async {
-                                      // 1. Convertimos la función a `async`.
-                                      // 2. Esperamos el resultado del diálogo.
                                       final result = await showDialog(
                                         context: context,
                                         builder: (BuildContext dialogContext) {
@@ -567,9 +543,6 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                                           );
                                         },
                                       );
-
-                                      // 3. Si el resultado es `true`, significa que algo
-                                      //    se borró y debemos refrescar la lista.
                                       if (result == true) {
                                         _fetchRecentAnalyses();
                                       }
@@ -585,7 +558,6 @@ Widget _buildAnalysisCard(Map<String, dynamic> analysis) {
                             ),
                           ],
                         ),
-                        // --- FIN DE LA CORRECCIÓN ---
                       ],
                     ),
                   ),

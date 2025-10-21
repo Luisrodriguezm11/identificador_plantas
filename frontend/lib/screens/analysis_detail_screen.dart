@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'package:flutter/services.dart'; // <-- IMPORTANTE: Para cargar fuentes en el PDF
+import 'package:flutter/services.dart'; 
 import 'package:frontend/services/detection_service.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -13,6 +13,19 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
 import 'package:frontend/widgets/disclaimer_widget.dart';
+import 'package:flutter/foundation.dart';
+
+Future<Color> _generateDominantColor(String imageUrl) async {
+  try {
+    final PaletteGenerator paletteGenerator = await PaletteGenerator.fromImageProvider(
+      NetworkImage(imageUrl),
+      size: const Size(100, 100), 
+    );
+    return paletteGenerator.dominantColor?.color ?? Colors.transparent;
+  } catch (e) {
+    return Colors.transparent;
+  }
+}
 
 class AnalysisDetailScreen extends StatefulWidget {
   final Map<String, dynamic> analysis;
@@ -274,15 +287,19 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
   Future<void> _updateDominantColor() async {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final defaultColor = isDark ? AppColorsDark.surface.withOpacity(0.6) : AppColorsLight.surface.withOpacity(0.8);
+    
     if (_imageUrls.isEmpty) {
-      if(mounted) setState(() { _dominantColor = defaultColor; _isColorLoading = false; });
+      if (mounted) setState(() { _dominantColor = defaultColor; _isColorLoading = false; });
       return;
     }
+
     try {
-      final PaletteGenerator paletteGenerator = await PaletteGenerator.fromImageProvider(NetworkImage(_imageUrls.first), size: const Size(200, 200));
+      final Color generatedColor = await compute(_generateDominantColor, _imageUrls.first);
+
       if (mounted) {
         setState(() {
-          _dominantColor = (paletteGenerator.dominantColor?.color ?? defaultColor).withOpacity(isDark ? 0.6 : 0.8);
+          final bool hasColor = generatedColor != Colors.transparent;
+          _dominantColor = (hasColor ? generatedColor : defaultColor).withOpacity(isDark ? 0.6 : 0.8);
           _isColorLoading = false;
         });
       }
@@ -291,28 +308,21 @@ class _AnalysisDetailScreenState extends State<AnalysisDetailScreen> {
     }
   }
 
-  // --- 👇 CORRECCIÓN 1: Lógica mejorada para detectar cualquier resultado "sano". ---
-// EN: frontend/lib/screens/analysis_detail_screen.dart -> LÍNEA 344
 
-// --- 👇 INICIO DE LA CORRECCIÓN ---
 bool _isPredictionHealthy(String originalName) {
-  // Lista de todos los posibles resultados que indican una hoja sana.
-  // Se añade 'hojas-sana' que es un posible resultado del modelo de Roboflow.
+
   final healthyStates = [
     'no se detectó ninguna plaga',
     'sana',
     'hoja sana',
-    'hojas-sana' // <-- CORRECCIÓN AÑADIDA
+    'hojas-sana' 
   ];
 
   return healthyStates.contains(originalName.trim().toLowerCase());
 }
-// --- 👆 FIN DE LA CORRECCIÓN ---
 
-// --- 👇 NUEVO: Lógica para detectar un resultado no reconocido. ---
 bool _isPredictionUnrecognized(String originalName, double confidence) {
   final unrecognizedNames = ['imagen no reconocida', 'desconocido', 'unknown', 'análisis no disponible'];
-  // Consideramos no reconocido si el nombre está en la lista O si la confianza es extremadamente baja (ej. 0.0)
   return unrecognizedNames.contains(originalName.trim().toLowerCase()) || confidence == 0.0;
 }
 
@@ -358,7 +368,6 @@ bool _isPredictionUnrecognized(String originalName, double confidence) {
   Future<void> _fetchDiseaseDetails() async {
     final String diseaseName = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'];
     
-    // Si la hoja está sana, no hacemos la llamada a la API y terminamos de cargar.
     if (_isPredictionHealthy(diseaseName)) {
       if (mounted) setState(() => _isDetailsLoading = false);
       return;
@@ -394,7 +403,6 @@ Widget build(BuildContext context) {
       final containerWidth = isSmallScreen ? constraints.maxWidth : constraints.maxWidth * 0.75;
       final containerHeight = isSmallScreen ? constraints.maxHeight : constraints.maxHeight * 0.85;
 
-      // El contenido principal (imagen y detalles) que irá en la capa de abajo.
       final mainContent = Center(
         child: ClipRRect(
           borderRadius: BorderRadius.circular(isSmallScreen ? 0 : 24.0),
@@ -443,18 +451,15 @@ Widget build(BuildContext context) {
           ),
         ),
       );
-      
-      // --- 👇 CAMBIO PRINCIPAL: Retornamos un Stack ---
       return Stack(
         children: [
-          // Capa 1: El contenido principal
+          //El contenido principal
           mainContent,
-
-          // Capa 2: Los botones, posicionados encima y solo en pantallas pequeñas
+          //Los botones, posicionados encima y solo en pantallas pequeñas
           if (isSmallScreen)
             Positioned(
-              top: 16,  // Espacio desde arriba
-              right: 16, // Espacio desde la derecha
+              top: 16, 
+              right: 16, 
               child: _buildActionButtonsWidget(isSmallScreen),
             ),
         ],
@@ -515,8 +520,6 @@ Widget build(BuildContext context) {
     );
   }
  
-  
-// frontend/lib/screens/analysis_detail_screen.dart
 
 Widget _buildDetailsSection(String prediction, double confidence, bool isSmallScreen) {
   final theme = Theme.of(context);
@@ -529,7 +532,6 @@ Widget _buildDetailsSection(String prediction, double confidence, bool isSmallSc
   final titleSection = Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      // En móvil, dejamos un espacio arriba para que el título no choque con los botones flotantes
       if (isSmallScreen) const SizedBox(height: 32),
       Text(
         headerTitle, 
@@ -550,23 +552,20 @@ Widget _buildDetailsSection(String prediction, double confidence, bool isSmallSc
 
   return DefaultTabController(
     length: isHealthy || isUnrecognized ? 1 : 2, 
-    // Reducimos el padding superior en móvil porque los botones ya no ocupan ese espacio
     child: Padding(
       padding: EdgeInsets.fromLTRB(32, isSmallScreen ? 0 : 24, 32, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- 👇 CAMBIO: La lógica de botones para móvil fue removida de aquí ---
           if (isSmallScreen)
-            titleSection // Solo mostramos el título
+            titleSection 
           else
-            // La vista de escritorio sigue igual, pero usando el nuevo método
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: titleSection),
-                _buildActionButtonsWidget(isSmallScreen), // Usa el nuevo método
+                _buildActionButtonsWidget(isSmallScreen), 
               ],
             ),
           
@@ -677,11 +676,9 @@ Widget _buildUnrecognizedDiagnosisTab() {
               ),
               textAlign: TextAlign.center,
             ),
-            
-            // --- 👇 NUEVO: Botón de acción para eliminar ---
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _deleteItem, // Reutilizamos la función de borrado existente
+              onPressed: _deleteItem, 
               icon: const Icon(Icons.delete_outline, size: 20),
               label: const Text('Eliminar este análisis'),
               style: ElevatedButton.styleFrom(
@@ -689,7 +686,7 @@ Widget _buildUnrecognizedDiagnosisTab() {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30), // Bordes redondeados
+                  borderRadius: BorderRadius.circular(30),
                 ),
                 textStyle: const TextStyle(
                   fontSize: 16,
@@ -702,9 +699,6 @@ Widget _buildUnrecognizedDiagnosisTab() {
       ),
     );
   }
-
-// frontend/lib/screens/analysis_detail_screen.dart
-// frontend/lib/screens/analysis_detail_screen.dart
 
 Widget _buildDiagnosticTab() {
   final theme = Theme.of(context);
@@ -720,7 +714,6 @@ Widget _buildDiagnosticTab() {
   final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
   final affectedPartsList = affectedParts.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
 
-  // NUEVO: Creamos una lista de tarjetas para no repetir código
   final List<Widget> infoCards = [
     if (affectedPartsList.isNotEmpty)
       _buildInfoCard(
@@ -764,19 +757,16 @@ Widget _buildDiagnosticTab() {
           const SizedBox(height: 24),
         ],
 
-        // --- 👇 CAMBIO PRINCIPAL AQUÍ: Usamos LayoutBuilder y Wrap ---
         LayoutBuilder(
           builder: (context, constraints) {
             const double spacing = 16.0;
             final int columns = isSmallScreen ? 1 : 2;
-            // Calculamos el ancho de cada tarjeta para que quepan en las columnas
             final double cardWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
 
             return Wrap(
               spacing: spacing,      // Espacio horizontal entre tarjetas
               runSpacing: spacing,   // Espacio vertical entre filas de tarjetas
               children: infoCards.map((card) {
-                // Envolvemos cada tarjeta en un SizedBox para darle el ancho calculado
                 return SizedBox(
                   width: cardWidth,
                   child: card,
@@ -799,9 +789,6 @@ Widget _buildDiagnosticTab() {
     );
   }
   
-// frontend/lib/screens/analysis_detail_screen.dart
-
-// frontend/lib/screens/analysis_detail_screen.dart
 
 Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
   final theme = Theme.of(context);
@@ -818,7 +805,6 @@ Widget _buildInfoCard({required IconData icon, required String title, required S
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          // NUEVO: Permite que la columna se ajuste a la altura de su contenido
           mainAxisSize: MainAxisSize.min, 
           children: [
             Row(
@@ -829,9 +815,6 @@ Widget _buildInfoCard({required IconData icon, required String title, required S
               ],
             ),
             const SizedBox(height: 12),
-            
-            // --- 👇 CAMBIO PRINCIPAL AQUÍ: Se eliminó el widget 'Expanded' ---
-            // Ahora el texto simplemente ocupa el espacio vertical que necesita.
             Text(
               content, 
               style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))
@@ -850,14 +833,13 @@ Widget _buildInfoCard({required IconData icon, required String title, required S
         padding: const EdgeInsets.only(top: 16.0),
         child: Column(
           children: [
-            // El disclaimer se añade aquí
+            // El disclaimer
             const DisclaimerWidget(),
             const SizedBox(height: 24),
 
             if (_recommendationsList.isEmpty)
               Center(child: Text("No hay tratamientos registrados para esta condición.", style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70)))
             else
-              // Se usa un Column con map en lugar de ListView.builder para que funcione dentro de otro SingleChildScrollView
               ..._recommendationsList.map((treatment) => _buildTreatmentCard(treatment)).toList(),
           ],
         ),
@@ -950,9 +932,6 @@ Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     );
   }
 
-// frontend/lib/screens/analysis_detail_screen.dart
-
-  // NUEVO: Método para construir el disclaimer en el PDF
  pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 25),
@@ -991,7 +970,6 @@ Widget _buildActionButton({
   required Color color, 
   required VoidCallback onPressed, 
   required String tooltip,
-  // --- 👇 CAMBIO 3: Añadimos el parámetro 'size' ---
   required double size, 
 }) {
   return ClipRRect(
@@ -999,7 +977,6 @@ Widget _buildActionButton({
     child: BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
       child: Container(
-        // Usamos la variable 'size' para alto y ancho
         height: size,
         width: size,
         decoration: BoxDecoration(
@@ -1010,7 +987,6 @@ Widget _buildActionButton({
         child: IconButton(
           padding: EdgeInsets.zero,
           onPressed: onPressed,
-          // Hacemos el ícono proporcional al tamaño del botón
           icon: Icon(icon, color: Colors.white, size: size * 0.5),
           tooltip: tooltip,
         ),
@@ -1019,11 +995,9 @@ Widget _buildActionButton({
   );
 }
 
-// frontend/lib/screens/analysis_detail_screen.dart
 
-// NUEVO: Método para construir los botones de acción y evitar duplicación.
 Widget _buildActionButtonsWidget(bool isSmallScreen) {
-  final double buttonSize = isSmallScreen ? 44.0 : 40.0; // Botones más grandes en móvil
+  final double buttonSize = isSmallScreen ? 44.0 : 40.0; // Botones más grandes en telefono
   
   return Row(
     mainAxisSize: MainAxisSize.min,

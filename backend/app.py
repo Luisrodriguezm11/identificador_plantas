@@ -16,9 +16,9 @@ import requests
 from urllib.parse import unquote
 import firebase_admin
 from firebase_admin import credentials, storage
-from PIL import Image # <-- 1. IMPORTAR LA LIBRERÍA
+from PIL import Image 
 import time
-import re #
+import re 
 
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
@@ -29,7 +29,7 @@ except Exception as e:
     print(f"Error inicializando Firebase Admin: {e}")
 
 origins = [
-    re.compile(r"http://localhost:.*"), # <-- 2. PERMITE CUALQUIER PUERTO EN LOCALHOST
+    re.compile(r"http://localhost:.*"), # PERMITE CUALQUIER PUERTO EN LOCALHOST
     "https://identificador-plagas-v2.web.app"
 ]
 
@@ -47,8 +47,6 @@ def get_db_connection():
     conn = psycopg2.connect(app.config['DATABASE_URI'])
     return conn
 
-# --- Rutas de Autenticación (sin cambios) ---
-# backend/app.py
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -57,8 +55,7 @@ def register():
     email = data.get('email').lower()
     password = data.get('password')
     ong = data.get('ong')
-    # --- 👇 NUEVA LÍNEA ---
-    profile_image_url = data.get('profile_image_url') # Puede ser nulo si no suben foto
+    profile_image_url = data.get('profile_image_url') 
 
     if not all([nombre_completo, email, password]):
         return jsonify({"error": "Faltan datos requeridos"}), 400
@@ -68,7 +65,6 @@ def register():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # --- 👇 MODIFICACIÓN EN LA CONSULTA SQL ---
         cur.execute(
             "INSERT INTO usuarios (nombre_completo, email, password_hash, ong, profile_image_url) VALUES (%s, %s, %s, %s, %s)",
             (nombre_completo, email, hashed_password.decode('utf-8'), ong, profile_image_url)
@@ -94,7 +90,6 @@ def login():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # backend/app.py -> en la función login()
         cur.execute("SELECT id_usuario, password_hash, es_admin, nombre_completo FROM usuarios WHERE LOWER(email) = LOWER(%s)", (email,))
         user = cur.fetchone()
         cur.close()
@@ -110,11 +105,11 @@ def login():
                 'exp': datetime.utcnow() + timedelta(hours=24)
             }, app.config['SECRET_KEY'], algorithm="HS256")
 
-            # Devolvemos el token Y el rol de administrador
+
             return jsonify({
                 "token": token,
                 "es_admin": user['es_admin'],
-                "nombre_completo": user['nombre_completo'] # <-- ¡AÑADIDO!
+                "nombre_completo": user['nombre_completo'] 
             }), 200
         else:
             return jsonify({"error": "Credenciales inválidas"}), 401
@@ -124,7 +119,6 @@ def login():
 
 
 def token_required(f):
-    # ... (código sin cambios)
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -156,20 +150,17 @@ def admin_required(f):
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
             current_user_id = data['user_id']
-            # Verificamos si la clave 'es_admin' está y si es verdadera
             if not data.get('es_admin'):
-                return jsonify({'message': 'Acceso denegado. Se requieren permisos de administrador.'}), 403 # 403 Forbidden
+                return jsonify({'message': 'Acceso denegado. Se requieren permisos de administrador.'}), 403 
         except:
             return jsonify({'message': 'El token es inválido o ha expirado'}), 401
 
-        # Pasamos el user_id como en token_required, por si lo necesitamos
         return f(current_user_id, *args, **kwargs)
     return decorated    
     
 def _run_prediction(image_url):
     temp_image_path = "temp_image.jpg"
     try:
-        # --- MEDIMOS EL TIEMPO DE DESCARGA ---
         start_download = time.time()
         response = requests.get(image_url, stream=True)
         response.raise_for_status()
@@ -178,7 +169,7 @@ def _run_prediction(image_url):
         end_download = time.time()
         print(f"✅ Tiempo de descarga de imagen: {end_download - start_download:.2f} segundos")
 
-        # --- MEDIMOS EL TIEMPO DE PREDICCIÓN DE ROBOFLOW ---
+
         start_prediction = time.time()
         rf = Roboflow(api_key=app.config['ROBOFLOW_API_KEY'])
         project_id, version_id = app.config['ROBOFLOW_MODEL_ID'].split('/')
@@ -203,15 +194,9 @@ def _run_prediction(image_url):
             os.remove(temp_image_path)
 
 
-
-# backend/app.py
-
-# EN: backend/app.py
-
 @app.route('/analyze', methods=['POST'])
 @token_required
 def analyze_image(current_user_id):
-    # --- ESTA FUNCIÓN AHORA ANALIZA, NO GUARDA ---
     total_start_time = time.time()
     data = request.get_json()
     image_url_front = data.get('image_url_front')
@@ -240,25 +225,17 @@ def analyze_image(current_user_id):
             else:
                 final_result = result_front if result_front['confidence'] >= result_back['confidence'] else result_back
 
-        # --- 👇 INICIO DEL FILTRO DE VALIDACIÓN CORREGIDO 👇 ---
 
-        MIN_CONFIDENCE_FOR_VALID_LEAF = 0.30 # Umbral del 30%
+        MIN_CONFIDENCE_FOR_VALID_LEAF = 0.30 
 
         prediction_text = final_result['prediction']
         prediction_confidence = final_result['confidence']
         is_valid_leaf = True
 
-        # --- 👇 ¡AQUÍ ESTÁ LA CORRECCIÓN CLAVE! 👇 ---
-        # ANTES (Incorrecto):
-        # if prediction_text != 'No se detectó ninguna plaga' and prediction_confidence < MIN_CONFIDENCE_FOR_VALID_LEAF:
-        
-        # DESPUÉS (Correcto):
-        # Ahora, si la predicción es "No se detectó..." O la confianza es muy baja, la consideramos inválida.
         if prediction_text == 'No se detectó ninguna plaga' or prediction_confidence < MIN_CONFIDENCE_FOR_VALID_LEAF:
             is_valid_leaf = False
             prediction_text = "Imagen no reconocida"
         
-        # --- 👆 FIN DEL FILTRO DE VALIDACIÓN CORREGIDO 👆 ---
 
         total_end_time = time.time()
         print(f"⏱️ Tiempo total de la solicitud '/analyze': {total_end_time - total_start_time:.2f} segundos\n")
@@ -276,13 +253,12 @@ def analyze_image(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error durante el análisis: {str(e)}"}), 500
 
-# --- 👇 ESTA ES LA NUEVA FUNCIÓN PARA GUARDAR 👇 ---
+
 @app.route('/history/save', methods=['POST'])
 @token_required
 def save_analysis(current_user_id):
     data = request.get_json()
     
-    # Extraemos todos los datos necesarios del cuerpo de la solicitud
     url_imagen = data.get('url_imagen')
     url_imagen_reverso = data.get('url_imagen_reverso')
     resultado_prediccion = data.get('prediction')
@@ -302,12 +278,12 @@ def save_analysis(current_user_id):
             """,
             (current_user_id, url_imagen, url_imagen_reverso, resultado_prediccion, confianza, datetime.utcnow())
         )
-        new_id = cur.fetchone()[0] # Obtenemos el ID del nuevo análisis guardado
+        new_id = cur.fetchone()[0] 
         conn.commit()
         cur.close()
         conn.close()
 
-        # Devolvemos el resultado completo con el nuevo ID, por si la app lo necesita
+        # Devolvemos el resultado completo con el nuevo ID
         response_data = {
             "id_analisis": new_id,
             "id_usuario": current_user_id,
@@ -317,7 +293,7 @@ def save_analysis(current_user_id):
             "confianza": confianza
         }
         
-        return jsonify(response_data), 201 # 201 Creado
+        return jsonify(response_data), 201 
 
     except Exception as e:
         return jsonify({"error": f"Error al guardar en la base de datos: {str(e)}"}), 500
@@ -335,7 +311,6 @@ def get_disease_details(current_user_id, roboflow_name):
         if not disease:
             return jsonify({"error": "Enfermedad no encontrada"}), 404
 
-        # Se seleccionan todas las columnas de la tabla de tratamientos
         cur.execute(
             "SELECT * FROM tratamientos WHERE id_enfermedad = %s",
             (disease['id_enfermedad'],)
@@ -361,8 +336,7 @@ def get_history(current_user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # Seleccionamos todas las columnas necesarias, incluyendo la del reverso
+
         cur.execute(
             """SELECT 
                id_analisis, url_imagen, url_imagen_reverso, 
@@ -379,12 +353,11 @@ def get_history(current_user_id):
         
         results = []
         for row in history:
-            # --- 👇 CAMBIO PRINCIPAL AQUÍ 👇 ---
-            # Nos aseguramos de incluir TODAS las columnas en la respuesta JSON
+
             results.append({
                 "id_analisis": row["id_analisis"],
                 "url_imagen": row["url_imagen"],
-                "url_imagen_reverso": row["url_imagen_reverso"], # <-- ¡Esta era la que faltaba!
+                "url_imagen_reverso": row["url_imagen_reverso"], 
                 "resultado_prediccion": row["resultado_prediccion"],
                 "confianza": row["confianza"],
                 "fecha_analisis": row["fecha_analisis"].isoformat()
@@ -438,13 +411,11 @@ def admin_delete_analysis(current_user_id, analysis_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Como es un admin, no necesitamos verificar el id_usuario
         cur.execute(
             "UPDATE analisis SET fecha_eliminado = NOW() AT TIME ZONE 'UTC' WHERE id_analisis = %s",
             (analysis_id,)
         )
-        
-        # Verificamos si se afectó alguna fila para saber si el análisis existía
+
         if cur.rowcount == 0:
             cur.close()
             conn.close()
@@ -514,7 +485,6 @@ def admin_restore_analysis(current_user_id, analysis_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Simplemente quitamos la fecha de eliminado, sin verificar el propietario
         cur.execute(
             "UPDATE analisis SET fecha_eliminado = NULL WHERE id_analisis = %s",
             (analysis_id,)
@@ -544,8 +514,8 @@ def get_admin_trashed_items(current_user_id):
     """
     try:
         conn = get_db_connection()
-        # --- CAMBIO AQUÍ ---
-        cur = conn.cursor(cursor_factory=RealDictCursor) # <-- AÑADE EL CURSOR FACTORY
+    
+        cur = conn.cursor(cursor_factory=RealDictCursor) 
         
         # Unimos la tabla de analisis con la de usuarios para obtener el email
         cur.execute("""
@@ -560,7 +530,6 @@ def get_admin_trashed_items(current_user_id):
         cur.close()
         conn.close()
         
-        # --- AÑADIMOS CONVERSIÓN DE FECHA PARA EVITAR ERRORES EN FLUTTER ---
         results = [dict(row) for row in trashed_items]
         for r in results:
             if r.get('fecha_analisis'):
@@ -580,7 +549,6 @@ def permanently_delete_item(current_user_id, analysis_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # --- 1. OBTENER AMBAS URLs ANTES DE BORRAR ---
         cur.execute(
             "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_analisis = %s AND id_usuario = %s",
             (analysis_id, current_user_id)
@@ -592,17 +560,16 @@ def permanently_delete_item(current_user_id, analysis_id):
             conn.close()
             return jsonify({"error": "Análisis no encontrado"}), 404
 
-        # --- 2. BORRAR EL REGISTRO DE LA BASE DE DATOS ---
         cur.execute("DELETE FROM analisis WHERE id_analisis = %s", (analysis_id,))
         conn.commit()
         cur.close()
         conn.close()
 
-        # --- 3. BORRAR AMBAS IMÁGENES DE FIREBASE ---
+        # --- BORRAR AMBAS IMÁGENES DE FIREBASE ---
         urls_to_delete = [item_to_delete['url_imagen'], item_to_delete['url_imagen_reverso']]
 
         for image_url in urls_to_delete:
-            if image_url: # Solo si la URL existe
+            if image_url: 
                 try:
                     path_part = image_url.split('?')[0]
                     file_path = path_part.split('/o/')[-1].replace('%2F', '/')
@@ -626,8 +593,6 @@ def permanently_delete_item(current_user_id, analysis_id):
             conn.close()
         return jsonify({"error": f"Ocurrió un error en el borrado permanente: {str(e)}"}), 500
     
-    
-# backend/app.py
 
 @app.route('/history/trash/empty', methods=['DELETE'])
 @token_required
@@ -636,22 +601,19 @@ def empty_trash(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # --- 1. OBTENER AMBAS URLs DE TODOS LOS ITEMS EN LA PAPELERA ---
         cur.execute(
             "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
             (current_user_id,)
         )
         items_to_delete = cur.fetchall()
 
-        # --- 2. BORRAR IMÁGENES DE FIREBASE ---
         if items_to_delete:
             print(f"Vaciando papelera para el usuario {current_user_id}. {len(items_to_delete)} items encontrados.")
             bucket = storage.bucket()
             for item in items_to_delete:
-                # Crear lista con las dos URLs del item actual
                 urls_to_process = [item['url_imagen'], item['url_imagen_reverso']]
                 for image_url in urls_to_process:
-                    if image_url: # Solo si la URL existe
+                    if image_url: 
                         try:
                             path_part = image_url.split('?')[0]
                             file_path = path_part.split('/o/')[-1].replace('%2F', '/')
@@ -662,7 +624,6 @@ def empty_trash(current_user_id):
                         except Exception as e:
                             print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
 
-        # --- 3. BORRAR REGISTROS DE LA BASE DE DATOS ---
         cur.execute(
             "DELETE FROM analisis WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
             (current_user_id,)
@@ -733,7 +694,7 @@ def calculate_dose(current_user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al calcular la dosis: {str(e)}"}), 500
     
-# Endpoint para obtener TODAS las enfermedades
+# Endpoint para obtener las enfermedades
 @app.route('/admin/diseases', methods=['GET'])
 @admin_required
 def get_all_diseases(current_user_id):
@@ -748,7 +709,6 @@ def get_all_diseases(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- NUEVO ENDPOINT PARA ACTUALIZAR UNA ENFERMEDAD ---
 @app.route('/admin/disease/<int:disease_id>', methods=['PUT'])
 @admin_required
 def update_disease_details(current_user_id, disease_id):
@@ -760,7 +720,6 @@ def update_disease_details(current_user_id, disease_id):
     if not data:
         return jsonify({"error": "No se recibieron datos para actualizar"}), 400
 
-    # Campos que se pueden actualizar
     imagen_url = data.get('imagen_url')
     tipo = data.get('tipo')
     prevencion = data.get('prevencion')
@@ -769,8 +728,6 @@ def update_disease_details(current_user_id, disease_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-        # Construimos la consulta dinámicamente para solo actualizar los campos que se envían
         query_parts = []
         params = []
         if imagen_url is not None:
@@ -811,7 +768,7 @@ def update_disease_details(current_user_id, disease_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al actualizar la enfermedad: {str(e)}"}), 500
 
-# --- NUEVO ENDPOINT PARA BORRAR UNA IMAGEN DE FIREBASE STORAGE ---
+
 @app.route('/admin/storage/delete', methods=['POST'])
 @admin_required
 def delete_from_storage(current_user_id):
@@ -825,39 +782,30 @@ def delete_from_storage(current_user_id):
         return jsonify({"error": "No se proporcionó URL de la imagen"}), 400
 
     try:
-        # Extraemos la ruta del archivo desde la URL de Firebase
-        # La ruta está después de '/o/' y antes del '?'
         path_part = image_url.split('?')[0]
         file_path = path_part.split('/o/')[-1].replace('%2F', '/')
         
-        # Obtenemos el bucket de Firebase
         bucket = storage.bucket()
         blob = bucket.blob(file_path)
 
-        # Verificamos si el archivo existe y lo borramos
         if blob.exists():
             blob.delete()
             print(f"Imagen {file_path} borrada permanentemente de Firebase Storage por un admin.")
             return jsonify({"message": "Imagen eliminada exitosamente de Firebase Storage"}), 200
         else:
             print(f"ADVERTENCIA: Se intentó borrar la imagen {file_path} pero no se encontró en Firebase.")
-            # Devolvemos éxito aunque no existiera para no bloquear el frontend
             return jsonify({"message": "La imagen no fue encontrada en Firebase, posiblemente ya fue borrada."}), 200
 
     except Exception as e:
         print(f"ERROR: No se pudo borrar la imagen {image_url} de Firebase Storage: {e}")
-        # Es importante no devolver un error 500 para que la app pueda continuar
-        # actualizando la base de datos aunque el borrado del archivo falle.
         return jsonify({"error": f"Ocurrió un error al intentar borrar la imagen de Firebase: {str(e)}"}), 500
 
 
-# Endpoint para AÑADIR una nueva recomendación a una enfermedad
 @app.route('/admin/treatments', methods=['POST'])
 @admin_required
 def add_treatment(current_user_id):
     data = request.get_json()
     id_enfermedad = data.get('id_enfermedad')
-    # Añadimos todos los campos que podría tener una recomendación
     nombre_comercial = data.get('nombre_comercial')
     ingrediente_activo = data.get('ingrediente_activo')
     tipo_tratamiento = data.get('tipo_tratamiento')
@@ -886,7 +834,7 @@ def add_treatment(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Endpoint para MODIFICAR una recomendación existente
+
 @app.route('/admin/treatments/<int:treatment_id>', methods=['PUT'])
 @admin_required
 def update_treatment(current_user_id, treatment_id):
@@ -923,7 +871,7 @@ def update_treatment(current_user_id, treatment_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Endpoint para ELIMINAR una recomendación
+
 @app.route('/admin/treatments/<int:treatment_id>', methods=['DELETE'])
 @admin_required
 def delete_treatment(current_user_id, treatment_id):
@@ -933,7 +881,6 @@ def delete_treatment(current_user_id, treatment_id):
         cur.execute("DELETE FROM tratamientos WHERE id_tratamiento = %s", (treatment_id,))
         conn.commit()
 
-        # rowcount nos dice cuántas filas fueron afectadas. Si es 0, no se encontró.
         if cur.rowcount == 0:
             cur.close()
             conn.close()
@@ -945,14 +892,13 @@ def delete_treatment(current_user_id, treatment_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Endpoint para que el admin vea TODOS los análisis de TODOS los usuarios
+
 @app.route('/admin/analyses', methods=['GET'])
 @admin_required
 def get_all_analyses(current_user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # Unimos la tabla de análisis con la de usuarios para obtener el email
         cur.execute(
             """
             SELECT a.*, u.email 
@@ -966,7 +912,6 @@ def get_all_analyses(current_user_id):
         cur.close()
         conn.close()
 
-        # Convertimos las fechas a string para que no den problemas en JSON
         result = []
         for row in analyses:
             row_dict = dict(row)
@@ -984,7 +929,6 @@ def get_users_with_analyses(current_user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        # --- 👇 MODIFICACIÓN AQUÍ: Añadimos u.profile_image_url a la consulta 👇 ---
         cur.execute(
             """
             SELECT DISTINCT ON (u.id_usuario) u.id_usuario, u.nombre_completo, u.email, u.profile_image_url,
@@ -1001,7 +945,7 @@ def get_users_with_analyses(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- NUEVO: Endpoint para obtener los análisis de un usuario específico ---
+
 @app.route('/admin/analyses/user/<int:user_id>', methods=['GET'])
 @admin_required
 def get_analyses_for_user(current_user_id, user_id):
@@ -1031,7 +975,7 @@ def get_analyses_for_user(current_user_id, user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
- # backend/app.py
+ 
 
 @app.route('/api/enfermedades', methods=['GET'])
 @token_required
@@ -1044,8 +988,6 @@ def get_enfermedades(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
-        # --- 👇 ¡AQUÍ ESTÁ LA MODIFICACIÓN! 👇 ---
-        # Seleccionamos las nuevas columnas que necesita el frontend.
         cur.execute("""
             SELECT 
                 id_enfermedad as id, 
@@ -1079,10 +1021,6 @@ def get_tratamientos_por_enfermedad(current_user_id, enfermedad_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-        # --- 👇 AQUÍ ESTÁ LA NUEVA CORRECCIÓN 👇 ---
-        # Usamos COALESCE para manejar valores NULL en dosis y unidad.
-        # Esto previene errores en el frontend si los datos están incompletos.
         cur.execute("""
             SELECT 
                 id_tratamiento as id, 
@@ -1144,8 +1082,6 @@ def update_profile(current_user_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-
-        # Usamos un marcador de posición para construir la consulta dinámicamente
         query_parts = []
         params = []
         if nombre_completo:
@@ -1158,7 +1094,7 @@ def update_profile(current_user_id):
 
         params.append(current_user_id)
         
-        # Unimos las partes de la consulta
+        # Unir las partes de la consulta
         query = f"UPDATE usuarios SET {', '.join(query_parts)} WHERE id_usuario = %s"
         
         cur.execute(query, tuple(params))
@@ -1211,9 +1147,6 @@ def change_password(current_user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# backend/app.py
-
-# ... (todas las demás rutas e importaciones se mantienen igual)
 
 @app.route('/admin/user/<int:user_id>', methods=['DELETE'])
 @admin_required
@@ -1228,18 +1161,14 @@ def admin_delete_user(current_user_id, user_id):
     conn = None
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor) # Usamos DictCursor para acceder a las columnas por nombre
-
-        # --- INICIO DE LA LÓGICA MEJORADA ---
-
-        # 1. Obtener todas las URLs de las imágenes de análisis del usuario
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor) 
         cur.execute(
             "SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s",
             (user_id,)
         )
         analysis_images = cur.fetchall()
         
-        # 2. Obtener la URL de la imagen de perfil del usuario
+        #  Obtener la URL de la imagen de perfil del usuario
         cur.execute(
             "SELECT profile_image_url FROM usuarios WHERE id_usuario = %s",
             (user_id,)
@@ -1255,7 +1184,7 @@ def admin_delete_user(current_user_id, user_id):
              conn.close()
              return jsonify({"error": "No se puede eliminar a otro administrador."}), 403
 
-        # 3. Construir una lista con TODAS las URLs a eliminar
+
         urls_to_delete = []
         if user_profile and user_profile['profile_image_url']:
             urls_to_delete.append(user_profile['profile_image_url'])
@@ -1265,9 +1194,6 @@ def admin_delete_user(current_user_id, user_id):
                 urls_to_delete.append(item['url_imagen'])
             if item['url_imagen_reverso']:
                 urls_to_delete.append(item['url_imagen_reverso'])
-
-        # 4. Eliminar los registros de la base de datos ANTES de borrar las imágenes
-        # Se hace en este orden por si el borrado de imágenes falla, no dejar la BD inconsistente.
         cur.execute("DELETE FROM analisis WHERE id_usuario = %s", (user_id,))
         cur.execute("DELETE FROM usuarios WHERE id_usuario = %s", (user_id,))
         
@@ -1275,18 +1201,15 @@ def admin_delete_user(current_user_id, user_id):
             cur.close()
             conn.close()
             return jsonify({"error": "Usuario no encontrado"}), 404
-        
-        # Si todo fue bien en la BD, confirmamos los cambios
         conn.commit()
-        
-        # 5. Ahora, procedemos a borrar las imágenes de Firebase Storage
+
+
         if urls_to_delete:
             print(f"Iniciando borrado de {len(urls_to_delete)} imágenes de Firebase para el usuario {user_id}.")
             bucket = storage.bucket()
             for image_url in urls_to_delete:
                 if image_url:
                     try:
-                        # Esta lógica ya la tenías en otras funciones, la reutilizamos
                         path_part = image_url.split('?')[0]
                         file_path = path_part.split('/o/')[-1].replace('%2F', '/')
                         
@@ -1297,10 +1220,7 @@ def admin_delete_user(current_user_id, user_id):
                         else:
                             print(f"ADVERTENCIA: Se intentó borrar {file_path} pero no se encontró en Firebase.")
                     except Exception as e:
-                        # Imprimimos la advertencia pero no detenemos el proceso
                         print(f"ADVERTENCIA: No se pudo borrar la imagen {image_url} de Firebase: {e}")
-
-        # --- FIN DE LA LÓGICA MEJORADA ---
         
         cur.close()
         conn.close()
@@ -1309,7 +1229,7 @@ def admin_delete_user(current_user_id, user_id):
 
     except Exception as e:
         if conn:
-            conn.rollback() # Revertimos los cambios en la BD si algo falla
+            conn.rollback() 
             cur.close()
             conn.close()
         return jsonify({"error": f"Ocurrió un error al eliminar el usuario: {str(e)}"}), 500
@@ -1354,7 +1274,7 @@ def admin_reset_password(current_user_id, user_id):
     except Exception as e:
         return jsonify({"error": f"Ocurrió un error al restablecer la contraseña: {str(e)}"}), 500
 
-# backend/app.py
+
 
 @app.route('/profile/delete', methods=['POST'])
 @token_required
@@ -1374,14 +1294,12 @@ def delete_current_user(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        # 1. Verificar la contraseña actual del usuario
         cur.execute("SELECT password_hash FROM usuarios WHERE id_usuario = %s", (current_user_id,))
         user = cur.fetchone()
         
         if not user or not bcrypt.checkpw(current_password.encode('utf-8'), user['password_hash'].encode('utf-8')):
             return jsonify({"error": "La contraseña actual es incorrecta"}), 401
 
-        # 2. Si la contraseña es correcta, obtener todas las URLs de las imágenes a eliminar
         cur.execute("SELECT url_imagen, url_imagen_reverso FROM analisis WHERE id_usuario = %s", (current_user_id,))
         analysis_images = cur.fetchall()
         
@@ -1397,15 +1315,11 @@ def delete_current_user(current_user_id):
                 urls_to_delete.append(item['url_imagen'])
             if item['url_imagen_reverso']:
                 urls_to_delete.append(item['url_imagen_reverso'])
-
-        # 3. Eliminar los registros de la base de datos
-        # (Se borran primero los análisis y luego el usuario para respetar las relaciones)
         cur.execute("DELETE FROM analisis WHERE id_usuario = %s", (current_user_id,))
         cur.execute("DELETE FROM usuarios WHERE id_usuario = %s", (current_user_id,))
         
-        conn.commit() # Confirmar los cambios en la base de datos
-        
-        # 4. Borrar las imágenes de Firebase Storage
+        conn.commit() 
+
         if urls_to_delete:
             bucket = storage.bucket()
             for image_url in urls_to_delete:
@@ -1433,9 +1347,7 @@ def delete_current_user(current_user_id):
             cur.close()
             conn.close()
 
-# backend/app.py
 
-# --- 👇 AÑADE ESTE NUEVO ENDPOINT COMPLETO 👇 ---
 @app.route('/history/trash/restore-all', methods=['PUT'])
 @token_required
 def restore_all_trash(current_user_id):
@@ -1446,14 +1358,13 @@ def restore_all_trash(current_user_id):
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Actualizamos todos los items en la papelera del usuario para quitarles la fecha de borrado
+
         cur.execute(
             "UPDATE analisis SET fecha_eliminado = NULL WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
             (current_user_id,)
         )
         conn.commit()
-        
-        # Opcional: Podemos verificar cuántas filas se afectaron
+
         restored_count = cur.rowcount
         
         cur.close()

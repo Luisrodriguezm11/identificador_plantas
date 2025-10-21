@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 // --- PALETA DE COLORES PARA TEMA OSCURO ---
 class AppColorsDark {
-  static const Color primary = Color(0xFF5E35B1); // Un morado elegante
-  static const Color accent = Color(0xFF005a8d); // Verde brillante para acentos
+  static const Color primary = Color(0xFF5E35B1); 
+  static const Color accent = Color(0xFF005a8d); 
   static const Color background = Color(0xFF121212);
   static const Color surface = Color(0xFF1E1E1E);
   static const Color textPrimary = Colors.white;
@@ -17,9 +17,9 @@ class AppColorsDark {
 
 // --- PALETA DE COLORES PARA TEMA CLARO ---
 class AppColorsLight {
-  static const Color primary = Color(0xFF673AB7); // Mantenemos el morado
-  static const Color accent = Color(0xFF005a8d); // Un verde un poco más oscuro
-  static const Color background = Color(0xFFF5F5F5); // Un gris muy claro
+  static const Color primary = Color(0xFF673AB7); 
+  static const Color accent = Color(0xFF005a8d); 
+  static const Color background = Color(0xFFF5F5F5); 
   static const Color surface = Colors.white;
   static const Color textPrimary = Colors.black87;
   static const Color textSecondary = Colors.black54;
@@ -30,7 +30,6 @@ class AppColorsLight {
 
 class AppTheme {
 
-  // --- IMAGEN DE FONDO (COMÚN PARA AMBOS TEMAS) ---
   static BoxDecoration get backgroundDecoration => const BoxDecoration(
         image: DecorationImage(
           image: AssetImage("assets/background3.jpg"),
@@ -84,7 +83,6 @@ class AppTheme {
     );
   }
   
-  // --- MÉTODOS REUTILIZABLES PARA ESTILOS ---
   
   static ElevatedButtonThemeData _elevatedButtonTheme(Color backgroundColor) {
     return ElevatedButtonThemeData(
@@ -111,7 +109,6 @@ class AppTheme {
     );
   }
 
-  // Estilos específicos que puedes seguir usando
   static ButtonStyle accentButtonStyle(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     return ElevatedButton.styleFrom(

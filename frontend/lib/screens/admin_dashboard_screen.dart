@@ -13,7 +13,7 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart'; 
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -44,7 +44,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
       case 4:
-        // Ya estamos en el panel de admin, no hacemos nada.
         break;
     }
   }
@@ -60,7 +59,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
 @override
   Widget build(BuildContext context) {
-    // --- Añadimos estas dos líneas para obtener el tema ---
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
@@ -130,7 +128,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          // --- 👇 AQUÍ ESTÁ EL BOTÓN DE REGRESO AÑADIDO 👇 ---
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -146,12 +143,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                   ),
-child: IconButton(
-  tooltip: 'Volver al Dashboard',
-  icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
-  // 👇 CAMBIO AQUÍ 👇
-  onPressed: () => Navigator.pop(context),
-),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
               ),
             ),
@@ -166,7 +163,7 @@ child: IconButton(
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
+        //TEXTOS DINÁMICOS
         Text(
           'Panel de Administrador',
           textAlign: TextAlign.center,
@@ -201,7 +198,7 @@ child: IconButton(
           filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
           child: Container(
             padding: const EdgeInsets.all(32.0),
-            // 4. TARJETAS ADAPTATIVAS
+            // TARJETAS ADAPTATIVAS
             decoration: BoxDecoration(
               color: isDark ? Colors.white.withOpacity(0.15) : AppColorsLight.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(24.0),

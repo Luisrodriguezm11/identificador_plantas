@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
         );
       } else {
-        // Usamos los colores del tema para el SnackBar
+        //colores del tema para el SnackBar
         final bool isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -59,9 +59,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     
-    // <-- 1. Obtenemos el ancho de la pantalla
+    // obtener el ancho de la pantalla
     final screenWidth = MediaQuery.of(context).size.width;
-    // <-- 2. Definimos un punto de quiebre (breakpoint) para cambiar el diseño
     final bool isWideScreen = screenWidth > 768;
 
     return Scaffold(
@@ -84,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
                       ),
                       child: IntrinsicHeight(
-                        // <-- 3. Usamos un operador ternario para elegir el layout
                         child: isWideScreen
                             ? Row(
                                 children: [
@@ -104,8 +102,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  // --- MÉTODOS AUXILIARES PARA MAYOR CLARIDAD ---
 
   // Widget para el formulario de Login
   Widget _buildLoginForm(BuildContext context) {
@@ -180,9 +176,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Widget para la imagen lateral
-// Reemplaza la versión anterior de este método en ambos archivos.
 
-Widget _buildImageSide(BuildContext context, {BoxFit fit = BoxFit.cover}) { // <-- 1. Añadimos el parámetro
+Widget _buildImageSide(BuildContext context, {BoxFit fit = BoxFit.cover}) { 
   return Container(
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
@@ -191,7 +186,7 @@ Widget _buildImageSide(BuildContext context, {BoxFit fit = BoxFit.cover}) { // <
         bottomRight: Radius.circular(16.0),
       ),
       image: DecorationImage(
-        fit: fit, // <-- 2. Usamos el parámetro en lugar de un valor fijo
+        fit: fit,
         image: const AssetImage('assets/login_image.jpg'),
       ),
     ),

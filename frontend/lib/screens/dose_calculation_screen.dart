@@ -20,9 +20,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:frontend/services/detection_service.dart';
 
-/// Pantalla que funciona como una guía de consulta sobre plagas y enfermedades.
-/// Permite al usuario seleccionar una afección y ver sus detalles, tratamientos
-/// recomendados y exportar la información a una ficha en PDF.
+
 class DoseCalculationScreen extends StatefulWidget {
   const DoseCalculationScreen({super.key});
 
@@ -257,8 +255,6 @@ class _DoseCalculationScreenState extends State<DoseCalculationScreen> {
         ],
       ),
     );
-
-    // Compartir el PDF generado
     await Printing.sharePdf(bytes: await pdf.save(), filename: 'ficha-${enfermedad.nombreComun.replaceAll(' ', '_')}.pdf');
   }
 
@@ -356,7 +352,7 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
-      body: Stack( // <-- 1. Se añade el Stack
+      body: Stack( 
         children: [
           SingleChildScrollView(
             child: Column(
@@ -444,7 +440,6 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
   /// Construye el encabezado principal de la pantalla.
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    // RESPONSIVE: Utiliza LayoutBuilder para adaptar el tamaño del texto.
     return LayoutBuilder(
       builder: (context, constraints) {
         final double titleSize = constraints.maxWidth > 800 ? 52 : (constraints.maxWidth > 500 ? 42 : 34);
@@ -475,9 +470,7 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
     );
   }
 
-/// Construye el carrusel de tarjetas de enfermedades.
-  /// En pantallas pequeñas (< 600px) muestra una lista horizontal deslizable.
-  /// En pantallas grandes muestra una cuadrícula adaptable (Wrap).
+
   Widget _buildDiseasesCarousel() {
     if (_isLoadingEnfermedades) {
       return const Center(child: CircularProgressIndicator());
@@ -485,26 +478,20 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
     if (_errorMessage != null && _enfermedades.isEmpty) {
       return Center(child: Text(_errorMessage!));
     }
-
-    // Usamos LayoutBuilder para decidir qué diseño mostrar según el ancho.
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Definimos un punto de quiebre: 600px.
-        // Por debajo de este ancho, usaremos la lista horizontal.
         bool useHorizontalList = constraints.maxWidth < 600;
 
         if (useHorizontalList) {
-          // --- DISEÑO PARA PANTALLAS PEQUEÑAS: LISTA HORIZONTAL ---
           return SizedBox(
-            height: 180, // Es crucial darle una altura fija al ListView horizontal
+            height: 180, 
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 24.0), // Un padding lateral más ajustado para móviles
+              padding: const EdgeInsets.symmetric(horizontal: 24.0), 
               itemCount: _enfermedades.length,
               itemBuilder: (context, index) {
                 final enfermedad = _enfermedades[index];
                 final isSelected = _selectedEnfermedad?.id == enfermedad.id;
-                // Agregamos un Padding para dar espacio entre las tarjetas
                 return Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: _buildDiseaseCard(enfermedad, isSelected),
@@ -513,7 +500,6 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
             ),
           );
         } else {
-          // --- DISEÑO PARA PANTALLAS GRANDES: WRAP (el que ya tenías) ---
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48.0),
             child: Wrap(
@@ -534,7 +520,6 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
   /// Construye la tarjeta individual para cada enfermedad seleccionable.
   Widget _buildDiseaseCard(Enfermedad enfermedad, bool isSelected) {
     final theme = Theme.of(context);
-    // El tamaño fijo funciona bien con Wrap, asegurando consistencia.
     return SizedBox(
       width: 280,
       height: 180,
@@ -601,11 +586,8 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
     final tipo = info['tipo'] as String? ?? 'No especificado';
     final prevencion = info['prevencion'] as String? ?? 'No hay datos de prevención.';
     final riesgo = info['riesgo'] as String? ?? 'No hay datos de riesgo.';
-
-    // --- CAMBIO: Se quita SingleChildScrollView y se reemplaza por Padding ---
-    // Esto evita anidar dos widgets de scroll y soluciona el problema.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(48, 20, 48, 80), // Aumentado el padding inferior para el FAB
+      padding: const EdgeInsets.fromLTRB(48, 20, 48, 80), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

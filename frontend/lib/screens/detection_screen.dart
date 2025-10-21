@@ -25,8 +25,7 @@ import 'package:lottie/lottie.dart';
 import 'admin_dashboard_screen.dart';
 import 'package:frontend/config/app_theme.dart';
 
-/// Pantalla principal para iniciar un nuevo análisis de imágenes.
-/// Permite al usuario subir una imagen del frente y reverso de una hoja para su diagnóstico.
+
 class DetectionScreen extends StatefulWidget {
   final XFile? initialImageFile;
 
@@ -40,7 +39,6 @@ class DetectionScreen extends StatefulWidget {
 }
 
 class _DetectionScreenState extends State<DetectionScreen> {
-  // Lógica de estado y servicios (sin cambios)
   XFile? _imageFileFront;
   XFile? _imageFileBack;
   final ImagePicker _picker = ImagePicker();
@@ -122,7 +120,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
     }
   }
 
-  /// Limpia la imagen seleccionada del slot correspondiente.
   void _clearImage(bool isFront) {
     setState(() {
       if (isFront) {
@@ -134,7 +131,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
   }
 
-  /// Orquesta el proceso completo de análisis: subida, diagnóstico y guardado.
+
   Future<void> _analyzeImages() async {
     if (_imageFileFront == null) return;
     setState(() {
@@ -145,7 +142,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
     });
 
     try {
-      // Notificador para permitir la cancelación del proceso en cualquier punto.
       await Future.delayed(const Duration(milliseconds: 50));
       if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
@@ -176,8 +172,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
       if (analysisResponse.statusCode == 200) {
         final result = json.decode(analysisResponse.body);
 
-// frontend/lib/screens/detection_screen.dart
-
         setState(() => _loadingMessage = 'Guardando resultado...');
         if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
@@ -193,17 +187,14 @@ class _DetectionScreenState extends State<DetectionScreen> {
           throw Exception("Error al guardar el análisis: ${saveBody['error'] ?? 'Error desconocido'}");
         }
 
-        // --- 👇 ¡AQUÍ ESTÁ LA CORRECCIÓN! 👇 ---
-        // 1. Decodificamos la respuesta para obtener el análisis con su ID de la base de datos.
         final savedAnalysis = json.decode(utf8.decode(saveResponse.bodyBytes));
 
-        // 2. Mostramos el diálogo usando el nuevo objeto 'savedAnalysis'.
         await showDialog(
           context: context,
           builder: (BuildContext dialogContext) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              child: AnalysisDetailScreen(analysis: savedAnalysis), // Usamos el objeto con el ID
+              child: AnalysisDetailScreen(analysis: savedAnalysis), 
             );
           },
         );
@@ -211,7 +202,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
         if (mounted) {
           Navigator.of(context).pop(true);
         }
-        // --- 👆 FIN DE LA CORRECCIÓN 👆 ---
         
       } else {
         final body = json.decode(analysisResponse.body);
@@ -261,7 +251,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
                       _buildUploadArea(),
                       const SizedBox(height: 50),
                       _buildTipsSection(),
-                      // CAMBIO: Se elimina el disclaimer de aquí porque ahora está dentro de _buildUploadArea
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -330,7 +319,6 @@ class _DetectionScreenState extends State<DetectionScreen> {
   /// Construye el encabezado principal de la pantalla.
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    // RESPONSIVE: Utiliza LayoutBuilder para adaptar el tamaño del texto.
     return LayoutBuilder(
       builder: (context, constraints) {
         final double titleSize = constraints.maxWidth > 600 ? 52 : 40;
@@ -364,7 +352,6 @@ Widget _buildUploadArea() {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Se ajusta el punto de quiebre para 3 tarjetas
         bool useMobileLayout = constraints.maxWidth < 950;
         
         return ClipRRect(
@@ -387,7 +374,7 @@ Widget _buildUploadArea() {
                           const SizedBox(height: 24),
                           _buildImageSlot(isFront: false),
                           const SizedBox(height: 24),
-                          _buildDisclaimerCard(), // En móvil, se apila debajo
+                          _buildDisclaimerCard(), 
                         ],
                       )
                     : Row(
@@ -398,7 +385,7 @@ Widget _buildUploadArea() {
                           const SizedBox(width: 24),
                           Expanded(child: _buildImageSlot(isFront: false)),
                           const SizedBox(width: 24),
-                          Expanded(child: _buildDisclaimerCard()), // En escritorio, es la tercera columna
+                          Expanded(child: _buildDisclaimerCard()), 
                         ],
                       ),
                   if (_errorMessage != null)
@@ -429,9 +416,7 @@ Widget _buildUploadArea() {
     );
   }
 
-// frontend/lib/screens/detection_screen.dart
 
-// CAMBIO: Se añade este nuevo método para crear la tarjeta de descargo de responsabilidad.
   Widget _buildDisclaimerCard() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -490,12 +475,7 @@ Widget _buildUploadArea() {
           children: [
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 16),
-            // RESPONSIVE: AspectRatio mantiene la proporción del slot.
             AspectRatio(
-              // --- CAMBIO AQUÍ ---
-              // Cambiamos la proporción de 1 (cuadrado) a 4/3 (más ancho que alto).
-              // Esto hace que la tarjeta sea más pequeña verticalmente.
-              // Puedes experimentar con otros valores como 3/2 si la quieres aún más baja.
               aspectRatio: 4 / 3,
               child: imageFile != null
                   ? Stack(
@@ -570,14 +550,9 @@ Widget _buildUploadArea() {
     );
   }
 
-  /// Construye la sección inferior con consejos para el análisis.
-// frontend/lib/screens/detection_screen.dart
 
-  /// Construye la sección inferior con consejos para el análisis.
 Widget _buildTipsSection() {
     final theme = Theme.of(context);
-    
-    // Contenido de la sección de consejos, para no repetir código.
     final tipsContent = Wrap(
       spacing: 20,
       runSpacing: 20,
@@ -594,15 +569,11 @@ Widget _buildTipsSection() {
       children: [
         Text("Consejos para un buen análisis", style: theme.textTheme.headlineSmall),
         const SizedBox(height: 24),
-        
-        // --- 👇 ¡AQUÍ ESTÁ LA MODIFICACIÓN PRINCIPAL! 👇 ---
         LayoutBuilder(
           builder: (context, constraints) {
-            // Si el ancho de la pantalla es mayor a 850px, muestra los 4 consejos en línea.
             if (constraints.maxWidth > 850) {
-              return tipsContent; // El Wrap se expandirá horizontalmente.
+              return tipsContent; 
             } else {
-              // Si es menor, limita el ancho para forzar la cuadrícula de 2x2.
               return ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: tipsContent,
@@ -618,7 +589,6 @@ Widget _buildTipsSection() {
   Widget _buildTipCard(String lottieAsset, String text) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    // RESPONSIVE: Se le da un tamaño y ancho máximo a cada tarjeta para que funcione bien con Wrap.
     return SizedBox(
       width: 180,
       child: ClipRRect(

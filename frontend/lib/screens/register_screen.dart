@@ -9,7 +9,7 @@ import 'package:image_picker/image_picker.dart';
 //import 'package:frontend/widgets/animated_bubble_background.dart';
 import '../services/auth_service.dart';
 import 'dart:ui';
-import '../config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import '../config/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -48,20 +48,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _isLoading = true);
 
       String? imageUrl;
-      // 1. Subir la imagen si existe
+      // Subir la imagen 
       if (_profileImageFile != null) {
-        // Usamos el StorageService que modificamos
         final storageService = StorageService();
         imageUrl = await storageService.uploadProfileImage(_profileImageFile!);
       }
-
-      // 2. Registrar al usuario con la URL de la imagen (o sin ella)
       final result = await _authService.register(
         _nombreController.text,
         _emailController.text,
         _passwordController.text,
         _ongController.text.isNotEmpty ? _ongController.text : "De la Gente",
-        profileImageUrl: imageUrl, // Pasamos la URL obtenida
+        profileImageUrl: imageUrl, 
       );
 
       if (!mounted) return;
@@ -117,7 +114,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(flex: 3, child: _buildRegisterForm(context)),
-                                  // --- 👇 CAMBIO 1: LLAMAMOS AL NUEVO MÉTODO 👇 ---
                                   Expanded(flex: 2, child: _buildScalableImageSide(context)),
                                 ],
                               )
@@ -224,8 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // --- 👇 CAMBIO 2: MÉTODO DE IMAGEN ESPECIALIZADO PARA EL REGISTRO 👇 ---
-// --- 👇 MÉTODO DE IMAGEN CORREGIDO Y SIMPLIFICADO 👇 ---
+
 Widget _buildScalableImageSide(BuildContext context) {
   return Container(
     clipBehavior: Clip.antiAlias,
@@ -237,8 +232,7 @@ Widget _buildScalableImageSide(BuildContext context) {
       ),
     ),
     child: Image.asset(
-      'assets/login_image.jpg', // Asegúrate que esta ruta sea correcta
-      // --- CAMBIO CLAVE: Volvemos a .contain para evitar el recorte ---
+      'assets/login_image.jpg', 
       fit: BoxFit.contain,
     ),
   );

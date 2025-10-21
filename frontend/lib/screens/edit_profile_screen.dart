@@ -25,7 +25,6 @@ class EditProfileScreen extends StatefulWidget {
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-// frontend/lib/screens/edit_profile_screen.dart
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -41,7 +40,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSavingProfile = false;
   bool _isChangingPassword = false;
-  bool _isAdmin = false; // <-- 1. AÑADE ESTA LÍNEA
+  bool _isAdmin = false; 
 
   final ImagePicker _picker = ImagePicker();
   XFile? _newProfileImageFile;
@@ -51,10 +50,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _authService = Provider.of<AuthService>(context, listen: false);
     _loadUserData();
-    _checkAdminStatus(); // <-- 2. AÑADE ESTA LLAMADA
+    _checkAdminStatus(); 
   }
   
-  // --- 👇 3. AÑADE ESTE MÉTODO COMPLETO 👇 ---
+
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
@@ -85,10 +84,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       case 3:
         Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
         break;
-      // --- 👇 4. AÑADE EL CASO PARA EL PANEL DE ADMIN 👇 ---
       case 4:
         if (_isAdmin) {
-          // Usamos pop para volver, ya que el panel de admin es la pantalla anterior.
           Navigator.of(context).pop();
         }
         break;
@@ -145,7 +142,6 @@ Future<void> _saveProfileChanges() async {
       if (mounted) {
         if (result['success']) {
           _showSuccessSnackBar('Perfil actualizado con éxito');
-          //Navigator.of(context).pop(true); 
         } else {
           _showErrorSnackBar('Error al actualizar: ${result['error']}');
         }
@@ -197,8 +193,6 @@ Future<void> _saveProfileChanges() async {
   }
 
   void _logout() async {
-    // No borramos el token aquí, porque la función de borrado en el servicio ya lo hace.
-    // Solo navegamos.
     if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -239,7 +233,6 @@ Future<void> _saveProfileChanges() async {
     return null;
   }
   
-  // ... (Los métodos _buildHeaderSection y _buildGlassCard se mantienen igual)
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
     return Column(
@@ -291,7 +284,7 @@ Future<void> _saveProfileChanges() async {
     );
   }
 
-  // NUEVO: Método para construir la tarjeta de "Zona de Peligro".
+  // Método para construir la tarjeta de "Zona de Peligro".
   Widget _buildDangerZoneCard() {
     return _buildGlassCard(
       title: 'Zona de Peligro',
@@ -314,7 +307,7 @@ Future<void> _saveProfileChanges() async {
     );
   }
 
-  // NUEVO: Método para mostrar el diálogo de confirmación de borrado.
+  // Método para mostrar el diálogo de confirmación de borrado.
   Future<void> _showDeleteAccountDialog() async {
     final passwordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -359,11 +352,10 @@ Future<void> _saveProfileChanges() async {
                       final result = await _authService.deleteCurrentUserAccount(passwordController.text);
 
                       if (!mounted) return;
-                      Navigator.of(context).pop(); // Cerrar el diálogo
+                      Navigator.of(context).pop(); 
 
                       if (result['success']) {
                         _showSuccessSnackBar('Tu cuenta ha sido eliminada.');
-                        // Navegamos a la pantalla de login después de un breve retraso
                         Future.delayed(const Duration(seconds: 2), () => _logout());
                       } else {
                         _showErrorSnackBar('Error: ${result['error']}');
@@ -391,8 +383,8 @@ Future<void> _saveProfileChanges() async {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: TopNavigationBar(
-        selectedIndex: -1, // Ningún ítem seleccionado
-        isAdmin: _isAdmin, // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
+        selectedIndex: -1, 
+        isAdmin: _isAdmin, 
         onItemSelected: _onNavItemTapped,
         onLogout: () {
             Navigator.of(context).pushAndRemoveUntil(
@@ -499,8 +491,6 @@ Future<void> _saveProfileChanges() async {
                             ),
                           ],
                         ),
-                        
-                        // NUEVO: Se añade la tarjeta de "Zona de Peligro".
                         const SizedBox(height: 40),
                         _buildDangerZoneCard(),
                         const SizedBox(height: 40),

@@ -9,8 +9,8 @@ import 'auth_service.dart';
 class DetectionService {
   // Asegúrate que esta IP sea la correcta y accesible desde tu dispositivo.
   // Si usas un emulador de Android, puedes usar 10.0.2.2 para referirte al localhost de tu máquina.
-  //final String _baseUrl = "https://identificador-plantas-backend.onrender.com"; 
-  final String _baseUrl = "http://192.168.0.10:5001";
+  final String _baseUrl = "https://identificador-plantas-backend.onrender.com"; 
+  //final String _baseUrl = "http://192.168.0.10:5001";
   //final String _baseUrl = "http://172.20.10.7:5001";
   final AuthService _authService = AuthService();
 

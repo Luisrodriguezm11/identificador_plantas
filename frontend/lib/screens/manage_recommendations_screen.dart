@@ -141,7 +141,6 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
         Text(
           'Gestionar Tratamientos',
           textAlign: TextAlign.center,
@@ -183,7 +182,7 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
           padding: const EdgeInsets.only(bottom: 24.0),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 400,
-            childAspectRatio: 16 / 8, // <-- RELACIÓN DE ASPECTO ACTUAL (APROX 2.66)
+            childAspectRatio: 16 / 8,
             crossAxisSpacing: 10,
             mainAxisSpacing: 20,
           ),
@@ -200,8 +199,6 @@ class _ManageRecommendationsScreenState extends State<ManageRecommendationsScree
 Widget _buildDiseaseCard(Map<String, dynamic> disease) {
   final theme = Theme.of(context);
   final bool isDark = theme.brightness == Brightness.dark;
-
-  // Un GestureDetector para la acción principal (tocar la tarjeta)
   return GestureDetector(
     onTap: () {
       Navigator.push(
@@ -234,12 +231,12 @@ Widget _buildDiseaseCard(Map<String, dynamic> disease) {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center, // <-- CAMBIO: Centramos el texto verticalmente
+                  mainAxisAlignment: MainAxisAlignment.center, 
                   children: [
                     Text(
                       disease['nombre_comun'] ?? 'Nombre no disponible',
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                      maxLines: 2, // Permitimos hasta 2 líneas para el nombre
+                      maxLines: 2, 
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
@@ -259,8 +256,4 @@ Widget _buildDiseaseCard(Map<String, dynamic> disease) {
     ),
   );
 }
-
-// frontend/lib/screens/manage_recommendations_screen.dart
-
-
 }

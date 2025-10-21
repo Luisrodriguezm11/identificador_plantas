@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/services/detection_service.dart';
-//import 'package:frontend/widgets/animated_bubble_background.dart';
 import 'dart:ui';
 import 'analysis_detail_screen.dart';
 import 'package:frontend/widgets/top_navigation_bar.dart';
@@ -165,8 +164,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
             ),
           ),
           
-          // --- 👇 ¡CORRECCIÓN APLICADA AQUÍ! 👇 ---
-          // 3. EL BOTÓN (ahora es el último, por lo tanto queda encima de todo)
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -192,7 +189,7 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                     tooltip: 'Volver a Monitor de Productores',
                     icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
                     onPressed: () {
-                      // Mensaje para verificar que el clic funciona.
+                      // Mensaje para verificar que el clic funciona
                       print('DEBUG: Botón de regreso SÍ fue presionado.');
 
                       // Lógica para regresar.
@@ -210,7 +207,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
   
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    // 3. USAMOS LOS ESTILOS DE TEXTO DEL TEMA
     return Column(
       children: [
         Text(
@@ -281,7 +277,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          // 5. COLORES DE TARJETA ADAPTATIVOS
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
@@ -342,7 +337,6 @@ class _AdminAnalysesScreenState extends State<AdminAnalysesScreen> {
                             ),
                             Row(
                               children: [
-                                // 6. COLORES DE BOTONES ADAPTATIVOS
                                 _buildActionButton(
                                   icon: Icons.info_outline,
                                   color: isDark ? AppColorsDark.info : AppColorsLight.info,

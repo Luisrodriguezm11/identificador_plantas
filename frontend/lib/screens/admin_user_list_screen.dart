@@ -15,7 +15,7 @@ import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart'; 
 
 class AdminUserListScreen extends StatefulWidget {
   const AdminUserListScreen({super.key});
@@ -108,9 +108,6 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
               ),
             ),
           ),
-
-          // --- 👇 ¡AQUÍ ESTÁ EL BOTÓN AÑADIDO! 👇 ---
-          // 3. EL BOTÓN (último en la lista para que quede encima)
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -133,7 +130,6 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
                     ),
                   ),
                   child: IconButton(
-                    // Cambiamos el tooltip para que sea más específico
                     tooltip: 'Volver al Panel de Administrador',
                     icon: Icon(Icons.arrow_back_ios_new_rounded, color: Theme.of(context).iconTheme.color),
                     onPressed: () {
@@ -153,7 +149,6 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
         Text(
           'Monitor de Productores',
           textAlign: TextAlign.center,
@@ -171,10 +166,9 @@ class _AdminUserListScreenState extends State<AdminUserListScreen> {
         const SizedBox(height: 24),
 _buildGlassButton(
   context,
-  icon: Icons.analytics_outlined, // o Icons.grid_view_rounded
-  label: 'Ver todos los análisis', // o 'Ver todos los análisis juntos'
+  icon: Icons.analytics_outlined, 
+  label: 'Ver todos los análisis', 
   onPressed: () {
-    // 👇 ESTO ES CORRECTO: Usa push, no pushReplacement 👇
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AdminAnalysesScreen()),
@@ -224,7 +218,6 @@ _buildGlassButton(
     );
   }
 
-// frontend/lib/screens/admin_user_list_screen.dart
 
 Widget _buildUserCard(Map<String, dynamic> user) {
   final theme = Theme.of(context);
@@ -233,7 +226,7 @@ Widget _buildUserCard(Map<String, dynamic> user) {
   final String userName = user['nombre_completo'] ?? 'Usuario Desconocido';
   final String userEmail = user['email'] ?? 'correo@ejemplo.com';
   final int analysisCount = user['analysis_count'] ?? 0;
-  final int userId = user['id_usuario']; // <-- Obtenemos el ID del usuario
+  final int userId = user['id_usuario']; 
 
   return GestureDetector(
     onTap: () {
@@ -306,7 +299,6 @@ Widget _buildUserCard(Map<String, dynamic> user) {
                       ],
                     ),
                   ),
-                  // --- 👇 AQUÍ EMPIEZA EL NUEVO CÓDIGO DEL MENÚ 👇 ---
                   Positioned(
                     top: 4,
                     right: 4,
@@ -341,7 +333,6 @@ Widget _buildUserCard(Map<String, dynamic> user) {
                       ),
                     ),
                   ),
-                  // --- 👆 AQUÍ TERMINA EL NUEVO CÓDIGO DEL MENÚ 👆 ---
                 ],
               ),
             ),
@@ -416,7 +407,7 @@ void _showResetPasswordDialog(int userId, String userName) {
                   newPassword: passwordController.text,
                 );
                 Navigator.pop(context); // Cierra el dialogo
-                if (mounted) { // Verifica si el widget todavía está en el árbol
+                if (mounted) { 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(result['success']
@@ -462,7 +453,6 @@ void _showDeleteUserDialog(int userId, String userName) {
                       backgroundColor: result['success'] ? Colors.green : Colors.red,
                     ),
                   );
-                // Si el borrado fue exitoso, refrescamos la lista de usuarios
                 if (result['success']) {
                   setState(() {
                     _usersFuture = _detectionService.getUsersWithAnalyses();

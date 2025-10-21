@@ -75,7 +75,6 @@ class SideNavigationRail extends StatelessWidget {
               const SizedBox(height: 16),
               const Divider(color: Colors.white30, indent: 16, endIndent: 16),
               const SizedBox(height: 16),
-              // --- Pasamos el selectedIndex a cada item ---
               _buildNavItem(Icons.dashboard_outlined, "Dashboard", 0, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.history_outlined, "Historial", 1, selectedIndex, isExpanded, onItemSelected),
               _buildNavItem(Icons.delete_sweep_outlined, "Papelera", 2, selectedIndex, isExpanded, onItemSelected),
@@ -108,7 +107,6 @@ class SideNavigationRail extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12.0),
         child: BackdropFilter(
-          // Aplicamos el filtro solo si está seleccionado
           filter: ImageFilter.blur(sigmaX: isSelected ? 5 : 0, sigmaY: isSelected ? 5 : 0),
           child: InkWell(
             onTap: () => onItemSelected(index),
@@ -118,7 +116,6 @@ class SideNavigationRail extends StatelessWidget {
               height: 56,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                // Cambiamos el color de fondo si está seleccionado
                 color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(

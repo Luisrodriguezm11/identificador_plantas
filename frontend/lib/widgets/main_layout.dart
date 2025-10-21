@@ -10,8 +10,6 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/widgets/animated_bubble_background.dart';
 
-// Creamos una clave global para nuestro navegador anidado.
-// Esto nos permite controlarlo desde cualquier parte de la app si es necesario.
 final GlobalKey<NavigatorState> mainNavigatorKey = GlobalKey<NavigatorState>();
 
 class MainLayout extends StatelessWidget {
@@ -22,13 +20,11 @@ class MainLayout extends StatelessWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. El fondo animado SIEMPRE estará en la base del Stack.
+          // El fondo animado SIEMPRE estará en la base del Stack.
           const AnimatedBubbleBackground(),
-
-          // 2. El Navegador anidado que renderizará las pantallas ENCIMA del fondo.
           Navigator(
             key: mainNavigatorKey,
-            initialRoute: '/auth_check', // La primera ruta es la de verificación.
+            initialRoute: '/auth_check', 
             onGenerateRoute: (settings) {
               Widget page;
               switch (settings.name) {
@@ -39,7 +35,6 @@ class MainLayout extends StatelessWidget {
                   page = const DashboardScreen();
                   break;
                 case '/history':
-                  // Aceptamos argumentos para poder resaltar el análisis
                   final args = settings.arguments as Map<String, dynamic>?;
                   page = HistoryScreen(highlightedAnalysisId: args?['highlightedAnalysisId']);
                   break;
@@ -56,9 +51,8 @@ class MainLayout extends StatelessWidget {
                    page = const AdminDashboardScreen();
                    break;
                 default:
-                  page = const AuthCheckScreen(); // Ruta por defecto
+                  page = const AuthCheckScreen();
               }
-              // Usamos PageRouteBuilder para quitar la animación de transición
               return PageRouteBuilder(
                 pageBuilder: (_, __, ___) => page,
                 transitionDuration: Duration.zero,

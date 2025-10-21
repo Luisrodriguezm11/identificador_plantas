@@ -14,9 +14,7 @@ import '../services/detection_service.dart';
 import 'dart:ui';
 import 'package:frontend/config/app_theme.dart';
 
-/// Pantalla que muestra los análisis eliminados (en la papelera).
-/// Permite a los usuarios restaurar análisis o eliminarlos permanentemente.
-/// Los administradores tienen vistas y permisos adicionales.
+
 class TrashScreen extends StatefulWidget {
   const TrashScreen({super.key});
 
@@ -37,14 +35,14 @@ class _TrashScreenState extends State<TrashScreen> {
     _loadInitialData();
   }
 
-  /// Carga los datos iniciales necesarios para la pantalla.
+  // Carga los datos iniciales necesarios para la pantalla.
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     await _checkAdminStatus();
     await _fetchTrashedItems();
   }
 
-  /// Verifica si el usuario actual tiene permisos de administrador.
+  // Verifica si el usuario actual tiene permisos de administrador.
   Future<void> _checkAdminStatus() async {
     final isAdmin = await _authService.isAdmin();
     if (mounted) {
@@ -52,8 +50,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
-  /// Obtiene la lista de análisis en la papelera desde el servicio.
-  /// Llama a un endpoint diferente si el usuario es administrador.
+  // Obtiene la lista de análisis en la papelera desde el servicio.
   Future<void> _fetchTrashedItems() async {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
@@ -81,7 +78,7 @@ class _TrashScreenState extends State<TrashScreen> {
     }
   }
 
-  /// Formatea el nombre de la predicción para una mejor lectura.
+  // Formatea el nombre de la predicción para una mejor lectura.
   String _formatPredictionName(String originalName) {
     if (originalName.toLowerCase() == 'no se detectó ninguna plaga') {
       return 'Hoja Sana';
@@ -92,7 +89,7 @@ class _TrashScreenState extends State<TrashScreen> {
     return formattedName[0].toUpperCase() + formattedName.substring(1);
   }
 
-  /// Gestiona la navegación al pulsar un ítem de la barra de navegación superior.
+  //Gestiona la navegación al pulsar un ítem de la barra de navegación superior.
   void _onNavItemTapped(int index) {
     switch (index) {
       case 0:
@@ -161,11 +158,7 @@ class _TrashScreenState extends State<TrashScreen> {
                 ),
 ElevatedButton(
   onPressed: () {
-    // 1. Cierra el diálogo.
     Navigator.of(context).pop();
-
-    // 2. Navega a la ruta '/history' DENTRO del navegador de MainLayout,
-    //    pasando el ID del análisis como argumento.
     mainNavigatorKey.currentState?.pushReplacementNamed(
       '/history',
       arguments: {'highlightedAnalysisId': restoredItem['id_analisis']},
@@ -337,13 +330,10 @@ ElevatedButton(
           ),
         ],
       ),
-// frontend/lib/screens/trash_screen.dart
-
   floatingActionButton: (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
-    ? Row( // <-- 1. Se cambia por un Row
-        mainAxisAlignment: MainAxisAlignment.end, // Alinea los botones a la derecha
+    ? Row( 
+        mainAxisAlignment: MainAxisAlignment.end, 
         children: [
-          // --- 👇 2. ESTE ES EL NUEVO BOTÓN DE RESTAURAR 👇 ---
           ClipRRect(
             borderRadius: BorderRadius.circular(28.0),
             child: BackdropFilter(
@@ -374,9 +364,7 @@ ElevatedButton(
               ),
             ),
           ),
-          const SizedBox(width: 16), // Espacio entre botones
-
-          // --- 3. ESTE ES TU BOTÓN EXISTENTE DE VACIAR PAPELERA (sin cambios internos) ---
+          const SizedBox(width: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(28.0),
             child: BackdropFilter(
@@ -416,15 +404,13 @@ ElevatedButton(
   /// Construye el encabezado principal de la pantalla de la papelera.
   Widget _buildHeaderSection() {
     final theme = Theme.of(context);
-    // RESPONSIVE: Utiliza LayoutBuilder para adaptar el tamaño del texto.
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Define tamaños de fuente dinámicos basados en el ancho disponible.
         final double titleSize;
         final double subtitleSize;
         if (constraints.maxWidth > 800) {
-          titleSize = 45; // displayMedium es ~45px
-          subtitleSize = 16; // bodyLarge es ~16px
+          titleSize = 45; 
+          subtitleSize = 16; 
         } else if (constraints.maxWidth > 500) {
           titleSize = 38;
           subtitleSize = 15;
@@ -458,8 +444,6 @@ ElevatedButton(
   /// Construye la cuadrícula que muestra los análisis eliminados.
   Widget _buildTrashGrid() {
     final theme = Theme.of(context);
-    // RESPONSIVE: Esta cuadrícula ya es adaptable gracias a SliverGridDelegateWithMaxCrossAxisExtent.
-    // No requiere cambios ya que ajusta el número de columnas automáticamente.
     return _isLoading
         ? Center(child: CircularProgressIndicator(color: theme.colorScheme.primary))
         : _trashedList == null || _trashedList!.isEmpty
@@ -554,7 +538,7 @@ ElevatedButton(
                           ),
                         const Spacer(),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround, // Ligeramente más espaciado
+                          mainAxisAlignment: MainAxisAlignment.spaceAround, 
                           children: [
                             _buildActionButton(
                                 icon: Icons.restore_from_trash_outlined,
@@ -597,7 +581,7 @@ ElevatedButton(
           ),
           child: IconButton(
             onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white, size: 20), // Aumentado ligeramente el tamaño
+            icon: Icon(icon, color: Colors.white, size: 20), 
             tooltip: tooltip,
           ),
         ),

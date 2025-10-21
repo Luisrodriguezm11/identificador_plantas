@@ -1,9 +1,9 @@
 // frontend/lib/screens/auth_check_screen.dart
 
 import 'package:flutter/material.dart';
-//import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS EL TEMA
+//import 'package:frontend/config/app_theme.dart';
 //import 'package:frontend/widgets/animated_bubble_background.dart';
-import 'package:lottie/lottie.dart'; // <-- 2. IMPORTAMOS LOTTIE PARA ANIMACIONES
+import 'package:lottie/lottie.dart'; // 
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
@@ -29,10 +29,8 @@ void _checkLoginStatus() async {
   final token = await _authService.readToken();
   if (mounted) {
     if (token != null) {
-      // Navega a la ruta '/dashboard' DENTRO del navegador de MainLayout
       Navigator.of(context).pushReplacementNamed('/dashboard');
     } else {
-      // Navega a la pantalla de Login (esta reemplaza toda la app, lo cual es correcto aquí)
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
@@ -58,9 +56,8 @@ void _checkLoginStatus() async {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 4. USAMOS UNA ANIMACIÓN DE LOTTIE
                 Lottie.asset(
-                  'assets/animations/focus_animation.json', // Puedes cambiar esta por otra animación si quieres
+                  'assets/animations/focus_animation.json', //animacion de carga de pagina
                   width: 150,
                   height: 150,
                 ),

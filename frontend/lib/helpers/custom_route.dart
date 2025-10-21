@@ -1,7 +1,7 @@
 // frontend/lib/helpers/custom_route.dart
 import 'package:flutter/material.dart';
 
-// --- AÑADE ESTA NUEVA CLASE ---
+
 class NoTransitionRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
   NoTransitionRoute({required this.page})
@@ -12,12 +12,11 @@ class NoTransitionRoute<T> extends PageRouteBuilder<T> {
             Animation<double> secondaryAnimation,
           ) =>
               page,
-          // Duración cero para una transición instantánea
           transitionDuration: Duration.zero,
           reverseTransitionDuration: Duration.zero,
         );
 }
-// --- FIN DE LA NUEVA CLASE ---
+
 
 class SlideRightRoute extends PageRouteBuilder {
   final Widget page;
@@ -38,8 +37,8 @@ class SlideRightRoute extends PageRouteBuilder {
           ) =>
               SlideTransition(
                 position: Tween<Offset>(
-                  begin: const Offset(1.0, 0.0), // Empieza desde la derecha
-                  end: Offset.zero, // Termina en el centro
+                  begin: const Offset(1.0, 0.0), 
+                  end: Offset.zero, 
                 ).animate(CurvedAnimation(
                   parent: animation,
                   curve: Curves.easeInOut, // Efecto de suavizado

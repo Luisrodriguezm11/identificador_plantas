@@ -31,8 +31,6 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
   late List<Bubble> _bubbles;
   final int numberOfBubbles = 15;
   final Random _random = Random();
-  
-  // Usamos un bool para evitar reinicializar las burbujas en cada build
   bool _bubblesInitialized = false;
 
   @override
@@ -51,14 +49,9 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
     super.dispose();
   }
 
-// frontend/lib/widgets/animated_bubble_background.dart
 
-  // --- INICIALIZACIÓN DE LAS BURBUJAS (AHORA DEPENDE DEL TEMA) ---
   void _initializeBubbles(Size size, bool isDarkMode) {
-    if (_bubblesInitialized) return; // Solo se inicializa una vez
-    
-    // CAMBIO: Se han reducido los valores de opacidad para que las burbujas
-    // sean más tenues, pero sin desaparecer por completo.
+    if (_bubblesInitialized) return; 
     List<Color> lightThemeColors = [
       Colors.lightBlue.withOpacity(0.05),
       Colors.cyanAccent.withOpacity(0.05),
@@ -92,7 +85,6 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
   }
   // --- ACTUALIZACIÓN DE POSICIONES ---
   void _updateBubblePositions(Size size) {
-    // (Esta función no necesita cambios)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {
@@ -108,21 +100,17 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
     });
   }
 
-  // --- CONSTRUCCIÓN DEL WIDGET (AHORA DEPENDE DEL TEMA) ---
   @override
   Widget build(BuildContext context) {
-    // 👇 1. DETECTAMOS EL TEMA ACTUAL
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    // 👇 2. DEFINIMOS LOS GRADIENTES PARA CADA TEMA
     final gradientColors = isDarkMode
-        ? [const Color(0xFF232a49), const Color(0xFF0f1227)] // Gradiente oscuro
-        : [const Color(0xFFFFFFFF), const Color(0xFFdfe9f3)]; // Gradiente claro
+        ? [const Color(0xFF232a49), const Color(0xFF0f1227)] 
+        : [const Color(0xFFFFFFFF), const Color(0xFFdfe9f3)]; 
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        _initializeBubbles(size, isDarkMode); // Pasamos el tema a la inicialización
+        _initializeBubbles(size, isDarkMode); 
 
         return AnimatedBuilder(
           animation: _controller,
@@ -141,8 +129,6 @@ class _AnimatedBubbleBackgroundState extends State<AnimatedBubbleBackground> wit
                     ),
                   ),
                 ),
-                
-                // Burbujas (su color ya fue definido en la inicialización)
                 ..._bubbles.map((bubble) {
                   return Positioned(
                     left: bubble.position.dx - bubble.size / 2,

@@ -13,7 +13,7 @@ import 'package:frontend/screens/history_screen.dart';
 import 'package:frontend/screens/trash_screen.dart';
 import 'package:frontend/screens/dose_calculation_screen.dart';
 import 'package:frontend/helpers/custom_route.dart';
-import 'package:frontend/config/app_theme.dart'; // <-- 1. IMPORTAMOS NUESTRO TEMA
+import 'package:frontend/config/app_theme.dart';
 
 class UserSpecificAnalysesScreen extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -168,8 +168,6 @@ class _UserSpecificAnalysesScreenState
               ),
             ),
           ),
-
-          // BOTÓN DE REGRESO AÑADIDO
           Positioned(
             top: kToolbarHeight + 10,
             left: 20,
@@ -211,7 +209,6 @@ class _UserSpecificAnalysesScreenState
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 3. TEXTOS DINÁMICOS
         Text(
           'Análisis de ${widget.user['nombre_completo']}',
           textAlign: TextAlign.center,
@@ -282,7 +279,6 @@ class _UserSpecificAnalysesScreenState
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
         child: Container(
-          // 4. TARJETAS ADAPTATIVAS
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(24.0),
@@ -338,7 +334,6 @@ class _UserSpecificAnalysesScreenState
                             ),
                             Row(
                               children: [
-                                // 5. BOTONES DE ACCIÓN ADAPTATIVOS
                                 _buildActionButton(
                                   icon: Icons.info_outline,
                                   color: isDark ? AppColorsDark.info : AppColorsLight.info,
@@ -399,8 +394,6 @@ class _UserSpecificAnalysesScreenState
           child: IconButton(
             padding: EdgeInsets.zero,
             onPressed: onPressed,
-            // CAMBIO: Se establece el color del ícono a blanco (Colors.white)
-            // tanto para el modo claro como para el oscuro, para un contraste adecuado.
             icon: Icon(icon, color: Colors.white, size: 20),
             tooltip: tooltip,
           ),
