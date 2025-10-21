@@ -356,19 +356,45 @@ pw.Widget _buildPdfDisclaimer(pw.Font boldFont) {
         onLogout: () => _logout(context),
       ),
       extendBodyBehindAppBar: true,
-      // --- CAMBIO 1: Se envuelve el Column en un SingleChildScrollView ---
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(height: kToolbarHeight + 40),
-            _buildHeaderSection(),
-            const SizedBox(height: 20),
-            Center(child: _buildDiseasesCarousel()),
-            // --- CAMBIO 2: Se elimina el widget Expanded ---
-            _buildContentSection(),
-          ],
-        ),
+      body: Stack( // <-- 1. Se añade el Stack
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(height: kToolbarHeight + 40),
+                _buildHeaderSection(),
+                const SizedBox(height: 20),
+                Center(child: _buildDiseasesCarousel()),
+                _buildContentSection(),
+              ],
+            ),
+          ),
+          Positioned(
+            top: kToolbarHeight + 10,
+            left: 20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(50),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.1) : AppColorsLight.surface.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Volver al Dashboard',
+                    icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
+                    onPressed: () => Navigator.pushReplacement(context, NoTransitionRoute(page: const DashboardScreen())),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: _selectedEnfermedad != null
         ? ClipRRect(

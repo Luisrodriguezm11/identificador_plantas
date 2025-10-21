@@ -25,6 +25,8 @@ class EditProfileScreen extends StatefulWidget {
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
+// frontend/lib/screens/edit_profile_screen.dart
+
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -39,6 +41,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = true;
   bool _isSavingProfile = false;
   bool _isChangingPassword = false;
+  bool _isAdmin = false; // <-- 1. AÑADE ESTA LÍNEA
 
   final ImagePicker _picker = ImagePicker();
   XFile? _newProfileImageFile;
@@ -48,6 +51,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _authService = Provider.of<AuthService>(context, listen: false);
     _loadUserData();
+    _checkAdminStatus(); // <-- 2. AÑADE ESTA LLAMADA
+  }
+  
+  // --- 👇 3. AÑADE ESTE MÉTODO COMPLETO 👇 ---
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _authService.isAdmin();
+    if (mounted) {
+      setState(() => _isAdmin = isAdmin);
+    }
   }
 
   @override
@@ -72,6 +84,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         break;
       case 3:
         Navigator.pushReplacement(context, NoTransitionRoute(page: const DoseCalculationScreen()));
+        break;
+      // --- 👇 4. AÑADE EL CASO PARA EL PANEL DE ADMIN 👇 ---
+      case 4:
+        if (_isAdmin) {
+          // Usamos pop para volver, ya que el panel de admin es la pantalla anterior.
+          Navigator.of(context).pop();
+        }
         break;
     }
   }
@@ -108,7 +127,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Future<void> _saveProfileChanges() async {
+Future<void> _saveProfileChanges() async {
     if (!_formKey.currentState!.validate() || _isSavingProfile) return;
     
     setState(() => _isSavingProfile = true);
@@ -126,12 +145,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         if (result['success']) {
           _showSuccessSnackBar('Perfil actualizado con éxito');
-          if (newImageUrl != null) {
-            setState(() {
-              _currentImageUrl = newImageUrl;
-              _newProfileImageFile = null;
-            });
-          }
+          //Navigator.of(context).pop(true); 
         } else {
           _showErrorSnackBar('Error al actualizar: ${result['error']}');
         }
@@ -368,7 +382,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -378,7 +392,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       extendBodyBehindAppBar: true,
       appBar: TopNavigationBar(
         selectedIndex: -1, // Ningún ítem seleccionado
-        isAdmin: false,
+        isAdmin: _isAdmin, // <-- ¡AQUÍ ESTÁ LA CORRECCIÓN!
         onItemSelected: _onNavItemTapped,
         onLogout: () {
             Navigator.of(context).pushAndRemoveUntil(

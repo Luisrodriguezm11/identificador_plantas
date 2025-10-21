@@ -124,6 +124,8 @@ class AuthService {
     }
   }
 
+// frontend/lib/services/auth_service.dart
+
   Future<Map<String, dynamic>> updateProfile(
       {String? nombreCompleto, String? profileImageUrl}) async {
     final token = await readToken();
@@ -143,8 +145,15 @@ class AuthService {
           'x-access-token': token,
         },
         body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 15)); // <-- TIMEOUT AÑADIDO
-      return _handleResponse(response);
+      ).timeout(const Duration(seconds: 15));
+      
+      final handledResponse = _handleResponse(response);
+      // --- 👇 ¡AÑADE ESTA SECCIÓN! 👇 ---
+      if (handledResponse['success'] && nombreCompleto != null) {
+        await saveUserName(nombreCompleto);
+      }
+      // --- 👆 FIN DE LA MODIFICACIÓN 👆 ---
+      return handledResponse;
     } catch (e) {
       return {'success': false, 'error': 'Error de conexión'};
     }

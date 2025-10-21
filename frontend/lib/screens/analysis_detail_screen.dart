@@ -378,6 +378,7 @@ bool _isPredictionUnrecognized(String originalName, double confidence) {
     }
   }
 
+
 @override
 Widget build(BuildContext context) {
   final theme = Theme.of(context);
@@ -386,19 +387,16 @@ Widget build(BuildContext context) {
   final double confidence = (confidenceValue as num).toDouble();
   final String prediction = widget.analysis['prediction'] ?? widget.analysis['resultado_prediccion'] ?? "Análisis no disponible";
 
-  // 1. Usamos LayoutBuilder para obtener el ancho y alto disponibles
   return LayoutBuilder(
     builder: (context, constraints) {
-      // 2. Definimos nuestro punto de quiebre (breakpoint) para cambiar el diseño
       final bool isSmallScreen = constraints.maxWidth < 800;
 
-      // 3. Hacemos que el contenedor principal ocupe toda la pantalla si es pequeña
       final containerWidth = isSmallScreen ? constraints.maxWidth : constraints.maxWidth * 0.75;
       final containerHeight = isSmallScreen ? constraints.maxHeight : constraints.maxHeight * 0.85;
 
-      return Center(
+      // El contenido principal (imagen y detalles) que irá en la capa de abajo.
+      final mainContent = Center(
         child: ClipRRect(
-          // Si la pantalla es pequeña, no redondeamos los bordes para que ocupe todo
           borderRadius: BorderRadius.circular(isSmallScreen ? 0 : 24.0),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
@@ -410,27 +408,24 @@ Widget build(BuildContext context) {
                 borderRadius: BorderRadius.circular(isSmallScreen ? 0 : 24.0),
                 border: Border.all(color: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1)),
               ),
-              // 4. Decidimos si usar Fila (Row) o Columna (Column)
               child: isSmallScreen
-                  ? Column( // VISTA MÓVIL: Imagen arriba, detalles abajo
+                  ? Column(
                       children: [
-                        // La imagen ocupa una porción de la altura
                         AspectRatio(
-                          aspectRatio: 4 / 3, // Proporción ideal para la imagen
+                          aspectRatio: 4 / 3,
                           child: _buildImageCarousel(),
                         ),
-                        // Los detalles ocupan el resto del espacio
                         Expanded(
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 500),
                             child: _isColorLoading
                                 ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
-                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
+                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence, isSmallScreen)),
                           ),
                         ),
                       ],
                     )
-                  : Row( // VISTA ESCRITORIO: Layout actual de dos columnas
+                  : Row(
                       children: [
                         Expanded(flex: 2, child: _buildImageCarousel()),
                         Expanded(
@@ -439,7 +434,7 @@ Widget build(BuildContext context) {
                             duration: const Duration(seconds: 1),
                             child: _isColorLoading
                                 ? Container(key: const ValueKey('loading'), color: isDark ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5), child: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)))
-                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence)),
+                                : Container(key: const ValueKey('loaded'), color: _dominantColor, child: _buildDetailsSection(prediction, confidence, isSmallScreen)),
                           ),
                         ),
                       ],
@@ -447,6 +442,22 @@ Widget build(BuildContext context) {
             ),
           ),
         ),
+      );
+      
+      // --- 👇 CAMBIO PRINCIPAL: Retornamos un Stack ---
+      return Stack(
+        children: [
+          // Capa 1: El contenido principal
+          mainContent,
+
+          // Capa 2: Los botones, posicionados encima y solo en pantallas pequeñas
+          if (isSmallScreen)
+            Positioned(
+              top: 16,  // Espacio desde arriba
+              right: 16, // Espacio desde la derecha
+              child: _buildActionButtonsWidget(isSmallScreen),
+            ),
+        ],
       );
     },
   );
@@ -503,98 +514,103 @@ Widget build(BuildContext context) {
       ),
     );
   }
+ 
   
-Widget _buildDetailsSection(String prediction, double confidence) {
-    final theme = Theme.of(context);
-    
-    final bool isHealthy = _isPredictionHealthy(prediction);
-    final bool isUnrecognized = _isPredictionUnrecognized(prediction, confidence); // NUEVO
-    final String formattedPrediction = _formatPredictionName(prediction);
+// frontend/lib/screens/analysis_detail_screen.dart
 
-    // NUEVO: Título dinámico para la cabecera
-    final String headerTitle = isUnrecognized ? "Resultado no Válido" : formattedPrediction;
+Widget _buildDetailsSection(String prediction, double confidence, bool isSmallScreen) {
+  final theme = Theme.of(context);
+  
+  final bool isHealthy = _isPredictionHealthy(prediction);
+  final bool isUnrecognized = _isPredictionUnrecognized(prediction, confidence);
+  final String formattedPrediction = _formatPredictionName(prediction);
+  final String headerTitle = isUnrecognized ? "Resultado no Válido" : formattedPrediction;
 
-    // MODIFICADO: La longitud del TabController ahora depende de si es sano O no reconocido
-    return DefaultTabController(
-      length: isHealthy || isUnrecognized ? 1 : 2, 
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+  final titleSection = Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // En móvil, dejamos un espacio arriba para que el título no choque con los botones flotantes
+      if (isSmallScreen) const SizedBox(height: 32),
+      Text(
+        headerTitle, 
+        style: theme.textTheme.displaySmall?.copyWith(
+          color: Colors.white, 
+          fontSize: isSmallScreen ? 36 : 45, 
+          shadows: [const Shadow(blurRadius: 4, color: Colors.black54)]
+        )
+      ),
+      const SizedBox(height: 8),
+      if (!isHealthy && !isUnrecognized)
+        Text(
+          "Confianza del ${(confidence * 100).toStringAsFixed(1)}%", 
+          style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8))
+        ),
+    ],
+  );
+
+  return DefaultTabController(
+    length: isHealthy || isUnrecognized ? 1 : 2, 
+    // Reducimos el padding superior en móvil porque los botones ya no ocupan ese espacio
+    child: Padding(
+      padding: EdgeInsets.fromLTRB(32, isSmallScreen ? 0 : 24, 32, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- 👇 CAMBIO: La lógica de botones para móvil fue removida de aquí ---
+          if (isSmallScreen)
+            titleSection // Solo mostramos el título
+          else
+            // La vista de escritorio sigue igual, pero usando el nuevo método
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // MODIFICADO: Usa el nuevo título dinámico
-                      Text(headerTitle, style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, shadows: [const Shadow(blurRadius: 4, color: Colors.black54)])),
-                      const SizedBox(height: 8),
-                      // MODIFICADO: La confianza solo se muestra si NO es sano y NO es no reconocido
-                      if (!isHealthy && !isUnrecognized)
-                        Text("Confianza del ${(confidence * 100).toStringAsFixed(1)}%", style: theme.textTheme.titleLarge?.copyWith(color: Colors.white.withOpacity(0.8))),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    // ... (tus action buttons no cambian)
-                    _buildActionButton(icon: Icons.picture_as_pdf_outlined, color: Colors.green.shade400, tooltip: 'Exportar a PDF', onPressed: _exportToPdf),
-                    const SizedBox(width: 12),
-                    _buildActionButton(icon: Icons.delete_outline, color: Theme.of(context).brightness == Brightness.dark ? AppColorsDark.danger : AppColorsLight.danger, tooltip: 'Enviar a la papelera', onPressed: _deleteItem),
-                    const SizedBox(width: 12),
-                    _buildActionButton(icon: Icons.close, color: Colors.grey.shade600, tooltip: 'Cerrar', onPressed: () => Navigator.of(context).pop()),
-                  ],
-                ),
+                Expanded(child: titleSection),
+                _buildActionButtonsWidget(isSmallScreen), // Usa el nuevo método
               ],
             ),
-            const SizedBox(height: 20),
-            
-            // MODIFICADO: Las pestañas solo se muestran si NO es sano y NO es no reconocido.
-            if (!isHealthy && !isUnrecognized)
-              TabBar(
-                indicatorColor: Colors.white,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white70,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                tabs: const [
-                  Tab(text: 'DIAGNÓSTICO'),
-                  Tab(text: 'TRATAMIENTOS'),
-                ],
-              ),
-
-            // MODIFICADO: Si no hay pestañas, agregamos un padding para compensar.
-            if (isHealthy || isUnrecognized)
-              const SizedBox(height: 20),
-
-            Expanded(
-              child: _isDetailsLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                  : _errorMessage != null
-                      ? Center(child: Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error)))
-                      : TabBarView(
-                          // MODIFICADO: Lógica anidada para mostrar el widget correcto.
-                          children: [
-                            if (isUnrecognized)
-                              _buildUnrecognizedDiagnosisTab()
-                            else if (isHealthy) 
-                              _buildHealthyDiagnosisTab()
-                            else
-                              _buildDiagnosticTab(),
-                            
-                            if (!isHealthy && !isUnrecognized) 
-                              _buildRecommendationsTab(),
-                          ],
-                        ),
+          
+          const SizedBox(height: 20),
+          
+          if (!isHealthy && !isUnrecognized)
+            TabBar(
+              indicatorColor: Colors.white,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              tabs: const [
+                Tab(text: 'DIAGNÓSTICO'),
+                Tab(text: 'TRATAMIENTOS'),
+              ],
             ),
-          ],
-        ),
+
+          if (isHealthy || isUnrecognized)
+            const SizedBox(height: 20),
+
+          Expanded(
+            child: _isDetailsLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : _errorMessage != null
+                    ? Center(child: Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error)))
+                    : TabBarView(
+                        children: [
+                          if (isUnrecognized)
+                            _buildUnrecognizedDiagnosisTab()
+                          else if (isHealthy) 
+                            _buildHealthyDiagnosisTab()
+                          else
+                            _buildDiagnosticTab(),
+                          
+                          if (!isHealthy && !isUnrecognized) 
+                            _buildRecommendationsTab(),
+                        ],
+                      ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHealthyDiagnosisTab() {
     final theme = Theme.of(context);
@@ -686,10 +702,13 @@ Widget _buildUnrecognizedDiagnosisTab() {
       ),
     );
   }
- Widget _buildDiagnosticTab() {
+
+// frontend/lib/screens/analysis_detail_screen.dart
+// frontend/lib/screens/analysis_detail_screen.dart
+
+Widget _buildDiagnosticTab() {
   final theme = Theme.of(context);
   
-  // 1. Detectamos si la pantalla es pequeña, igual que en el método build principal
   final screenWidth = MediaQuery.of(context).size.width;
   final isSmallScreen = screenWidth < 800;
   
@@ -701,8 +720,29 @@ Widget _buildUnrecognizedDiagnosisTab() {
   final symptomsList = symptoms.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
   final affectedPartsList = affectedParts.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
 
+  // NUEVO: Creamos una lista de tarjetas para no repetir código
+  final List<Widget> infoCards = [
+    if (affectedPartsList.isNotEmpty)
+      _buildInfoCard(
+        icon: Icons.filter_vintage_outlined,
+        title: "Partes Afectadas",
+        content: affectedPartsList.join('\n'),
+      ),
+    if (impact.isNotEmpty)
+      _buildInfoCard(
+        icon: Icons.trending_down_rounded,
+        title: "Impacto en Cultivo",
+        content: impact,
+      ),
+    if (conditions.isNotEmpty)
+       _buildInfoCard(
+        icon: Icons.cloudy_snowing,
+        title: "Condiciones Favorables",
+        content: conditions,
+      ),
+  ];
+
   return SingleChildScrollView(
-    // Añadimos un poco de padding para que no se pegue a los bordes
     padding: const EdgeInsets.only(top: 16.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -724,36 +764,26 @@ Widget _buildUnrecognizedDiagnosisTab() {
           const SizedBox(height: 24),
         ],
 
-        GridView.count(
-          // 2. Ajustamos la cantidad de columnas dinámicamente
-          crossAxisCount: isSmallScreen ? 1 : 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          // 3. Ajustamos la proporción de las tarjetas para que tengan más altura en 1 columna
-          childAspectRatio: isSmallScreen ? 2.8 : 1.9,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          padding: EdgeInsets.zero,
-          children: [
-            if (affectedPartsList.isNotEmpty)
-              _buildInfoCard(
-                icon: Icons.filter_vintage_outlined,
-                title: "Partes Afectadas",
-                content: affectedPartsList.join('\n'),
-              ),
-            if (impact.isNotEmpty)
-              _buildInfoCard(
-                icon: Icons.trending_down_rounded,
-                title: "Impacto en Cultivo",
-                content: impact,
-              ),
-            if (conditions.isNotEmpty)
-               _buildInfoCard(
-                icon: Icons.cloudy_snowing,
-                title: "Condiciones Favorables",
-                content: conditions,
-              ),
-          ],
+        // --- 👇 CAMBIO PRINCIPAL AQUÍ: Usamos LayoutBuilder y Wrap ---
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const double spacing = 16.0;
+            final int columns = isSmallScreen ? 1 : 2;
+            // Calculamos el ancho de cada tarjeta para que quepan en las columnas
+            final double cardWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+
+            return Wrap(
+              spacing: spacing,      // Espacio horizontal entre tarjetas
+              runSpacing: spacing,   // Espacio vertical entre filas de tarjetas
+              children: infoCards.map((card) {
+                // Envolvemos cada tarjeta en un SizedBox para darle el ancho calculado
+                return SizedBox(
+                  width: cardWidth,
+                  child: card,
+                );
+              }).toList(),
+            );
+          }
         ),
       ],
     ),
@@ -771,48 +801,47 @@ Widget _buildUnrecognizedDiagnosisTab() {
   
 // frontend/lib/screens/analysis_detail_screen.dart
 
-  Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
-    final theme = Theme.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ESTA FILA SE MANTIENE IGUAL
-              Row(
-                children: [
-                  Icon(icon, color: Colors.white70, size: 20),
-                  const SizedBox(width: 8),
-                  Text(title, style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              // --- 👇 CAMBIO PRINCIPAL AQUÍ ---
-              // 1. Reemplazamos el primer Spacer por un espacio fijo.
-              const SizedBox(height: 12), 
-              
-              // 2. Envolvemos el texto en 'Expanded' para que ocupe el espacio
-              //    restante de forma flexible, y eliminamos el segundo Spacer.
-              Expanded(
-                child: Text(
-                  content, 
-                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))
-                ),
-              ),
-            ],
-          ),
+// frontend/lib/screens/analysis_detail_screen.dart
+
+Widget _buildInfoCard({required IconData icon, required String title, required String content}) {
+  final theme = Theme.of(context);
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(16.0),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: Container(
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          // NUEVO: Permite que la columna se ajuste a la altura de su contenido
+          mainAxisSize: MainAxisSize.min, 
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                Text(title, style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // --- 👇 CAMBIO PRINCIPAL AQUÍ: Se eliminó el widget 'Expanded' ---
+            // Ahora el texto simplemente ocupa el espacio vertical que necesita.
+            Text(
+              content, 
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withOpacity(0.8))
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
  Widget _buildRecommendationsTab() {
     final theme = Theme.of(context);
@@ -957,27 +986,55 @@ Widget _buildTreatmentCard(Map<String, dynamic> treatment) {
     );
   }
 
-  Widget _buildActionButton({required IconData icon, required Color color, required VoidCallback onPressed, required String tooltip}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-        child: Container(
-          height: 40,
-          width: 40,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.4)),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white, size: 20),
-            tooltip: tooltip,
-          ),
+Widget _buildActionButton({
+  required IconData icon, 
+  required Color color, 
+  required VoidCallback onPressed, 
+  required String tooltip,
+  // --- 👇 CAMBIO 3: Añadimos el parámetro 'size' ---
+  required double size, 
+}) {
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(30.0),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+      child: Container(
+        // Usamos la variable 'size' para alto y ancho
+        height: size,
+        width: size,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.3),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          onPressed: onPressed,
+          // Hacemos el ícono proporcional al tamaño del botón
+          icon: Icon(icon, color: Colors.white, size: size * 0.5),
+          tooltip: tooltip,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+// frontend/lib/screens/analysis_detail_screen.dart
+
+// NUEVO: Método para construir los botones de acción y evitar duplicación.
+Widget _buildActionButtonsWidget(bool isSmallScreen) {
+  final double buttonSize = isSmallScreen ? 44.0 : 40.0; // Botones más grandes en móvil
+  
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _buildActionButton(icon: Icons.picture_as_pdf_outlined, color: Colors.green.shade400, tooltip: 'Exportar a PDF', onPressed: _exportToPdf, size: buttonSize),
+      const SizedBox(width: 12),
+      _buildActionButton(icon: Icons.delete_outline, color: Theme.of(context).brightness == Brightness.dark ? AppColorsDark.danger : AppColorsLight.danger, tooltip: 'Enviar a la papelera', onPressed: _deleteItem, size: buttonSize),
+      const SizedBox(width: 12),
+      _buildActionButton(icon: Icons.close, color: Colors.grey.shade600, tooltip: 'Cerrar', onPressed: () => Navigator.of(context).pop(), size: buttonSize),
+    ],
+  );
+}
+
 }

@@ -337,8 +337,47 @@ ElevatedButton(
           ),
         ],
       ),
-      floatingActionButton: (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
-        ? ClipRRect(
+// frontend/lib/screens/trash_screen.dart
+
+  floatingActionButton: (!_isLoading && _trashedList != null && _trashedList!.isNotEmpty)
+    ? Row( // <-- 1. Se cambia por un Row
+        mainAxisAlignment: MainAxisAlignment.end, // Alinea los botones a la derecha
+        children: [
+          // --- 👇 2. ESTE ES EL NUEVO BOTÓN DE RESTAURAR 👇 ---
+          ClipRRect(
+            borderRadius: BorderRadius.circular(28.0),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _restoreAll,
+                  borderRadius: BorderRadius.circular(28.0),
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    decoration: BoxDecoration(
+                      color: (isDark ? AppColorsDark.info : AppColorsLight.info).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(28.0),
+                      border: Border.all(color: (isDark ? AppColorsDark.info : AppColorsLight.info).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.restore_page_outlined, color: isDark ? Colors.white : Colors.black),
+                        const SizedBox(width: 12),
+                        Text("Restaurar Todo", style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16), // Espacio entre botones
+
+          // --- 3. ESTE ES TU BOTÓN EXISTENTE DE VACIAR PAPELERA (sin cambios internos) ---
+          ClipRRect(
             borderRadius: BorderRadius.circular(28.0),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
@@ -358,27 +397,19 @@ ElevatedButton(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.delete_sweep_outlined,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
+                        Icon(Icons.delete_sweep_outlined, color: isDark ? Colors.white : Colors.black),
                         const SizedBox(width: 12),
-                        Text(
-                          "Vaciar Papelera",
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
+                        Text("Vaciar Papelera", style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-          )
-        : null,
+          ),
+        ],
+      )
+    : null,
     );
   }
 
@@ -573,4 +604,56 @@ ElevatedButton(
       ),
     );
   }
+
+
+Future<void> _restoreAll() async {
+    if (_trashedList == null || _trashedList!.isEmpty) return;
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+        title: const Text('Restaurar Todo'),
+        content: const Text('Todos los análisis en la papelera se moverán de vuelta a tu historial. ¿Deseas continuar?'),
+        actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Restaurar', style: TextStyle(color: isDark ? AppColorsDark.success : AppColorsLight.success)),
+        ),
+        ],
+    ),
+    );
+
+    if (confirmed == true) {
+    setState(() => _isLoading = true);
+    try {
+        final success = await _detectionService.restoreAllFromTrash();
+        if (success && mounted) {
+        setState(() {
+            _trashedList!.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: const Text('La papelera ha sido restaurada'),
+                backgroundColor: isDark ? AppColorsDark.success : AppColorsLight.success),
+        );
+        }
+    } catch (e) {
+        if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Error: ${e.toString()}'),
+                backgroundColor: isDark ? AppColorsDark.danger : AppColorsLight.danger),
+        );
+        }
+    } finally {
+        if (mounted) {
+        setState(() => _isLoading = false);
+        }
+    }
+    }
+}
+
 }

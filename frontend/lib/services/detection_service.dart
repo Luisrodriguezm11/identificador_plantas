@@ -292,6 +292,26 @@ class DetectionService {
     }
   }
 
+
+  Future<bool> restoreAllFromTrash() async {
+    try {
+      final String? token = await _authService.readToken();
+      final response = await http.put( // Usamos PUT porque es una actualización
+        Uri.parse('$_baseUrl/history/trash/restore-all'),
+        headers: {'x-access-token': token ?? ''},
+      ).timeout(const Duration(seconds: 45));
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        final body = json.decode(response.body);
+        throw Exception('Error al restaurar la papelera: ${body['error']}');
+      }
+    } catch (e) {
+      throw Exception('No se pudo completar la operación de restauración masiva: $e');
+    }
+  }
+
   // --- CÁLCULO DE DOSIS (NO PARECE USARSE, PERO SE MANTIENE) ---
   Future<Map<String, dynamic>> calculateDose(int treatmentId, int plantCount) async {
     try {

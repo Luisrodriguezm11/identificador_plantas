@@ -176,6 +176,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
       if (analysisResponse.statusCode == 200) {
         final result = json.decode(analysisResponse.body);
 
+// frontend/lib/screens/detection_screen.dart
+
         setState(() => _loadingMessage = 'Guardando resultado...');
         if (_cancellationNotifier.value) throw Exception("Cancelado por el usuario");
 
@@ -191,12 +193,17 @@ class _DetectionScreenState extends State<DetectionScreen> {
           throw Exception("Error al guardar el análisis: ${saveBody['error'] ?? 'Error desconocido'}");
         }
 
+        // --- 👇 ¡AQUÍ ESTÁ LA CORRECCIÓN! 👇 ---
+        // 1. Decodificamos la respuesta para obtener el análisis con su ID de la base de datos.
+        final savedAnalysis = json.decode(utf8.decode(saveResponse.bodyBytes));
+
+        // 2. Mostramos el diálogo usando el nuevo objeto 'savedAnalysis'.
         await showDialog(
           context: context,
           builder: (BuildContext dialogContext) {
             return Dialog(
               backgroundColor: Colors.transparent,
-              child: AnalysisDetailScreen(analysis: result),
+              child: AnalysisDetailScreen(analysis: savedAnalysis), // Usamos el objeto con el ID
             );
           },
         );
@@ -204,6 +211,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
         if (mounted) {
           Navigator.of(context).pop(true);
         }
+        // --- 👆 FIN DE LA CORRECCIÓN 👆 ---
+        
       } else {
         final body = json.decode(analysisResponse.body);
         throw Exception("Error del servidor: ${body['error'] ?? analysisResponse.reasonPhrase}");
@@ -562,24 +571,45 @@ Widget _buildUploadArea() {
   }
 
   /// Construye la sección inferior con consejos para el análisis.
-  Widget _buildTipsSection() {
+// frontend/lib/screens/detection_screen.dart
+
+  /// Construye la sección inferior con consejos para el análisis.
+Widget _buildTipsSection() {
     final theme = Theme.of(context);
+    
+    // Contenido de la sección de consejos, para no repetir código.
+    final tipsContent = Wrap(
+      spacing: 20,
+      runSpacing: 20,
+      alignment: WrapAlignment.center,
+      children: [
+        _buildTipCard('assets/animations/sun_animation.json', 'Usa buena iluminación preferible luz natural.'),
+        _buildTipCard('assets/animations/focus_animation.json', 'Asegúrate que la hoja esté bien enfocada y nítida.'),
+        _buildTipCard('assets/animations/blurried_animation.json', 'Evita el desenfoque, sujeta firme el dispositivo.'),
+        _buildTipCard('assets/animations/background_animation.json', 'Utiliza un fondo sencillo y de color plano.'),
+      ],
+    );
+
     return Column(
       children: [
         Text("Consejos para un buen análisis", style: theme.textTheme.headlineSmall),
         const SizedBox(height: 24),
-        // RESPONSIVE: Se reemplazó Row con Wrap para que las tarjetas se reorganicen solas.
-        Wrap(
-          spacing: 20,       // Espacio horizontal entre tarjetas
-          runSpacing: 20,    // Espacio vertical si las tarjetas saltan de línea
-          alignment: WrapAlignment.center, // Centra las tarjetas
-          children: [
-            _buildTipCard('assets/animations/sun_animation.json', 'Usa buena iluminación preferible luz natural.'),
-            _buildTipCard('assets/animations/focus_animation.json', 'Asegúrate que la hoja esté bien enfocada y nítida.'),
-            _buildTipCard('assets/animations/blurried_animation.json', 'Evita el desenfoque, sujeta firme el dispositivo.'),
-            _buildTipCard('assets/animations/background_animation.json', 'Utiliza un fondo sencillo y de color plano.'),
-          ],
-        )
+        
+        // --- 👇 ¡AQUÍ ESTÁ LA MODIFICACIÓN PRINCIPAL! 👇 ---
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Si el ancho de la pantalla es mayor a 850px, muestra los 4 consejos en línea.
+            if (constraints.maxWidth > 850) {
+              return tipsContent; // El Wrap se expandirá horizontalmente.
+            } else {
+              // Si es menor, limita el ancho para forzar la cuadrícula de 2x2.
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: tipsContent,
+              );
+            }
+          }
+        ),
       ],
     );
   }

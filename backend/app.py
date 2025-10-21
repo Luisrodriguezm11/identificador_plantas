@@ -1432,6 +1432,40 @@ def delete_current_user(current_user_id):
         if conn and not conn.closed:
             cur.close()
             conn.close()
-            
+
+# backend/app.py
+
+# --- 👇 AÑADE ESTE NUEVO ENDPOINT COMPLETO 👇 ---
+@app.route('/history/trash/restore-all', methods=['PUT'])
+@token_required
+def restore_all_trash(current_user_id):
+    """
+    Restaura todos los análisis de la papelera del usuario logueado.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Actualizamos todos los items en la papelera del usuario para quitarles la fecha de borrado
+        cur.execute(
+            "UPDATE analisis SET fecha_eliminado = NULL WHERE id_usuario = %s AND fecha_eliminado IS NOT NULL",
+            (current_user_id,)
+        )
+        conn.commit()
+        
+        # Opcional: Podemos verificar cuántas filas se afectaron
+        restored_count = cur.rowcount
+        
+        cur.close()
+        conn.close()
+
+        return jsonify({"message": f"{restored_count} análisis han sido restaurados exitosamente"}), 200
+
+    except Exception as e:
+        if 'conn' in locals() and conn:
+            cur.close()
+            conn.close()
+        return jsonify({"error": f"Ocurrió un error al restaurar la papelera: {str(e)}"}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
